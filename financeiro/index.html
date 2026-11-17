@@ -65,12 +65,19 @@ td select{min-height:36px;padding:6px 8px;font-size:13px}
   #print th{background:#EEF2FF}#print .sum{display:flex;gap:24px;margin:10px 0 16px}
 }
 </style>
+<script>
+(function(){var cid=null;try{cid=sessionStorage.getItem('nx_client');}catch(e){}
+if(!cid){(window.top||window).location.href='/portal/';return;}
+window.NX_FIN_CID=cid;window.NX_FIN_EMBED=(window.top!==window);
+if(window.NX_FIN_EMBED)document.documentElement.classList.add('embed');})();
+</script>
+<style>.embed header{display:none}.embed main{padding:0 0 30px}.embed body{background:transparent}.embed .title{display:none}</style>
 </head>
 <body>
 <header>
 <div class="top">
 <a class="logo" href="/"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a>
-<nav aria-label="Área do cliente"><a href="/cliente/">Área do cliente</a><a href="/">Voltar ao site</a></nav>
+<nav aria-label="Portal"><a href="/portal/">Voltar ao portal</a></nav>
 </div>
 </header>
 
@@ -166,9 +173,9 @@ td select{min-height:36px;padding:6px 8px;font-size:13px}
 (function(){
 var CATS_IN=['Receita de serviços','Receita de vendas','Rendimentos financeiros','Aporte dos sócios','Outras entradas'];
 var CATS_OUT=['Fornecedores','Aluguel','Folha e encargos','Pró-labore','Impostos e taxas','Tarifas bancárias','Energia, água e internet','Marketing','Software e sistemas','Honorários contábeis','Retirada dos sócios','Outras saídas','A classificar'];
-var KEY='nexio_fin_v1';
+var KEY='nexio_fin_v1_'+(window.NX_FIN_CID||'x');
 var st={emp:{},items:[],mes:''};
-function load(){try{var d=JSON.parse(localStorage.getItem(KEY)||'null');if(d){st.emp=d.emp||{};st.items=d.items||[];}}catch(e){}}
+function load(){try{var p=JSON.parse(localStorage.getItem('nexio_portal_v1')||'null');if(p){var c=(p.clients||[]).filter(function(x){return x.id===window.NX_FIN_CID;})[0];if(c){st.emp.nome=st.emp.nome||c.nome;st.emp.doc=st.emp.doc||c.doc;}}}catch(e){}try{var d=JSON.parse(localStorage.getItem(KEY)||'null');if(d){st.emp=Object.assign(st.emp,d.emp||{});st.items=d.items||[];}}catch(e){}}
 function save(){try{localStorage.setItem(KEY,JSON.stringify({emp:st.emp,items:st.items}));}catch(e){}}
 function $(id){return document.getElementById(id);}
 function num(v){if(typeof v==='number')return v;v=String(v||'').trim().replace(/[R$\s]/g,'');if(/,\d{1,2}$/.test(v))v=v.replace(/\./g,'').replace(',','.');else v=v.replace(/,/g,'');var n=parseFloat(v);return isNaN(n)?0:n;}
@@ -280,7 +287,7 @@ $('b_demo').addEventListener('click',function(){var m=new Date();var ym=m.getFul
   st.emp={nome:'Clínica Exemplo Ltda',doc:'00.000.000/0001-00',banco:'341',ag:'1234',conta:'56789-0',saldo:'5.000,00'};
   var ex=[['03','Recebimento paciente - consultas','Receita de serviços',4200],['05','Pagamento aluguel sala','Aluguel',-1800],['07','Tarifa pacote de serviços','Tarifas bancárias',-49.9],['10','Recebimento convênio','Receita de serviços',6350],['12','Fornecedor materiais','Fornecedores',-980.4],['15','Pró-labore sócio','Pró-labore',-3000],['20','DAS Simples Nacional','Impostos e taxas',-712.35],['25','Energia elétrica','Energia, água e internet',-310.22]];
   st.items=ex.map(function(e,ix){return {id:uid(),data:ym+'-'+e[0],desc:e[1],cat:e[2],valor:e[3],orig:ix%2?'banco':'manual'};});st.mes=ym;save();render();toast('Dados de exemplo carregados.');});
-$('b_clear').addEventListener('click',function(){st={emp:{},items:[],mes:''};save();render();toast('Dados apagados.');});
+$('b_clear').addEventListener('click',function(){if(!confirm('Apagar todos os lançamentos?'))return;st={emp:{},items:[],mes:''};save();render();toast('Dados apagados.');});
 
 load();var t=new Date();$('n_data').value=t.toISOString().slice(0,10);st.mes=st.mes||t.toISOString().slice(0,7);fillCats();render();
 })();

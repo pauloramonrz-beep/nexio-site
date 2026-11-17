@@ -40,10 +40,10 @@ function login(){
 function enter(id){S.cid=id;try{sessionStorage.setItem('nx_client',id);}catch(x){}location.hash='#/inicio';render();}
 
 function shell(active,html){
-  var c=me(),nav=[['inicio','Início',0],['arquivos','Guias e arquivos',novos()],['calendario','Obrigações',0],['mensagens','Mensagens',unread()]];
+  var c=me(),nav=[['inicio','Início',0],['arquivos','Guias e arquivos',novos()],['calendario','Obrigações',0],['financeiro','Controle financeiro',0],['mensagens','Mensagens',unread()]];
   root.innerHTML='<div class="app"><aside class="side"><a class="logo" href="#/inicio"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a><div class="role">Portal do cliente</div>'+
   nav.map(function(n){return '<a class="nav" href="#/'+n[0]+'"'+(active===n[0]?' aria-current="page"':'')+'>'+n[1]+(n[2]?'<span class="cnt">'+n[2]+'</span>':'')+'</a>';}).join('')+
-  '<a class="nav" href="/financeiro/">Controle financeiro</a>'+
+  
   '<div class="foot"><span>'+e(c.nome)+'</span><a href="https://wa.me/5511939565190">Falar no WhatsApp</a><a href="#" id="logout">Sair</a></div></aside><main class="main">'+html+'</main></div>';
   document.getElementById('logout').onclick=function(ev){ev.preventDefault();S.cid=null;try{sessionStorage.removeItem('nx_client');}catch(x){}location.hash='';render();};
 }
@@ -96,10 +96,14 @@ function mensagens(){
   var ch=document.getElementById('chat');ch.scrollTop=ch.scrollHeight;
   document.getElementById('cf').onsubmit=function(ev){ev.preventDefault();var t=document.getElementById('ct').value.trim();if(!t)return;db.messages.push({id:NX.uid(),cliente:S.cid,de:'cliente',autor:me().resp||me().nome,texto:t,em:new Date().toISOString(),lida:false});persist();mensagens();};
 }
+function financeiro(){
+  shell('financeiro',head('Controle financeiro','Lance entradas e saídas, importe o extrato do banco e exporte para a contabilidade.')+
+  '<iframe src="/financeiro/" title="Controle financeiro" style="width:100%;height:calc(100vh - 150px);min-height:720px;border:0;border-radius:16px;background:transparent"></iframe>');
+}
 function render(){db=NX.load();if(!S.cid||!me()){login();return;}var r=route();
-  if(r==='arquivos')arquivos();else if(r==='calendario')calendario();else if(r==='mensagens')mensagens();else inicio();}
+  if(r==='arquivos')arquivos();else if(r==='calendario')calendario();else if(r==='mensagens')mensagens();else if(r==='financeiro')financeiro();else inicio();}
 window.addEventListener('hashchange',render);
-window.NX_onSync=function(){if(document.activeElement.tagName!=='INPUT')render();};
+window.NX_onSync=function(){if(route()==='financeiro')return;if(document.activeElement.tagName!=='INPUT')render();};
 render();
 })();
 </script>
