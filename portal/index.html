@@ -54,6 +54,9 @@ function shell(active,html){
 function head(t,sub){return '<div class="page-h"><div><h1>'+t+'</h1>'+(sub?'<p>'+sub+'</p>':'')+'</div><span class="badge-proto">Protótipo</span></div>';}
 function guiaRow(f){var s=NX.statusOf(f);return '<div class="list-item"><div><b>'+e(f.titulo)+(!f.visto&&f.de==='equipe'?'<span class="dot" aria-label="novo"></span>':'')+'</b><small>'+(f.venc?'Vence em '+NX.fdate(f.venc)+' · ':'')+'Competência '+NX.fcomp(f.comp)+'</small></div><div class="row" style="align-items:center"><strong>'+(f.valor?NX.brl(f.valor):'')+'</strong><span class="tag '+s.c+'">'+s.t+'</span><button class="btn b-line" data-dl="'+f.id+'" style="min-height:38px">Ver</button></div></div>';}
 
+function eventosMes(m){var ev=NX.obligationsFor(db,S.cid,m).map(function(o){return {data:o.data,titulo:o.titulo};});
+  myFiles().filter(visivel).forEach(function(f){if(f.venc&&f.venc.slice(0,7)===m){var s=NX.statusOf(f);ev.push({data:f.venc,titulo:(f.tipo==='Guia'?'Guia: ':'Vence: ')+f.titulo,cls:s.c==='ok'?'ok':s.c==='bad'?'bad':''});}});
+  return ev;}
 function inicio(){
   var c=me(),t=NX.today(),fs=myFiles();
   var pagar=fs.filter(function(f){return visivel(f)&&f.tipo==='Guia'&&f.status!=='pago';}).sort(function(a,b){return a.venc<b.venc?-1:1;});
@@ -61,9 +64,10 @@ function inicio(){
   var prox=NX.obligationsFor(db,S.cid,NX.ym()).concat(NX.obligationsFor(db,S.cid,NX.shiftMonth(NX.ym(),1))).filter(function(o){return o.data>=t;}).slice(0,5);
   shell('inicio',head('Olá, '+e(function(n){var p=n.split(' ');return /^dra?\.$/i.test(p[0])?p.slice(0,2).join(' '):p[0];}(c.resp||c.nome)),'Tudo o que você precisa da sua contabilidade, em um só lugar.')+
   avisosAtivos().map(function(a){return '<section class="card" style="border:2px solid var(--blue);margin-bottom:18px"><div class="row between" style="align-items:flex-start"><div><span class="tag info">Comunicado da NEXIO</span><h2 style="margin:8px 0 6px">'+e(a.titulo)+'</h2><p style="margin:0;white-space:pre-line">'+e(a.texto)+'</p></div><button class="btn b-line" data-lido="'+a.id+'">Marcar como lido</button></div></section>';}).join('')+'<div class="kpis"><a class="kpi main" href="#/arquivos"><span>Guias a pagar</span><strong>'+NX.brl(total)+'</strong></a><a class="kpi" href="#/arquivos"><span>Arquivos novos</span><strong>'+novos()+'</strong></a><a class="kpi" href="#/mensagens"><span>Mensagens novas</span><strong>'+unread()+'</strong></a><div class="kpi"><span>Seu plano</span><strong style="font-size:20px">'+e(c.plano)+'</strong></div></div>'+
-  '<div class="cols"><section class="card"><h2>Guias para pagar</h2>'+(pagar.length?pagar.map(guiaRow).join(''):'<p class="empty">Nenhuma guia pendente. Tudo em dia!</p>')+'</section>'+
+  '<section class="card" style="margin-bottom:18px"><div class="row between" style="align-items:center;margin-bottom:6px"><h2 style="margin:0">Calendário de vencimentos e obrigações</h2><div class="cal-nav" style="margin:0"><button class="btn b-line" id="ipm" aria-label="Mês anterior">‹</button><strong>'+NX.monthLabel(S.month)+'</strong><button class="btn b-line" id="inm" aria-label="Próximo mês">›</button></div></div>'+NX.calendarHTML(S.month,eventosMes(S.month))+'<p class="help" style="margin-top:10px"><span class="tag info">Obrigação / a pagar</span> <span class="tag bad">Vencida</span> <span class="tag ok">Paga</span></p></section>'+'<div class="cols"><section class="card"><h2>Guias para pagar</h2>'+(pagar.length?pagar.map(guiaRow).join(''):'<p class="empty">Nenhuma guia pendente. Tudo em dia!</p>')+'</section>'+
   '<section class="card"><h2>Próximas obrigações</h2>'+(prox.length?prox.map(function(o){return '<div class="list-item"><div><b>'+e(o.titulo)+'</b><small>'+e(o.desc||'')+'</small></div><span class="tag info">'+NX.fdate(o.data)+'</span></div>';}).join(''):'<p class="empty">Nenhuma obrigação nos próximos dias.</p>')+'<a class="btn b-text" href="#/calendario" style="margin-top:8px">Ver calendário completo</a></section></div>');
   bindDl();
+  document.getElementById('ipm').onclick=function(){S.month=NX.shiftMonth(S.month,-1);inicio();};document.getElementById('inm').onclick=function(){S.month=NX.shiftMonth(S.month,1);inicio();};
   root.querySelectorAll('[data-lido]').forEach(function(b){b.onclick=function(){var a=db.avisos.filter(function(x){return x.id===b.getAttribute('data-lido');})[0];a.lidos=a.lidos||{};a.lidos[S.cid]=new Date().toISOString();persist();inicio();};});
 }
 var RESTRITOS=['Administrativo (interno)'];
@@ -165,8 +169,7 @@ function pComment(f){var d=document.getElementById('pdlg');
 function avisosAtivos(){var t=NX.today();return (db.avisos||[]).filter(function(a){return (a.clientes[0]==='*'||a.clientes.indexOf(S.cid)>-1)&&(!a.expira||a.expira>=t)&&!(a.lidos&&a.lidos[S.cid]);});}
 function bindDl(){root.querySelectorAll('[data-dl]').forEach(function(b){b.onclick=function(){var id=b.getAttribute('data-dl');var f=db.files.filter(function(x){return x.id===id;})[0];openDoc(f);return;if(f.de==='equipe'&&!f.visto){f.visto=true;persist();}NX.download(f);var r=route();if(r==='arquivos')arquivos();else if(r==='inicio')inicio();};});}
 function calendario(){
-  var ev=NX.obligationsFor(db,S.cid,S.month).map(function(o){return {data:o.data,titulo:o.titulo};});
-  myFiles().forEach(function(f){if(f.tipo==='Guia'&&f.venc&&f.venc.slice(0,7)===S.month){var s=NX.statusOf(f);ev.push({data:f.venc,titulo:'Guia: '+f.titulo,cls:s.c==='ok'?'ok':s.c==='bad'?'bad':''});}});
+  var ev=eventosMes(S.month);
   var lista=ev.slice().sort(function(a,b){return a.data<b.data?-1:1;});
   shell('calendario',head('Calendário de obrigações','Prazos de impostos, guias e envio de documentos.')+
   '<section class="card"><div class="cal-nav"><button class="btn b-line" id="pm" aria-label="Mês anterior">‹</button><strong>'+NX.monthLabel(S.month)+'</strong><button class="btn b-line" id="nm" aria-label="Próximo mês">›</button></div>'+NX.calendarHTML(S.month,ev)+'</section>'+
