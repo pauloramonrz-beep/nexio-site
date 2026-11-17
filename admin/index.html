@@ -195,7 +195,18 @@ function comunicacoes(){db.avisos=db.avisos||[];var t=NX.today();
   root.querySelector('.main').addEventListener('click',function(ev){var id=ev.target.getAttribute('data-ra');if(id&&confirm('Excluir esta comunicação?')){db.avisos=db.avisos.filter(function(a){return a.id!==id;});persist();comunicacoes();}});
 }
 
-function tabObrig(c,el){
+function tabObrig(c,el){ensureProc();
+  var sel=obrigDoCliente(c).map(function(x){return x.id;}),custom=!!c.obrig;
+  el.innerHTML='<section style="margin-bottom:24px"><div class="row between" style="align-items:center;margin-bottom:8px"><div><h3 style="font-size:17px;color:var(--blue2)">Obrigações desta empresa</h3><p class="help">'+(custom?'Lista personalizada para este cliente.':'Usando a sugestão do plano '+e(c.plano)+'. Marque/desmarque para personalizar.')+' '+sel.length+' obrigação(ões) ativas.</p></div><div class="row"><button class="btn b-line" id="sug">Aplicar sugestão do plano</button><button class="btn b-blue" id="svo">Salvar obrigações</button></div></div>'+
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">'+DEPTO.map(function(s){var l=db.procT.filter(function(tp){return tp.setor===s;});if(!l.length)return '';
+      return '<fieldset style="border:1px solid var(--line);border-radius:12px;padding:12px"><legend style="font-weight:700;color:var(--blue2);padding:0 6px">'+s+'</legend>'+l.map(function(tp){var on=sel.indexOf(tp.id)>-1,r=(c.obrigResp&&c.obrigResp[tp.id])||tp.resp;
+        return '<div class="row between" style="align-items:center;padding:4px 0;border-bottom:1px solid var(--soft)"><label style="flex-direction:row;align-items:center;gap:8px;color:var(--ink);font-weight:500;flex:1;min-width:0"><input type="checkbox" data-ob="'+tp.id+'" '+(on?'checked':'')+' style="width:auto;min-height:auto">'+e(tp.titulo)+' <small style="color:var(--muted)">'+({mensal:'mensal',trimestral:'trimestral',anual:'anual'})[tp.per||'mensal']+' · dia '+tp.venc+'</small></label><select data-or="'+tp.id+'" aria-label="Responsável por '+e(tp.titulo)+'" style="width:auto;min-height:34px;padding:4px 8px;font-size:13px">'+db.staff.map(function(st){return '<option value="'+st.id+'"'+(st.id===r?' selected':'')+'>'+e(st.nome)+'</option>';}).join('')+'</select></div>';}).join('')+'</fieldset>';}).join('')+'</div></section><div id="ocal"></div>';
+  document.getElementById('svo').onclick=function(){c.obrig=[].slice.call(el.querySelectorAll('[data-ob]')).filter(function(x){return x.checked;}).map(function(x){return x.getAttribute('data-ob');});
+    c.obrigResp={};el.querySelectorAll('[data-or]').forEach(function(x){c.obrigResp[x.getAttribute('data-or')]=x.value;});persist();NX.toast('Obrigações de '+c.nome+' salvas. Use “Gerar demandas” em Processos.');clientes(c.id);};
+  document.getElementById('sug').onclick=function(){delete c.obrig;persist();clientes(c.id);NX.toast('Sugestão do plano aplicada.');};
+  tabObrigCal(c,document.getElementById('ocal'));
+}
+function tabObrigCal(c,el){
   var own=db.obligations.filter(function(o){return o.cliente===c.id;});
   var ev=NX.obligationsFor(db,c.id,S.month).map(function(o){return {data:o.data,titulo:o.titulo};});
   db.files.forEach(function(f){if(f.cliente===c.id&&f.tipo==='Guia'&&f.venc&&f.venc.slice(0,7)===S.month)ev.push({data:f.venc,titulo:'Guia: '+f.titulo,cls:NX.statusOf(f).c==='ok'?'ok':NX.statusOf(f).c==='bad'?'bad':''});});
@@ -330,6 +341,52 @@ function meetingDialog(m){var isNew=!m.id;
 function staffDialog(s){openDlg('<h2>'+(s.id?'Editar pessoa':'Adicionar pessoa')+'</h2><div class="grid"><label>Nome<input name="nome" required value="'+e(s.nome)+'"></label><label>Cargo<input name="cargo" value="'+e(s.cargo||'')+'"></label><label>E-mail<input name="email" type="email" required value="'+e(s.email)+'"></label><label>Cor na agenda<input name="cor" type="color" value="'+s.cor+'"></label><label style="grid-column:1/-1">Google Agenda (e-mail ou ID da agenda)<input name="gcal" value="'+e(s.gcal||'')+'" placeholder="ex.: nome@gmail.com"></label></div><label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" name="diretor" '+(s.diretor?'checked':'')+' style="width:auto;min-height:auto"> Faz parte da diretoria</label>',
   function(fd){var o=s.id?s:{id:NX.uid()};['nome','cargo','email','cor','gcal'].forEach(function(k){o[k]=fd.get(k);});o.diretor=!!fd.get('diretor');if(!s.id)db.staff.push(o);persist();agenda();NX.toast('Equipe atualizada.');});}
 
+/* ---------- CATÁLOGO DE OBRIGAÇÕES + OBRIGAÇÕES POR CLIENTE ---------- */
+var PERIOD=[['mensal','Mensal'],['trimestral','Trimestral'],['anual','Anual']];
+function catalogoPadrao(){var R=function(i){return db.staff[i]?db.staff[i].id:db.staff[0].id;},F=R(1),C=R(0);
+  var L=[ // [titulo, setor, periodicidade, diaVenc, mesAnual, multa, match, planos sugeridos, resp]
+  ['DAS — Simples Nacional (PGDAS-D)','Fiscal','mensal',20,0,1,'das|pgdas|simples',['SN'],F],
+  ['DAS-MEI','Fiscal','mensal',20,0,1,'das',['MEI'],F],
+  ['ISS — guia municipal','Fiscal','mensal',10,0,1,'iss',['SN'],F],
+  ['ICMS / GARE','Fiscal','mensal',20,0,1,'icms|gare',[],F],
+  ['PIS e COFINS (Lucro Presumido)','Fiscal','mensal',25,0,1,'pis|cofins',[],F],
+  ['IRPJ e CSLL (trimestral)','Fiscal','trimestral',30,0,1,'irpj|csll',[],F],
+  ['EFD-Reinf','Fiscal','mensal',15,0,1,'reinf',['SN'],F],
+  ['EFD-Contribuições','Fiscal','mensal',15,0,1,'contribui',[],F],
+  ['SPED Fiscal (EFD ICMS/IPI)','Fiscal','mensal',20,0,1,'sped|efd icms',[],F],
+  ['DeSTDA','Fiscal','mensal',28,0,1,'destda',[],F],
+  ['Declaração de faturamento','Fiscal','mensal',10,0,0,'faturamento',['SN','MEI'],F],
+  ['Carnê-Leão (DARF)','Fiscal','mensal',28,0,1,'carn|darf',['PF'],F],
+  ['Recibos Receita Saúde','Fiscal','mensal',28,0,0,'receita sa',['PF'],F],
+  ['DEFIS (anual)','Fiscal','anual',31,3,1,'defis',['SN'],F],
+  ['DASN-SIMEI (anual)','Fiscal','anual',31,5,1,'dasn',['MEI'],F],
+  ['Declaração de IRPF (anual)','Fiscal','anual',29,5,1,'irpf',['PF'],F],
+  ['Folha de pagamento','Departamento Pessoal','mensal',5,0,0,'folha|holerite',['SN'],F],
+  ['Pró-labore','Departamento Pessoal','mensal',5,0,0,'pr[oó]-?labore',['SN'],F],
+  ['eSocial — eventos periódicos','Departamento Pessoal','mensal',15,0,1,'esocial',['SN'],F],
+  ['DCTFWeb','Departamento Pessoal','mensal',15,0,1,'dctf',['SN'],F],
+  ['INSS / DARF previdenciário','Departamento Pessoal','mensal',20,0,1,'inss|previd',['SN'],F],
+  ['FGTS Digital','Departamento Pessoal','mensal',20,0,1,'fgts',['SN'],F],
+  ['13º salário — 1ª parcela','Departamento Pessoal','anual',30,11,1,'13',[],F],
+  ['13º salário — 2ª parcela','Departamento Pessoal','anual',20,12,1,'13',[],F],
+  ['Conciliação bancária','Contábil','mensal',20,0,0,'concilia|extrato',['SN'],C],
+  ['Lançamentos contábeis','Contábil','mensal',25,0,0,'lan[cç]amento',['SN'],C],
+  ['Balancete mensal','Contábil','mensal',30,0,0,'balancete',['SN'],C],
+  ['DRE gerencial','Contábil','mensal',30,0,0,'dre',['SN'],C],
+  ['ECD — Escrituração Contábil Digital (anual)','Contábil','anual',30,6,1,'ecd',[],C],
+  ['ECF — Escrituração Contábil Fiscal (anual)','Contábil','anual',31,7,1,'ecf',[],C],
+  ['Balanço patrimonial (anual)','Contábil','anual',30,4,0,'balan[cç]o',['SN'],C],
+  ['Certidões negativas (CNDs)','Certidões','mensal',10,0,0,'cnd|certid',['SN'],C],
+  ['Renovação do alvará de funcionamento','Societário','anual',31,1,1,'alvar',['SN','MEI'],C],
+  ['Renovação do certificado digital','Societário','anual',30,1,0,'certificado',[],C]];
+  return L.map(function(x){return {id:NX.uid(),titulo:x[0],setor:x[1],per:x[2],venc:x[3],mes:x[4]||0,meta:Math.max(1,x[3]-5),multa:!!x[5],match:x[6],planos:x[7],resp:x[8]};});}
+function servicosPadrao(){var g={'Societário':['Abertura de autônomo na prefeitura','Abertura de empresa individual e sociedade – ME/EPP','Abertura de farmácia','Abertura de MEI','Abertura de posto de combustível','Alteração contratual (nome, endereço, capital, atividade)','Baixa de empresa individual e sociedade','Baixa e abertura de inscrição estadual','Cadastros para o cliente','Conectividade ICP – certificado','Contratos em geral','Contratos particulares','Emissão de certidões negativas e DECORE','Entrada de novo cliente','Renovação de certificado digital','Transformação de sociedade em empresário individual','Transformação do tipo jurídico'],
+  'Departamento Pessoal':['Afastamento por doença','CAT – comunicado de acidente de trabalho','FGTS em atraso','Levantamento de débitos','Pedido de demissão com cumprimento do aviso','Pedido de demissão sem cumprimento do aviso','Prévia de rescisão','Registro de funcionário (admissão)','Rescisão com cumprimento do aviso','Rescisão com aviso indenizado','Rescisão por antecipação de contrato','Simulação de férias','Solicitação de férias'],
+  'Fiscal':['Carta de boas-vindas','DAS – parcelamento do Simples Nacional','Declaração de faturamento','MIT – Módulo de Inclusão de Tributos','Parcelamento MEI','Parcelamento PGFN','Recálculo COFINS','Recálculo CSLL','Recálculo DAS','Recálculo ICMS/GARE','Recálculo IRPJ','Recálculo IRRF','Recálculo ISS','Recálculo PIS','REDARF pessoa física','REDARF pessoa jurídica']};
+  var out=[];Object.keys(g).forEach(function(s){g[s].forEach(function(t){out.push({id:NX.uid(),titulo:t,setor:s});});});return out;}
+function aplica(tp,comp){var m=+comp.slice(5);if(tp.per==='trimestral')return m%3===0;if(tp.per==='anual')return nextMonthNum(comp)===tp.mes;return true;}
+function nextMonthNum(comp){return +NX.shiftMonth(comp,1).slice(5);}
+function obrigDoCliente(c){if(c.obrig)return db.procT.filter(function(tp){return c.obrig.indexOf(tp.id)>-1;});return db.procT.filter(function(tp){return (tp.planos||[]).indexOf(planoKey(c))>-1;});}
 /* ---------- PROCESSOS (estilo monday.com) ---------- */
 var ST=[['nao','Não iniciado','s0'],['and','Em andamento','s1'],['agu','Aguardando cliente','s2'],['ok','Concluído','s3']];
 var stInfo=function(k){return ST.filter(function(s){return s[0]===k;})[0]||ST[0];};
@@ -338,16 +395,10 @@ function planoKey(c){var p=(c.plano||'').toUpperCase();return /MEI/.test(p)?'MEI
 function nextMonth(m){return NX.shiftMonth(m,1);}
 function dayIn(m,d){var last=new Date(+m.slice(0,4),+m.slice(5),0).getDate();return m+'-'+String(Math.min(d,last)).padStart(2,'0');}
 function ensureProc(){
-  db.procT=db.procT||null;db.tasks=db.tasks||[];
+  db.tasks=db.tasks||[];if(db.procT&&!db.catV){db.procT=null;db.tasks=db.tasks.filter(function(t){return t.tipo!=='cliente';});db.procDemo=0;}
+  if(!db.servicos)db.servicos=servicosPadrao();
   if(!db.procT){var R=function(i){return db.staff[i]?db.staff[i].id:db.staff[0].id;};
-    db.procT=[
-      {id:NX.uid(),titulo:'Apuração do Simples Nacional (DAS)',setor:'Fiscal',planos:['SN'],meta:15,venc:20,multa:true,match:'das|simples',resp:R(1)},
-      {id:NX.uid(),titulo:'Folha de pagamento',setor:'Departamento Pessoal',planos:['SN'],meta:3,venc:5,multa:false,match:'folha|holerite',resp:R(1)},
-      {id:NX.uid(),titulo:'FGTS Digital',setor:'Departamento Pessoal',planos:['SN'],meta:15,venc:20,multa:true,match:'fgts',resp:R(1)},
-      {id:NX.uid(),titulo:'DCTFWeb / INSS',setor:'Departamento Pessoal',planos:['SN'],meta:12,venc:20,multa:true,match:'dctf|inss',resp:R(1)},
-      {id:NX.uid(),titulo:'Balancete mensal',setor:'Contábil',planos:['SN'],meta:25,venc:30,multa:false,match:'balancete',resp:R(0)},
-      {id:NX.uid(),titulo:'DAS-MEI',setor:'Fiscal',planos:['MEI'],meta:15,venc:20,multa:true,match:'das',resp:R(1)},
-      {id:NX.uid(),titulo:'Carnê-Leão (DARF)',setor:'Fiscal',planos:['PF'],meta:20,venc:28,multa:true,match:'carn|darf',resp:R(1)}];
+    db.procT=catalogoPadrao();db.catV=1;
     gerarDemandas(NX.shiftMonth(NX.ym(),-1),true);gerarDemandas(NX.ym(),true);
     var me=db.staff[0].id,t=NX.today();
     [['Ligar para cliente novo (onboarding)',0,'alta'],['Revisar contratos do mês',1,'media'],['Estudar mudanças da Reforma Tributária',3,'baixa']].forEach(function(x){var d=new Date();d.setDate(d.getDate()+x[1]);db.tasks.push({id:NX.uid(),tipo:'pessoal',owner:me,resp:me,titulo:x[0],data:d.toISOString().slice(0,10),status:'nao',prio:x[2],criado:t});});
@@ -358,9 +409,9 @@ function demoProc(){if(db.procDemo)return;db.procDemo=1;var prev=NX.shiftMonth(N
   for(var w=1;w<=5;w++){db.staff.forEach(function(s,j){for(var n=0;n<(w+j)%4+1;n++){var d=new Date();d.setDate(d.getDate()-7*w+n);db.tasks.push({id:NX.uid(),tipo:'pessoal',owner:s.id,resp:s.id,titulo:'Tarefa interna (exemplo)',data:d.toISOString().slice(0,10),status:'ok',concluido:d.toISOString().slice(0,10),prio:'media',criado:d.toISOString().slice(0,10),log:[]});}});}
   persist();}
 function gerarDemandas(comp,silent){var n=0;
-  db.clients.forEach(function(c){db.procT.forEach(function(tp){if(tp.planos.indexOf(planoKey(c))<0)return;
+  db.clients.forEach(function(c){obrigDoCliente(c).forEach(function(tp){if(!aplica(tp,comp))return;
     if(db.tasks.some(function(t){return t.tipo==='cliente'&&t.cliente===c.id&&t.tpl===tp.id&&t.comp===comp;}))return;
-    var vm=nextMonth(comp);db.tasks.push({id:NX.uid(),tipo:'cliente',cliente:c.id,tpl:tp.id,titulo:tp.titulo,setor:tp.setor,comp:comp,meta:dayIn(vm,tp.meta),venc:dayIn(vm,tp.venc),multa:tp.multa,resp:tp.resp,status:'nao',prio:tp.multa?'alta':'media',criado:NX.today(),log:[{em:new Date().toISOString(),ev:'Demanda criada automaticamente',por:'Sistema'}]});n++;});});
+    var vm=nextMonth(comp);db.tasks.push({id:NX.uid(),tipo:'cliente',cliente:c.id,tpl:tp.id,titulo:tp.titulo,setor:tp.setor,comp:comp,meta:dayIn(vm,tp.meta),venc:dayIn(vm,tp.venc),multa:tp.multa,resp:(c.obrigResp&&c.obrigResp[tp.id])||tp.resp,status:'nao',prio:tp.multa?'alta':'media',criado:NX.today(),log:[{em:new Date().toISOString(),ev:'Demanda criada automaticamente',por:'Sistema'}]});n++;});});
   if(!silent){persist();NX.toast(n+' demanda(s) criada(s) para '+NX.fcomp(comp)+'.');}return n;}
 function tlog(t,ev){t.log=t.log||[];t.log.push({em:new Date().toISOString(),ev:ev,por:S.user?S.user.nome:'Sistema'});}
 function setStatus(t,k,why){if(t.status===k)return;t.status=k;if(k==='ok'){t.concluido=NX.today();}else delete t.concluido;tlog(t,'Status: '+stInfo(k)[1]+(why?' ('+why+')':''));}
@@ -374,7 +425,7 @@ function riscoMulta(t){var d=new Date();d.setDate(d.getDate()+5);return t.multa&
 function av(id){var s=staffBy(id);if(!s)return '<span class="av" style="background:#ccc">?</span>';return '<span class="av" style="background:'+(s.cor||'#0740EF')+'" title="'+e(s.nome)+'">'+e(s.nome.split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase())+'</span>';}
 S.pr=S.pr||{tab:'tabela',comp:NX.shiftMonth(NX.ym(),-1),grp:'cliente',resp:'',setor:'',st:'',q:'',agUser:null};
 function processos(){ensureProc();demoProc();ensureAgenda&&ensureAgenda();var P=S.pr;P.agUser=P.agUser||S.user.id;if(!staffBy(P.agUser))P.agUser=db.staff[0].id;
-  var tabs=[['tabela','Tabela'],['kanban','Kanban'],['agenda','Minha agenda'],['indicadores','Indicadores'],['modelos','Modelos de demandas']];
+  var tabs=[['tabela','Tabela'],['kanban','Kanban'],['agenda','Minha agenda'],['indicadores','Indicadores'],['modelos','Catálogo de obrigações']];
   shell('processos',head('Controle de processos','Demandas mensais dos clientes, agenda de tarefas da equipe e indicadores de produtividade.','<button class="btn b-line" id="gen">Gerar demandas de '+NX.fcomp(P.comp)+'</button><button class="btn b-blue" id="newt">+ Nova demanda</button>')+
   '<section class="card"><div class="tabs" role="tablist">'+tabs.map(function(t){return '<button role="tab" data-pt="'+t[0]+'" aria-selected="'+(P.tab===t[0])+'">'+t[1]+'</button>';}).join('')+'</div><div id="prc"></div></section>');
   root.querySelectorAll('[data-pt]').forEach(function(b){b.onclick=function(){P.tab=b.getAttribute('data-pt');processos();};});
@@ -460,20 +511,24 @@ function pInd(el){var P=S.pr,l=db.tasks.filter(function(t){return t.tipo==='clie
   '<section class="card" style="margin-top:18px"><h2>Clientes com pendências</h2>'+(function(){var m={};l.filter(function(t){return t.status!=='ok';}).forEach(function(t){m[t.cliente]=(m[t.cliente]||0)+1;});var ks=Object.keys(m).sort(function(a,b){return m[b]-m[a];});var mx=ks.length?m[ks[0]]:1;
     return ks.length?'<div class="bars">'+ks.map(function(k){return '<div class="bar-row"><span>'+e((cli(k)||{}).nome||'—')+'</span><div class="bar-track"><i style="width:'+(m[k]/mx*100)+'%;background:#E2445C"></i></div><b style="text-align:right">'+m[k]+'</b></div>';}).join('')+'</div>':'<p class="empty">Nenhuma pendência. 🎉</p>';})()+'</section>';
   document.getElementById('fc').onchange=function(ev){if(ev.target.value){P.comp=ev.target.value;processos();}};}
-function pModelos(el){
-  el.innerHTML='<p class="help" style="margin-bottom:12px">Modelos de demandas recorrentes. Todo mês, “Gerar demandas” cria uma tarefa por cliente conforme o plano (SN, MEI, PF). Quando um documento com o nome correspondente é enviado ao cliente, a demanda é concluída automaticamente.</p><button class="btn b-blue" id="addtp" style="margin-bottom:12px">+ Novo modelo</button>'+
-  '<div class="tbl"><table><thead><tr><th>Demanda</th><th>Setor</th><th>Planos</th><th>Meta</th><th>Vencimento</th><th>Multa</th><th>Responsável padrão</th><th>Conclui ao enviar documento com</th><th></th></tr></thead><tbody>'+
-  db.procT.map(function(tp){return '<tr><td><b>'+e(tp.titulo)+'</b></td><td>'+e(tp.setor)+'</td><td>'+tp.planos.join(', ')+'</td><td>dia '+tp.meta+'</td><td>dia '+tp.venc+'</td><td>'+(tp.multa?'Sim':'Não')+'</td><td>'+av(tp.resp)+'</td><td><code>'+e(tp.match.split('|').join(' ou '))+'</code></td><td><button class="btn b-text" data-tp="'+tp.id+'">Editar</button></td></tr>';}).join('')+'</tbody></table></div>';
-  document.getElementById('addtp').onclick=function(){tplDialog({id:'',titulo:'',setor:'Fiscal',planos:['SN'],meta:15,venc:20,multa:true,match:'',resp:S.user.id});};
-  el.onclick=function(ev){var id=ev.target.getAttribute('data-tp');if(id)tplDialog(db.procT.filter(function(x){return x.id===id;})[0]);};}
+function pModelos(el){S.catTab=S.catTab||'obr';
+  el.innerHTML='<div class="row between" style="margin-bottom:14px"><div class="xp-seg" role="group">'+[['obr','Obrigações recorrentes'],['srv','Serviços sob demanda']].map(function(o){return '<button data-ct="'+o[0]+'" aria-pressed="'+(S.catTab===o[0])+'">'+o[1]+'</button>';}).join('')+'</div><button class="btn b-blue" id="addtp">+ '+(S.catTab==='obr'?'Nova obrigação':'Novo serviço')+'</button></div>'+
+  (S.catTab==='obr'?'<p class="help" style="margin-bottom:12px">Catálogo geral. Em <b>Clientes › Obrigações</b> vocês marcam quais se aplicam a cada empresa. Prazos padrão: confira e ajuste conforme a legislação e o município. Quando um documento com o nome correspondente é enviado, a demanda é concluída automaticamente.</p>'+
+    DEPTO.map(function(s){var l=db.procT.filter(function(tp){return tp.setor===s;});if(!l.length)return '';var nCli=function(tp){return db.clients.filter(function(c){return obrigDoCliente(c).some(function(x){return x.id===tp.id;});}).length;};
+      return '<h3 style="font-size:16px;color:var(--blue2);margin:18px 0 8px">'+s+' <small style="color:var(--muted);font:500 13px Inter">'+l.length+' obrigações</small></h3><div class="tbl"><table><thead><tr><th>Obrigação</th><th>Periodicidade</th><th>Vencimento</th><th>Multa</th><th>Resp. padrão</th><th>Clientes</th><th>Conclui com documento contendo</th><th></th></tr></thead><tbody>'+
+      l.map(function(tp){return '<tr><td><b>'+e(tp.titulo)+'</b></td><td>'+({mensal:'Mensal',trimestral:'Trimestral',anual:'Anual'})[tp.per||'mensal']+'</td><td>dia '+tp.venc+(tp.per==='anual'?'/'+String(tp.mes).padStart(2,'0'):'')+'</td><td>'+(tp.multa?'<span style="color:var(--bad)">Sim</span>':'Não')+'</td><td>'+av(tp.resp)+'</td><td>'+nCli(tp)+'</td><td><code style="font-size:12px">'+e((tp.match||'').split('|').join(' / '))+'</code></td><td><button class="btn b-text" data-tp="'+tp.id+'">Editar</button></td></tr>';}).join('')+'</tbody></table></div>';}).join('')
+  :'<p class="help" style="margin-bottom:12px">Serviços eventuais (vindos do Onvio Processos). Use em “+ Nova demanda” para criar rapidamente uma ordem de serviço para um cliente.</p>'+['Societário','Departamento Pessoal','Fiscal'].map(function(s){var l=db.servicos.filter(function(x){return x.setor===s;});return '<h3 style="font-size:16px;color:var(--blue2);margin:18px 0 8px">'+s+'</h3><div class="row">'+l.map(function(x){return '<span class="tag info" style="font-size:13px;padding:6px 12px">'+e(x.titulo)+' <button class="btn b-text" data-rs="'+x.id+'" aria-label="Remover '+e(x.titulo)+'" style="min-height:0;padding:0 0 0 6px">✕</button></span>';}).join('')+'</div>';}).join(''));
+  el.querySelectorAll('[data-ct]').forEach(function(b){b.onclick=function(){S.catTab=b.getAttribute('data-ct');processos();};});
+  document.getElementById('addtp').onclick=function(){if(S.catTab==='obr')tplDialog({id:'',titulo:'',setor:'Fiscal',per:'mensal',mes:1,planos:[],meta:15,venc:20,multa:true,match:'',resp:S.user.id});else{var n=prompt('Nome do serviço:');if(n){var s=prompt('Setor (Societário, Departamento Pessoal ou Fiscal):','Societário');db.servicos.push({id:NX.uid(),titulo:n,setor:DEPTO.indexOf(s)>-1?s:'Societário'});persist();processos();}}};
+  el.onclick=function(ev){var id=ev.target.getAttribute('data-tp');if(id)tplDialog(db.procT.filter(function(x){return x.id===id;})[0]);id=ev.target.getAttribute('data-rs');if(id){db.servicos=db.servicos.filter(function(x){return x.id!==id;});persist();processos();}};}
 function tplDialog(tp){openDlg('<h2>'+(tp.id?'Editar modelo':'Novo modelo de demanda')+'</h2><div class="grid"><label style="grid-column:1/-1">Nome da demanda<input name="titulo" required value="'+e(tp.titulo)+'"></label><label>Setor<select name="setor">'+DEPTO.map(function(s){return '<option'+(s===tp.setor?' selected':'')+'>'+s+'</option>';}).join('')+'</select></label>'+
-  '<label>Responsável padrão<select name="resp">'+db.staff.map(function(s){return '<option value="'+s.id+'"'+(s.id===tp.resp?' selected':'')+'>'+e(s.nome)+'</option>';}).join('')+'</select></label><label>Dia da meta<input name="meta" type="number" min="1" max="31" value="'+tp.meta+'"></label><label>Dia do vencimento<input name="venc" type="number" min="1" max="31" value="'+tp.venc+'"></label>'+
+  '<label>Periodicidade<select name="per">'+PERIOD.map(function(p){return '<option value="'+p[0]+'"'+((tp.per||'mensal')===p[0]?' selected':'')+'>'+p[1]+'</option>';}).join('')+'</select></label><label>Mês (se anual)<input name="mes" type="number" min="1" max="12" value="'+(tp.mes||1)+'"></label>'+'<label>Responsável padrão<select name="resp">'+db.staff.map(function(s){return '<option value="'+s.id+'"'+(s.id===tp.resp?' selected':'')+'>'+e(s.nome)+'</option>';}).join('')+'</select></label><label>Dia da meta interna<input name="meta" type="number" min="1" max="31" value="'+tp.meta+'"></label><label>Dia do vencimento<input name="venc" type="number" min="1" max="31" value="'+tp.venc+'"></label>'+
   '<label style="grid-column:1/-1">Conclui ao enviar documento contendo (separe por |)<input name="match" value="'+e(tp.match)+'" placeholder="ex.: das|simples"></label></div><div class="row">'+['SN','MEI','PF'].map(function(p){return '<label style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" name="p_'+p+'" '+(tp.planos.indexOf(p)>-1?'checked':'')+' style="width:auto;min-height:auto">Plano '+p+'</label>';}).join('')+'<label style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" name="multa" '+(tp.multa?'checked':'')+' style="width:auto;min-height:auto">Sujeita a multa</label></div>'+(tp.id?'<button type="button" class="btn b-danger" id="rmtp" style="align-self:flex-start">Excluir modelo</button>':''),
-  function(fd){var o=tp.id?tp:{id:NX.uid()};o.titulo=fd.get('titulo');o.setor=fd.get('setor');o.resp=fd.get('resp');o.meta=+fd.get('meta')||1;o.venc=+fd.get('venc')||1;o.match=fd.get('match')||'';o.multa=!!fd.get('multa');o.planos=['SN','MEI','PF'].filter(function(p){return fd.get('p_'+p);});if(!tp.id)db.procT.push(o);persist();processos();NX.toast('Modelo salvo.');});
+  function(fd){var o=tp.id?tp:{id:NX.uid()};o.titulo=fd.get('titulo');o.setor=fd.get('setor');o.resp=fd.get('resp');o.meta=+fd.get('meta')||1;o.venc=+fd.get('venc')||1;o.match=fd.get('match')||'';o.multa=!!fd.get('multa');o.per=fd.get('per');o.mes=+fd.get('mes')||1;o.planos=['SN','MEI','PF'].filter(function(p){return fd.get('p_'+p);});if(!tp.id)db.procT.push(o);persist();processos();NX.toast('Modelo salvo.');});
   var r=document.getElementById('rmtp');if(r)r.onclick=function(){if(confirm('Excluir este modelo? As demandas já criadas continuam.')){db.procT=db.procT.filter(function(x){return x.id!==tp.id;});persist();dlg.close();processos();}};}
 function taskDialog(t){var isNew=!t.id,pes=t.tipo==='pessoal';
   openDlg('<h2>'+(isNew?(pes?'Nova tarefa':'Nova demanda'):'Editar')+'</h2><div class="grid"><label style="grid-column:1/-1">Título<input name="titulo" required value="'+e(t.titulo||'')+'"></label>'+
-  '<label>Tipo<select name="tipo" id="ttipo"><option value="cliente"'+(!pes?' selected':'')+'>Demanda de cliente</option><option value="pessoal"'+(pes?' selected':'')+'>Tarefa pessoal / interna</option></select></label>'+
+  (isNew&&!pes?'<label style="grid-column:1/-1">Usar modelo (opcional)<select id="tmod"><option value="">— em branco —</option><optgroup label="Serviços sob demanda">'+(db.servicos||[]).map(function(x){return '<option value="s:'+x.id+'">'+e(x.setor+' · '+x.titulo)+'</option>';}).join('')+'</optgroup><optgroup label="Obrigações do catálogo">'+db.procT.map(function(x){return '<option value="o:'+x.id+'">'+e(x.setor+' · '+x.titulo)+'</option>';}).join('')+'</optgroup></select></label>':'')+'<label>Tipo<select name="tipo" id="ttipo"><option value="cliente"'+(!pes?' selected':'')+'>Demanda de cliente</option><option value="pessoal"'+(pes?' selected':'')+'>Tarefa pessoal / interna</option></select></label>'+
   '<label id="tcli">Cliente<select name="cliente">'+db.clients.map(function(c){return '<option value="'+c.id+'"'+(c.id===t.cliente?' selected':'')+'>'+e(c.nome)+'</option>';}).join('')+'</select></label>'+
   '<label>Responsável<select name="resp">'+db.staff.map(function(s){return '<option value="'+s.id+'"'+(s.id===t.resp?' selected':'')+'>'+e(s.nome)+'</option>';}).join('')+'</select></label>'+
   '<label>Status<select name="status">'+ST.map(function(s){return '<option value="'+s[0]+'"'+(s[0]===t.status?' selected':'')+'>'+s[1]+'</option>';}).join('')+'</select></label>'+
@@ -488,6 +543,7 @@ function taskDialog(t){var isNew=!t.id,pes=t.tipo==='pessoal';
     if(isNew){o.status=fd.get('status');tlog(o,'Criada');db.tasks.push(o);}else{setStatus(o,fd.get('status'));tlog(o,'Editada');}persist();processos();NX.toast('Salvo.');});
   function sync(){var np=document.getElementById('ttipo').value==='pessoal';['tcli','tset','tcomp','tven'].forEach(function(id){document.getElementById(id).style.display=np?'none':'';});}
   document.getElementById('ttipo').onchange=sync;sync();
+  var tm=document.getElementById('tmod');if(tm)tm.onchange=function(){var v=tm.value;if(!v)return;var src=v[0]==='s'?db.servicos.filter(function(x){return x.id===v.slice(2);})[0]:db.procT.filter(function(x){return x.id===v.slice(2);})[0];var f=document.getElementById('dlgForm');f.titulo.value=src.titulo;f.setor.value=src.setor;if(src.resp)f.resp.value=src.resp;};
   var r=document.getElementById('rmt');if(r)r.onclick=function(){if(confirm('Excluir?')){db.tasks=db.tasks.filter(function(x){return x.id!==t.id;});persist();dlg.close();processos();}};}
 
 /* ---------- DIÁLOGOS ---------- */
@@ -496,7 +552,7 @@ function openDlg(html,onsave){df.innerHTML=html+'<div class="row between"><butto
   document.getElementById('dc').onclick=function(){dlg.close();};
   df.onsubmit=function(ev){ev.preventDefault();if(onsave(new FormData(df))!==false)dlg.close();};dlg.showModal();}
 function clientDialog(){openDlg('<h2>Novo cliente</h2><div class="grid"><label style="grid-column:1/-1">Razão social / nome<input name="nome" required></label><label>CNPJ / CPF<input name="doc" required></label><label>Plano<select name="plano">'+['NEXIO SN START','NEXIO SN PRO','NEXIO SN SCALE','NEXIO SN MAX','NEXIO MEI START','NEXIO MEI PRO','NEXIO PF ESSENTIAL','NEXIO PF PREMIUM'].map(function(p){return '<option>'+p+'</option>';}).join('')+'</select></label><label>Responsável<input name="resp"></label><label>Telefone<input name="tel"></label><label style="grid-column:1/-1">E-mail de acesso<input name="email" type="email" required></label><label>Senha inicial<input name="senha" value="1234" required></label></div>',
-  function(fd){var c={id:NX.uid(),criado:NX.today()};fd.forEach(function(v,k){c[k]=v;});db.clients.push(c);persist();S.sel=c.id;S.tab='arquivos';location.hash='#/clientes/'+c.id;render();NX.toast('Cliente cadastrado.');});}
+  function(fd){var c={id:NX.uid(),criado:NX.today()};fd.forEach(function(v,k){c[k]=v;});db.clients.push(c);persist();S.sel=c.id;S.tab='obrigacoes';location.hash='#/clientes/'+c.id;render();NX.toast('Cliente cadastrado.');});}
 function fileDialog(c,pre){pre=pre||{};var picked=null;
   openDlg('<h2>Enviar para '+e(c.nome)+'</h2><div class="grid"><label>Tipo<select name="tipo" id="ft"><option>Guia</option><option>Relatório</option><option>Documento</option><option>Folha de pagamento</option><option>Contrato</option><option>Outro</option></select></label><label>Título<input name="titulo" required placeholder="Ex.: DAS — Simples Nacional"></label><label>Setor<select name="setor" id="fsetor">'+SETORES.filter(function(s){return s!=='Enviados pelo cliente';}).map(function(s){return '<option'+(s===pre.setor?' selected':'')+'>'+s+'</option>';}).join('')+'</select></label><label>Competência<input name="comp" type="month" value="'+(pre.comp||NX.ym())+'"></label><label>Vencimento<input name="venc" type="date"></label><label>Valor (R$)<input name="valor" inputmode="decimal" placeholder="0,00"></label></div>'+
   '<div class="drop" id="fd"><p style="margin:0 0 10px">Arraste o arquivo ou</p><label class="btn b-line" style="display:inline-flex;flex-direction:row;color:var(--blue)">Escolher arquivo<input type="file" id="fi" style="display:none"></label><p class="help" id="fn" style="margin-top:8px">Nenhum arquivo escolhido (até 1,5 MB no protótipo)</p></div>'+

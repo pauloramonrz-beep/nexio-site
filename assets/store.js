@@ -51,10 +51,23 @@
   function alertBox(msg) { if (window.NX && NX.toast) NX.toast(msg); }
 
   // obrigações do mês para um cliente
+  function catalogFor(db, c) {
+    if (!db.procT || !c) return [];
+    if (c.obrig) return db.procT.filter(function (tp) { return c.obrig.indexOf(tp.id) > -1; });
+    var p = (c.plano || '').toUpperCase(), k = /MEI/.test(p) ? 'MEI' : /PF/.test(p) ? 'PF' : 'SN';
+    return db.procT.filter(function (tp) { return (tp.planos || []).indexOf(k) > -1; });
+  }
   function obligationsFor(db, clienteId, month) {
-    var out = [];
+    var out = [], c = (db.clients || []).filter(function (x) { return x.id === clienteId; })[0], cat = catalogFor(db, c), mm = +month.slice(5);
+    cat.forEach(function (tp) {
+      var ok = tp.per === 'trimestral' ? (mm % 3 === 1) : tp.per === 'anual' ? (mm === tp.mes) : true; if (!ok) return;
+      var last = new Date(+month.slice(0, 4), mm, 0).getDate();
+      out.push({ id: tp.id, titulo: tp.titulo, data: month + '-' + String(Math.min(tp.venc, last)).padStart(2, '0'), desc: tp.setor, geral: false });
+    });
+    var hasCat = cat.length > 0;
     db.obligations.forEach(function (o) {
       if (o.cliente !== '*' && o.cliente !== clienteId) return;
+      if (hasCat && o.cliente === '*') return;
       var date = o.recorrente ? month + '-' + String(Math.min(o.dia, 28)).padStart(2, '0') : o.data;
       if (date && date.slice(0, 7) === month) out.push({ id: o.id, titulo: o.titulo, data: date, desc: o.desc, geral: o.cliente === '*' });
     });
@@ -103,7 +116,7 @@
     return '<div class="cal">' + h + '</div>';
   }
 
-  window.NX = { KEY: KEY, load: load, save: save, seed: seed, uid: uid, today: today, ym: ym, obligationsFor: obligationsFor, readFile: readFile, download: download, brl: brl, fdate: fdate, fcomp: fcomp, ftime: ftime, esc: esc, fsize: fsize, statusOf: statusOf, toast: toast, monthLabel: monthLabel, shiftMonth: shiftMonth, calendarHTML: calendarHTML };
+  window.NX = { catalogFor: catalogFor, KEY: KEY, load: load, save: save, seed: seed, uid: uid, today: today, ym: ym, obligationsFor: obligationsFor, readFile: readFile, download: download, brl: brl, fdate: fdate, fcomp: fcomp, ftime: ftime, esc: esc, fsize: fsize, statusOf: statusOf, toast: toast, monthLabel: monthLabel, shiftMonth: shiftMonth, calendarHTML: calendarHTML };
   // sincroniza entre abas (equipe e cliente abertos ao mesmo tempo)
   window.addEventListener('storage', function (e) { if (e.key === KEY && typeof window.NX_onSync === 'function') window.NX_onSync(); });
 })();
