@@ -13,6 +13,8 @@
 <body>
 <div id="root"></div>
 <div class="toast" role="status" id="toast"></div>
+<div id="printArea"></div>
+<style>#printArea{display:none}@media print{body>*:not(#printArea){display:none!important}#printArea{display:block;padding:10mm}}</style>
 <script src="/assets/store.js"></script>
 <script>
 (function(){
@@ -40,7 +42,7 @@ function login(){
 function enter(id){S.cid=id;try{sessionStorage.setItem('nx_client',id);}catch(x){}location.hash='#/inicio';render();}
 
 function shell(active,html){
-  var c=me(),nav=[['inicio','Início',0],['arquivos','Guias e arquivos',novos()],['calendario','Obrigações',0],['financeiro','Controle financeiro',0],['mensagens','Mensagens',unread()]];
+  var c=me(),nav=[['inicio','Início',0],['arquivos','Guias e arquivos',novos()],['calendario','Obrigações',0],['notas','Notas fiscais',0],['financeiro','Controle financeiro',0],['mensagens','Mensagens',unread()]];
   root.innerHTML='<div class="app"><aside class="side"><a class="logo" href="#/inicio"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a><div class="role">Portal do cliente</div>'+
   nav.map(function(n){return '<a class="nav" href="#/'+n[0]+'"'+(active===n[0]?' aria-current="page"':'')+'>'+n[1]+(n[2]?'<span class="cnt">'+n[2]+'</span>':'')+'</a>';}).join('')+
   
@@ -96,14 +98,79 @@ function mensagens(){
   var ch=document.getElementById('chat');ch.scrollTop=ch.scrollHeight;
   document.getElementById('cf').onsubmit=function(ev){ev.preventDefault();var t=document.getElementById('ct').value.trim();if(!t)return;db.messages.push({id:NX.uid(),cliente:S.cid,de:'cliente',autor:me().resp||me().nome,texto:t,em:new Date().toISOString(),lida:false});persist();mensagens();};
 }
+/* ---------- NOTAS FISCAIS (simulação) ---------- */
+var SERV=[['04.01','Medicina e biomedicina'],['04.12','Odontologia'],['04.08','Fisioterapia, terapia ocupacional e fonoaudiologia'],['04.16','Psicologia'],['04.09','Terapias de qualquer espécie'],['04.03','Hospitais, clínicas, laboratórios e congêneres'],['17.01','Assessoria ou consultoria'],['17.19','Contabilidade'],['01.07','Suporte técnico em informática'],['outro','Outro serviço']];
+function onlyDig(s){return String(s||'').replace(/\D/g,'');}
+function fmtDoc(d){d=onlyDig(d);return d.length===14?d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5'):d.length===11?d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/,'$1.$2.$3-$4'):d;}
+function myNotas(){db.notas=db.notas||[];return db.notas.filter(function(n){return n.cliente===S.cid;}).sort(function(a,b){return a.num<b.num?1:-1;});}
+function tomadores(){var seen={},out=[];myNotas().forEach(function(n){var k=onlyDig(n.tom.doc);if(k&&!seen[k]){seen[k]=1;out.push(n.tom);}});return out;}
+function notas(){
+  var ns=myNotas(),mes=NX.ym(),tot=ns.filter(function(n){return n.status==='autorizada'&&n.emissao.slice(0,7)===mes;}).reduce(function(s,n){return s+n.valor;},0);
+  var toms=tomadores();
+  shell('notas',head('Notas fiscais','Emita notas fiscais de serviço (NFS-e) e acompanhe as notas emitidas.')+
+  '<div class="kpis"><div class="kpi main"><span>Faturado no mês</span><strong>'+NX.brl(tot)+'</strong></div><div class="kpi"><span>Notas emitidas no mês</span><strong>'+ns.filter(function(n){return n.emissao.slice(0,7)===mes&&n.status==='autorizada';}).length+'</strong></div><div class="kpi"><span>Total de notas</span><strong>'+ns.length+'</strong></div></div>'+
+  '<section class="card"><h2>Emitir nova nota</h2><form id="nf"><div class="grid">'+
+  '<label style="grid-column:1/-1">Tomador já cadastrado<select id="ntom"><option value="">— novo tomador —</option>'+toms.map(function(t,i){return '<option value="'+i+'">'+e(t.nome)+' · '+e(fmtDoc(t.doc))+'</option>';}).join('')+'</select></label>'+
+  '<label>CPF ou CNPJ do tomador<input name="doc" id="tdoc" required inputmode="numeric" placeholder="Somente números"></label>'+
+  '<label>Nome / razão social<input name="nome" id="tnome" required></label>'+
+  '<label>E-mail do tomador<input name="email" id="temail" type="email" placeholder="Para enviar a nota"></label>'+
+  '<label>Município do tomador<input name="mun" id="tmun" placeholder="Ex.: São Paulo/SP"></label>'+
+  '<label style="grid-column:1/-1">Serviço (item da LC 116)<select name="serv">'+SERV.map(function(s){return '<option value="'+s[0]+'">'+(s[0]==='outro'?'':s[0]+' – ')+s[1]+'</option>';}).join('')+'</select></label>'+
+  '<label style="grid-column:1/-1">Descrição do serviço<textarea name="desc" required placeholder="Ex.: Consulta médica realizada em 10/11/2026"></textarea></label>'+
+  '<label>Valor do serviço (R$)<input name="valor" id="nval" required inputmode="decimal" placeholder="0,00"></label>'+
+  '<label>Competência<input name="comp" type="date" value="'+NX.today()+'" required></label>'+
+  '<label style="flex-direction:row;align-items:center;gap:8px;align-self:end;min-height:44px"><input type="checkbox" name="ret" id="nret" style="width:auto;min-height:auto"> ISS retido pelo tomador</label>'+
+  '<label id="lal" style="display:none">Alíquota ISS (%)<input name="aliq" id="nal" inputmode="decimal" value="2"></label>'+
+  '</div><div class="row between" style="margin-top:16px;align-items:center"><p class="help" id="nliq">Valor líquido: R$ 0,00</p><button class="btn b-blue" type="submit">Emitir nota fiscal</button></div>'+
+  '<p class="help" style="margin-top:8px"><b>Protótipo:</b> a emissão é simulada — nenhuma nota é enviada à Prefeitura ou ao Emissor Nacional.</p></form></section>'+
+  '<section class="card"><h2>Notas emitidas</h2><div class="tbl"><table><thead><tr><th>Nº</th><th>Emissão</th><th>Tomador</th><th>Serviço</th><th>Valor</th><th>Situação</th><th><span class="sr">Ações</span></th></tr></thead><tbody>'+
+  (ns.length?ns.map(function(n){return '<tr><td><b>'+n.num+'</b></td><td>'+NX.fdate(n.emissao)+'</td><td>'+e(n.tom.nome)+'<small style="display:block;color:var(--muted)">'+e(fmtDoc(n.tom.doc))+'</small></td><td>'+e(n.serv)+'</td><td>'+NX.brl(n.valor)+'</td><td><span class="tag '+(n.status==='autorizada'?'ok':'bad')+'">'+(n.status==='autorizada'?'Autorizada (simulação)':'Cancelada')+'</span></td><td style="white-space:nowrap"><button class="btn b-text" data-pdf="'+n.id+'">PDF</button><button class="btn b-text" data-xml="'+n.id+'">XML</button>'+(n.status==='autorizada'?'<button class="btn b-danger" data-cancel="'+n.id+'">Cancelar</button>':'')+'</td></tr>';}).join(''):'<tr><td colspan="7" class="empty">Nenhuma nota emitida ainda.</td></tr>')+'</tbody></table></div></section>');
+  var f=document.getElementById('nf');
+  function liq(){var v=num(document.getElementById('nval').value),r=document.getElementById('nret').checked,a=num(document.getElementById('nal').value);document.getElementById('lal').style.display=r?'':'none';document.getElementById('nliq').textContent='Valor líquido: '+NX.brl(r?v-v*a/100:v)+(r?' (ISS retido: '+NX.brl(v*a/100)+')':'');}
+  f.oninput=liq;f.onchange=liq;
+  document.getElementById('ntom').onchange=function(ev){var t=toms[ev.target.value];if(!t)return;document.getElementById('tdoc').value=t.doc;document.getElementById('tnome').value=t.nome;document.getElementById('temail').value=t.email||'';document.getElementById('tmun').value=t.mun||'';};
+  f.onsubmit=function(ev){ev.preventDefault();var fd=new FormData(f),d=onlyDig(fd.get('doc'));
+    if(d.length!==11&&d.length!==14){NX.toast('CPF ou CNPJ do tomador inválido.');return;}
+    var v=num(fd.get('valor'));if(!(v>0)){NX.toast('Informe o valor do serviço.');return;}
+    var sv=SERV.filter(function(s){return s[0]===fd.get('serv');})[0],ret=!!fd.get('ret'),al=ret?num(fd.get('aliq')):0;
+    if(!confirm('Emitir nota de '+NX.brl(v)+' para '+fd.get('nome')+'?'))return;
+    var c=me(),seq=(db.notas||[]).filter(function(n){return n.cliente===S.cid;}).length+1;
+    var n={id:NX.uid(),cliente:S.cid,num:String(seq).padStart(6,'0'),emissao:NX.today(),comp:fd.get('comp'),status:'autorizada',
+      tom:{doc:d,nome:fd.get('nome'),email:fd.get('email'),mun:fd.get('mun')},serv:(sv[0]==='outro'?'':sv[0]+' – ')+sv[1],desc:fd.get('desc'),valor:v,ret:ret,aliq:al,iss:ret?v*al/100:0,
+      chave:'SIMULACAO'+Date.now()+Math.floor(Math.random()*1e6),prest:{nome:c.nome,doc:c.doc}};
+    db.notas.push(n);
+    var xml=notaXML(n);db.files.push({id:NX.uid(),cliente:S.cid,tipo:'Nota fiscal',titulo:'NFS-e nº '+n.num+' — '+n.tom.nome,comp:n.comp.slice(0,7),venc:'',valor:v,status:'emitida',de:'cliente',nome:'NFSe_'+n.num+'.xml',data:'data:application/xml;base64,'+btoa(unescape(encodeURIComponent(xml))),size:xml.length,criado:NX.today(),visto:false});
+    if(persist()===false)return;notas();NX.toast('Nota nº '+n.num+' emitida (simulação).');};
+  root.querySelector('.main').addEventListener('click',function(ev){var t=ev.target,id,n;
+    if(id=t.getAttribute('data-pdf')){n=db.notas.filter(function(x){return x.id===id;})[0];printNota(n);}
+    if(id=t.getAttribute('data-xml')){n=db.notas.filter(function(x){return x.id===id;})[0];var x=notaXML(n),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([x],{type:'application/xml'}));a.download='NFSe_'+n.num+'.xml';document.body.appendChild(a);a.click();a.remove();}
+    if(id=t.getAttribute('data-cancel')){var m=prompt('Motivo do cancelamento (obrigatório):');if(!m||m.trim().length<15){if(m!==null)NX.toast('Descreva o motivo com pelo menos 15 caracteres.');return;}
+      db.notas.forEach(function(x){if(x.id===id){x.status='cancelada';x.motivo=m.trim();}});
+      db.messages.push({id:NX.uid(),cliente:S.cid,de:'cliente',autor:me().resp||me().nome,texto:'Cancelei a NFS-e nº '+db.notas.filter(function(x){return x.id===id;})[0].num+'. Motivo: '+m.trim(),em:new Date().toISOString(),lida:false});
+      persist();notas();NX.toast('Nota cancelada (simulação).');}});
+}
+function num(v){v=String(v||'').trim();if(/,\d{1,2}$/.test(v))v=v.replace(/\./g,'').replace(',','.');else v=v.replace(/,/g,'');var n=parseFloat(v);return isNaN(n)?0:n;}
+function xe(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function notaXML(n){return '<?xml version="1.0" encoding="UTF-8"?>\n<!-- PROTÓTIPO NEXIO: documento simulado, sem validade fiscal -->\n<NFSe><infNFSe><nNFSe>'+n.num+'</nNFSe><chave>'+n.chave+'</chave><dhEmi>'+n.emissao+'</dhEmi><situacao>'+n.status+'</situacao>'+
+  '<prest><CNPJ>'+onlyDig(n.prest.doc)+'</CNPJ><xNome>'+xe(n.prest.nome)+'</xNome></prest><toma><doc>'+n.tom.doc+'</doc><xNome>'+xe(n.tom.nome)+'</xNome><email>'+xe(n.tom.email)+'</email><mun>'+xe(n.tom.mun)+'</mun></toma>'+
+  '<serv><item>'+xe(n.serv)+'</item><xDescServ>'+xe(n.desc)+'</xDescServ><dCompet>'+n.comp+'</dCompet></serv><valores><vServ>'+n.valor.toFixed(2)+'</vServ><ISSRetido>'+(n.ret?1:2)+'</ISSRetido><pAliq>'+n.aliq.toFixed(2)+'</pAliq><vISSRet>'+n.iss.toFixed(2)+'</vISSRet><vLiq>'+(n.valor-n.iss).toFixed(2)+'</vLiq></valores></infNFSe></NFSe>\n';}
+function printNota(n){var p=document.getElementById('printArea');
+  p.innerHTML='<div style="border:2px solid #2344AC;padding:18px;font:11pt Arial,sans-serif;color:#000">'+(n.status!=='autorizada'?'<p style="color:#B42318;font-weight:700;font-size:16pt;text-align:center">NOTA CANCELADA</p>':'')+
+  '<p style="text-align:center;color:#B42318;font-weight:700">DOCUMENTO DE SIMULAÇÃO — SEM VALOR FISCAL</p><h1 style="font-size:16pt;color:#2344AC;margin:0 0 6px">DANFSe — Nota Fiscal de Serviço Eletrônica</h1>'+
+  '<p>Número: <b>'+n.num+'</b> · Emissão: <b>'+NX.fdate(n.emissao)+'</b> · Competência: <b>'+NX.fdate(n.comp)+'</b><br>Chave: '+n.chave+'</p><hr>'+
+  '<p><b>PRESTADOR</b><br>'+e(n.prest.nome)+'<br>'+e(n.prest.doc)+'</p><p><b>TOMADOR</b><br>'+e(n.tom.nome)+'<br>'+e(fmtDoc(n.tom.doc))+(n.tom.mun?'<br>'+e(n.tom.mun):'')+(n.tom.email?'<br>'+e(n.tom.email):'')+'</p><hr>'+
+  '<p><b>SERVIÇO</b><br>'+e(n.serv)+'<br>'+e(n.desc)+'</p><hr><table style="width:100%;font-size:11pt"><tr><td>Valor do serviço</td><td style="text-align:right">'+NX.brl(n.valor)+'</td></tr><tr><td>ISS retido ('+n.aliq.toFixed(2)+'%)</td><td style="text-align:right">'+NX.brl(n.iss)+'</td></tr><tr><td><b>Valor líquido</b></td><td style="text-align:right"><b>'+NX.brl(n.valor-n.iss)+'</b></td></tr></table>'+
+  (n.motivo?'<p><b>Motivo do cancelamento:</b> '+e(n.motivo)+'</p>':'')+'</div>';
+  window.print();}
+
 function financeiro(){
   shell('financeiro',head('Controle financeiro','Lance entradas e saídas, importe o extrato do banco e exporte para a contabilidade.')+
   '<iframe src="/financeiro/" title="Controle financeiro" style="width:100%;height:calc(100vh - 150px);min-height:720px;border:0;border-radius:16px;background:transparent"></iframe>');
 }
 function render(){db=NX.load();if(!S.cid||!me()){login();return;}var r=route();
-  if(r==='arquivos')arquivos();else if(r==='calendario')calendario();else if(r==='mensagens')mensagens();else if(r==='financeiro')financeiro();else inicio();}
+  if(r==='arquivos')arquivos();else if(r==='calendario')calendario();else if(r==='mensagens')mensagens();else if(r==='financeiro')financeiro();else if(r==='notas')notas();else inicio();}
 window.addEventListener('hashchange',render);
-window.NX_onSync=function(){if(route()==='financeiro')return;if(document.activeElement.tagName!=='INPUT')render();};
+window.NX_onSync=function(){if(route()==='financeiro'||route()==='notas')return;if(document.activeElement.tagName!=='INPUT')render();};
 render();
 })();
 </script>

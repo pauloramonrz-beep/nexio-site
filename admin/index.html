@@ -58,6 +58,7 @@ function painel(){
   '<div class="kpis"><a class="kpi main" href="#/clientes"><span>Clientes ativos</span><strong>'+db.clients.length+'</strong></a>'+
   '<a class="kpi" href="#/mensagens"><span>Mensagens não lidas</span><strong>'+unread()+'</strong></a>'+
   '<a class="kpi" href="#/clientes"><span>Documentos novos de clientes</span><strong>'+newDocs()+'</strong></a>'+
+  '<div class="kpi"><span>Notas emitidas pelos clientes no mês</span><strong>'+(db.notas||[]).filter(function(n){return n.status==='autorizada'&&n.emissao.slice(0,7)===NX.ym();}).length+'</strong></div>'+
   '<div class="kpi"><span>Guias vencidas sem baixa</span><strong style="color:var(--bad)">'+venc.length+'</strong></div></div>'+
   '<div class="cols"><section class="card"><h2>Guias vencendo em 7 dias</h2>'+(prox.length?prox.map(function(f){var c=cli(f.cliente);return '<div class="list-item"><div><b>'+e(f.titulo)+'</b><small>'+e(c?c.nome:'')+' · vence '+NX.fdate(f.venc)+'</small></div><strong>'+NX.brl(f.valor)+'</strong></div>';}).join(''):'<p class="empty">Nenhuma guia vencendo nos próximos 7 dias.</p>')+'</section>'+
   '<section class="card"><h2>Pendências</h2>'+
