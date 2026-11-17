@@ -39,7 +39,7 @@ function login(){
 
 /* ---------- LAYOUT ---------- */
 function shell(active,html){
-  var nav=[['painel','Painel',0],['clientes','Clientes',newDocs()],['mensagens','Mensagens',unread()],['obrigacoes','Obrigações',0]];
+  var nav=[['painel','Painel',0],['clientes','Clientes',newDocs()],['mensagens','Mensagens',unread()],['agenda','Agenda da equipe',0],['obrigacoes','Obrigações',0]];
   root.innerHTML='<div class="app"><aside class="side"><a class="logo" href="#/painel"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a><div class="role">Painel da equipe</div>'+
   nav.map(function(n){return '<a class="nav" href="#/'+n[0]+'"'+(active===n[0]?' aria-current="page"':'')+'>'+n[1]+(n[2]?'<span class="cnt">'+n[2]+'</span>':'')+'</a>';}).join('')+
   '<div class="foot"><span>'+e(S.user.nome)+'</span><a href="/portal/" target="_blank" rel="noopener">Ver portal do cliente</a><a href="#" id="reset">Restaurar dados de exemplo</a><a href="#" id="logout">Sair</a></div></aside><main class="main">'+html+'</main></div>';
@@ -60,7 +60,7 @@ function painel(){
   '<a class="kpi" href="#/clientes"><span>Documentos novos de clientes</span><strong>'+newDocs()+'</strong></a>'+
   '<div class="kpi"><span>Notas emitidas pelos clientes no mês</span><strong>'+(db.notas||[]).filter(function(n){return n.status==='autorizada'&&n.emissao.slice(0,7)===NX.ym();}).length+'</strong></div>'+
   '<div class="kpi"><span>Guias vencidas sem baixa</span><strong style="color:var(--bad)">'+venc.length+'</strong></div></div>'+
-  '<div class="cols"><section class="card"><h2>Guias vencendo em 7 dias</h2>'+(prox.length?prox.map(function(f){var c=cli(f.cliente);return '<div class="list-item"><div><b>'+e(f.titulo)+'</b><small>'+e(c?c.nome:'')+' · vence '+NX.fdate(f.venc)+'</small></div><strong>'+NX.brl(f.valor)+'</strong></div>';}).join(''):'<p class="empty">Nenhuma guia vencendo nos próximos 7 dias.</p>')+'</section>'+
+  (function(){ensureAgenda();var hj=db.meetings.filter(function(m){return m.data===NX.today();}).sort(function(x,y){return x.ini<y.ini?-1:1;});return '<section class="card" style="margin-bottom:18px"><div class="row between" style="margin-bottom:6px"><h2 style="margin:0">Reuniões de hoje</h2><a class="btn b-text" href="#/agenda">Abrir agenda</a></div>'+(hj.length?hj.map(function(m){return '<div class="list-item"><div><b>'+m.ini+'–'+m.fim+' · '+e(m.titulo)+'</b><small>'+m.part.map(function(id){var s=staffBy(id);return s?e(s.nome):'';}).join(', ')+(m.cliente&&cli(m.cliente)?' · Cliente: '+e(cli(m.cliente).nome):'')+'</small></div><span class="tag info">'+e(m.local||'')+'</span></div>';}).join(''):'<p class="empty">Nenhuma reunião hoje.</p>')+'</section>';})()+'<div class="cols"><section class="card"><h2>Guias vencendo em 7 dias</h2>'+(prox.length?prox.map(function(f){var c=cli(f.cliente);return '<div class="list-item"><div><b>'+e(f.titulo)+'</b><small>'+e(c?c.nome:'')+' · vence '+NX.fdate(f.venc)+'</small></div><strong>'+NX.brl(f.valor)+'</strong></div>';}).join(''):'<p class="empty">Nenhuma guia vencendo nos próximos 7 dias.</p>')+'</section>'+
   '<section class="card"><h2>Pendências</h2>'+
   (venc.map(function(f){var c=cli(f.cliente);return '<div class="list-item"><div><b>'+e(c?c.nome:'')+'</b><small>'+e(f.titulo)+' venceu em '+NX.fdate(f.venc)+' e não foi marcada como paga</small></div><a class="btn b-text" href="#/clientes/'+f.cliente+'">Abrir</a></div>';}).join('')||'')+
   db.clients.filter(function(c){return unread(c.id)||newDocs(c.id);}).map(function(c){return '<div class="list-item"><div><b>'+e(c.nome)+'</b><small>'+(unread(c.id)?unread(c.id)+' mensagem(ns) nova(s) ':'')+(newDocs(c.id)?newDocs(c.id)+' documento(s) enviado(s)':'')+'</small></div><a class="btn b-text" href="#/clientes/'+c.id+'">Abrir</a></div>';}).join('')+
@@ -147,6 +147,93 @@ function obrigacoes(){
   root.querySelector('.main').addEventListener('click',function(ev2){var id=ev2.target.getAttribute('data-ro');if(id){db.obligations=db.obligations.filter(function(o){return o.id!==id;});persist();obrigacoes();}});
 }
 
+/* ---------- AGENDA DA EQUIPE ---------- */
+var COLORS=['#0740EF','#0F7A4D','#8A3FFC','#B45309','#BE185D','#0E7490'];
+function ensureAgenda(){
+  db.meetings=db.meetings||[];
+  if(!db.agendaSeeded){db.agendaSeeded=true;
+    db.staff.forEach(function(s,i){s.cargo=s.cargo||(i===0?'Diretor':'Analista fiscal');s.diretor=s.diretor!=null?s.diretor:i===0;s.cor=s.cor||COLORS[i%COLORS.length];s.gcal=s.gcal||'';});
+    if(!db.staff.some(function(s){return s.id==='eq3';}))db.staff.push({id:'eq3',nome:'Diretoria Comercial',email:'comercial@nexioic.com.br',cargo:'Diretor',diretor:true,cor:COLORS[2],gcal:''});
+    var t=NX.today(),c=db.clients[0];
+    db.meetings.push({id:NX.uid(),titulo:'Reunião de alinhamento semanal',data:t,ini:'09:00',fim:'10:00',part:db.staff.map(function(s){return s.id;}),cliente:'',local:'Google Meet',obs:''});
+    db.meetings.push({id:NX.uid(),titulo:'Apresentação de proposta',data:t,ini:'14:00',fim:'15:00',part:['eq1','eq3'],cliente:c?c.id:'',local:'Online',obs:''});
+    db.meetings.push({id:NX.uid(),titulo:'Fechamento fiscal',data:t,ini:'10:30',fim:'12:00',part:['eq2'],cliente:'',local:'Escritório',obs:''});
+    persist();}
+}
+function staffBy(id){return db.staff.filter(function(s){return s.id===id;})[0];}
+function mins(h){var p=h.split(':');return +p[0]*60+ +p[1];}
+function hhmm(m){return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');}
+function meetingsOf(sid,date){return db.meetings.filter(function(m){return m.data===date&&m.part.indexOf(sid)>-1;});}
+function conflicts(m,ignoreId){var out=[];m.part.forEach(function(sid){meetingsOf(sid,m.data).forEach(function(x){if(x.id!==ignoreId&&mins(x.ini)<mins(m.fim)&&mins(m.ini)<mins(x.fim))out.push(staffBy(sid).nome+' já tem "'+x.titulo+'" ('+x.ini+'–'+x.fim+')');});});return out;}
+function freeSlots(ids,date,dur){var out=[],from=8*60,to=18*60;if(date===NX.today()){var n=new Date();from=Math.max(from,Math.ceil((n.getHours()*60+n.getMinutes())/30)*30);}
+  for(var s=from;s+dur<=to;s+=30){var ok=ids.every(function(id){return meetingsOf(id,date).every(function(x){return !(mins(x.ini)<s+dur&&s<mins(x.fim));});});if(ok)out.push(hhmm(s));}return out;}
+S.ag=S.ag||{date:NX.today(),soDir:false,tab:'dia',sel:null,dur:60};
+function agenda(){
+  ensureAgenda();var A=S.ag,team=db.staff.filter(function(s){return !A.soDir||s.diretor;});
+  if(!A.sel)A.sel=db.staff.filter(function(s){return s.diretor;}).map(function(s){return s.id;});
+  var tabs=[['dia','Agenda do dia'],['livres','Horários livres'],['google','Google Agenda'],['equipe','Equipe']];
+  var dlabel=new Date(A.date+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
+  var h=head('Agenda da equipe','Veja quem está ocupado em cada dia e marque reuniões sem conflito de horário.','<button class="btn b-blue" id="newm">+ Marcar reunião</button>')+
+  '<section class="card"><div class="tabs" role="tablist">'+tabs.map(function(t){return '<button role="tab" data-at="'+t[0]+'" aria-selected="'+(A.tab===t[0])+'">'+t[1]+'</button>';}).join('')+'</div><div id="agc"></div></section>';
+  shell('agenda',h);
+  document.getElementById('newm').onclick=function(){meetingDialog({data:A.date,ini:'09:00',fim:'10:00',part:A.sel.slice()});};
+  root.querySelectorAll('[data-at]').forEach(function(b){b.onclick=function(){A.tab=b.getAttribute('data-at');agenda();};});
+  var el=document.getElementById('agc');
+  var dayNav='<div class="row between" style="margin-bottom:14px;align-items:center"><div class="cal-nav" style="margin:0"><button class="btn b-line" id="dp" aria-label="Dia anterior">‹</button><strong style="min-width:240px">'+dlabel+'</strong><button class="btn b-line" id="dn" aria-label="Próximo dia">›</button><button class="btn b-text" id="dt">Hoje</button><label class="sr" for="dd">Data</label><input type="date" id="dd" value="'+A.date+'" style="width:auto"></div>';
+  if(A.tab==='dia'){
+    var START=7*60,END=20*60,PX=1.1;
+    el.innerHTML=dayNav+'<label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="sod" '+(A.soDir?'checked':'')+' style="width:auto;min-height:auto"> Mostrar só diretores</label></div>'+
+    '<div style="overflow-x:auto"><div style="display:grid;grid-template-columns:56px repeat('+team.length+',minmax(170px,1fr));min-width:'+(56+team.length*170)+'px">'+
+    '<div></div>'+team.map(function(s){return '<div style="padding:8px 10px;border-bottom:2px solid '+s.cor+';font-weight:600">'+e(s.nome)+'<small style="display:block;color:var(--muted);font-weight:400">'+e(s.cargo||'')+(s.diretor?' · <b style="color:var(--blue)">Diretoria</b>':'')+'</small></div>';}).join('')+
+    '<div style="position:relative;height:'+(END-START)*PX+'px">'+(function(){var r='';for(var m=START;m<END;m+=60)r+='<div style="position:absolute;top:'+(m-START)*PX+'px;font-size:11px;color:var(--muted);transform:translateY(-6px)">'+hhmm(m)+'</div>';return r;})()+'</div>'+
+    team.map(function(s){var col='<div class="agcol" data-sid="'+s.id+'" style="position:relative;height:'+(END-START)*PX+'px;border-left:1px solid var(--line);background:repeating-linear-gradient(to bottom,transparent 0,transparent '+(60*PX-1)+'px,var(--line) '+(60*PX-1)+'px,var(--line) '+60*PX+'px);cursor:copy">';
+      meetingsOf(s.id,A.date).forEach(function(m){var top=(Math.max(mins(m.ini),START)-START)*PX,hgt=Math.max((mins(m.fim)-mins(m.ini))*PX-3,20),cl=m.cliente?cli(m.cliente):null;
+        col+='<button class="mt" data-mid="'+m.id+'" style="position:absolute;left:4px;right:4px;top:'+top+'px;height:'+hgt+'px;background:'+s.cor+';color:#fff;border:0;border-radius:8px;padding:4px 7px;text-align:left;font:500 12px/1.3 Inter,sans-serif;overflow:hidden;cursor:pointer"><b>'+m.ini+'–'+m.fim+'</b> '+e(m.titulo)+(cl?'<br><span style="opacity:.85">'+e(cl.nome)+'</span>':'')+'</button>';});
+      return col+'</div>';}).join('')+'</div></div><p class="help" style="margin-top:10px">Clique num horário vazio para marcar uma reunião ou num compromisso para editar.</p>';
+    document.getElementById('sod').onchange=function(ev){A.soDir=ev.target.checked;agenda();};
+    el.querySelectorAll('.agcol').forEach(function(c){c.onclick=function(ev){if(ev.target.closest('.mt'))return;var r=c.getBoundingClientRect(),m=START+Math.floor((ev.clientY-r.top)/PX/30)*30;meetingDialog({data:A.date,ini:hhmm(m),fim:hhmm(Math.min(m+60,END)),part:[c.getAttribute('data-sid')]});};});
+    el.querySelectorAll('.mt').forEach(function(b){b.onclick=function(){meetingDialog(db.meetings.filter(function(m){return m.id===b.getAttribute('data-mid');})[0]);};});
+  } else if(A.tab==='livres'){
+    var sl=freeSlots(A.sel,A.date,A.dur);
+    el.innerHTML=dayNav+'</div><p style="margin:0 0 10px;font-weight:600">Quem precisa participar?</p><div class="row" style="margin-bottom:14px">'+db.staff.map(function(s){return '<label style="flex-direction:row;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-weight:500;color:var(--ink)"><input type="checkbox" data-ps="'+s.id+'" '+(A.sel.indexOf(s.id)>-1?'checked':'')+' style="width:auto;min-height:auto"><span style="width:10px;height:10px;border-radius:50%;background:'+s.cor+'"></span>'+e(s.nome)+(s.diretor?' <small style="color:var(--blue)">(Diretoria)</small>':'')+'</label>';}).join('')+'</div>'+
+    '<label style="max-width:220px;margin-bottom:16px">Duração<select id="dur">'+[30,60,90,120].map(function(d){return '<option value="'+d+'"'+(A.dur===d?' selected':'')+'>'+(d<60?d+' min':d/60+'h'+(d%60?'30':''))+'</option>';}).join('')+'</select></label>'+
+    (A.sel.length?(sl.length?'<p class="help" style="margin-bottom:10px">Horários livres para todos os selecionados (das 8h às 18h):</p><div class="row">'+sl.map(function(t){return '<button class="btn b-line" data-slot="'+t+'">'+t+'</button>';}).join('')+'</div>':'<p class="empty">Ninguém está livre ao mesmo tempo nesse dia. Tente outro dia.</p>'):'<p class="empty">Selecione pelo menos uma pessoa.</p>');
+    el.querySelectorAll('[data-ps]').forEach(function(c){c.onchange=function(){var id=c.getAttribute('data-ps');A.sel=c.checked?A.sel.concat(id):A.sel.filter(function(x){return x!==id;});agenda();};});
+    document.getElementById('dur').onchange=function(ev){A.dur=+ev.target.value;agenda();};
+    el.querySelectorAll('[data-slot]').forEach(function(b){b.onclick=function(){var t=b.getAttribute('data-slot');meetingDialog({data:A.date,ini:t,fim:hhmm(mins(t)+A.dur),part:A.sel.slice()});};});
+  } else if(A.tab==='google'){
+    var withG=db.staff.filter(function(s){return s.gcal;});
+    el.innerHTML=withG.length?'<p class="help" style="margin-bottom:12px">Agendas do Google de: '+withG.map(function(s){return e(s.nome);}).join(', ')+'. Para ver, você precisa estar logado numa conta Google com acesso a essas agendas.</p><iframe title="Google Agenda da equipe" style="width:100%;height:680px;border:1px solid var(--line);border-radius:12px" src="https://calendar.google.com/calendar/embed?ctz=America%2FManaus&mode=WEEK&showTitle=0&'+withG.map(function(s){return 'src='+encodeURIComponent(s.gcal)+'&color='+encodeURIComponent(s.cor);}).join('&')+'"></iframe>':
+    '<div class="empty"><p>Nenhuma agenda do Google ligada ainda.</p><p class="help">Na aba <b>Equipe</b>, preencha o campo "Google Agenda" de cada pessoa com o e-mail da agenda (ex.: paulo@gmail.com). A pessoa precisa compartilhar a agenda com quem vai visualizar.</p></div>';
+  } else {
+    el.innerHTML='<div class="row" style="margin-bottom:12px"><button class="btn b-blue" id="adds">+ Adicionar pessoa</button></div>'+db.staff.map(function(s){return '<div class="list-item"><div style="display:flex;gap:12px;align-items:center"><span style="width:14px;height:14px;border-radius:50%;background:'+s.cor+'"></span><div><b>'+e(s.nome)+'</b>'+(s.diretor?' <span class="tag info">Diretoria</span>':'')+'<small>'+e(s.cargo||'')+' · '+e(s.email)+(s.gcal?' · Google Agenda ligada':'')+'</small></div></div><button class="btn b-text" data-es="'+s.id+'">Editar</button></div>';}).join('');
+    document.getElementById('adds').onclick=function(){staffDialog({id:'',nome:'',email:'',cargo:'',diretor:false,cor:COLORS[db.staff.length%COLORS.length],gcal:''});};
+    el.querySelectorAll('[data-es]').forEach(function(b){b.onclick=function(){staffDialog(staffBy(b.getAttribute('data-es')));};});
+  }
+  var g=function(id){return document.getElementById(id);};
+  if(g('dp')){g('dp').onclick=function(){var d=new Date(A.date+'T12:00:00');d.setDate(d.getDate()-1);A.date=d.toISOString().slice(0,10);agenda();};
+    g('dn').onclick=function(){var d=new Date(A.date+'T12:00:00');d.setDate(d.getDate()+1);A.date=d.toISOString().slice(0,10);agenda();};
+    g('dt').onclick=function(){A.date=NX.today();agenda();};g('dd').onchange=function(ev){if(ev.target.value){A.date=ev.target.value;agenda();}};}
+}
+function meetingDialog(m){var isNew=!m.id;
+  openDlg('<h2>'+(isNew?'Marcar reunião':'Editar reunião')+'</h2><div class="grid"><label style="grid-column:1/-1">Assunto<input name="titulo" required value="'+e(m.titulo||'')+'"></label>'+
+  '<label>Data<input name="data" type="date" required value="'+m.data+'"></label><label>Início<input name="ini" type="time" required value="'+m.ini+'" step="900"></label><label>Fim<input name="fim" type="time" required value="'+m.fim+'" step="900"></label></div>'+
+  '<fieldset style="border:1px solid var(--line);border-radius:12px;padding:12px"><legend style="font-size:13px;font-weight:600;color:var(--muted);padding:0 6px">Participantes da equipe</legend><div class="row">'+db.staff.map(function(s){return '<label style="flex-direction:row;align-items:center;gap:6px;font-weight:500;color:var(--ink)"><input type="checkbox" name="p_'+s.id+'" '+(m.part.indexOf(s.id)>-1?'checked':'')+' style="width:auto;min-height:auto">'+e(s.nome)+'</label>';}).join('')+'</div></fieldset>'+
+  '<div class="grid"><label>Cliente (opcional)<select name="cliente"><option value="">— reunião interna —</option>'+db.clients.map(function(c){return '<option value="'+c.id+'"'+(m.cliente===c.id?' selected':'')+'>'+e(c.nome)+'</option>';}).join('')+'</select></label><label>Local ou link<input name="local" value="'+e(m.local||'')+'" placeholder="Ex.: Google Meet"></label><label style="grid-column:1/-1">Observações<input name="obs" value="'+e(m.obs||'')+'"></label></div>'+
+  '<label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" name="avisar" '+(isNew?'checked':'')+' style="width:auto;min-height:auto"> Avisar o cliente pelo portal</label><p class="help" id="cfw" style="color:var(--bad)"></p>'+
+  (isNew?'':'<button type="button" class="btn b-danger" id="delm" style="align-self:flex-start">Excluir reunião</button>'),
+  function(fd){var n={id:m.id||NX.uid(),titulo:fd.get('titulo'),data:fd.get('data'),ini:fd.get('ini'),fim:fd.get('fim'),part:db.staff.filter(function(s){return fd.get('p_'+s.id);}).map(function(s){return s.id;}),cliente:fd.get('cliente'),local:fd.get('local'),obs:fd.get('obs')};
+    if(mins(n.fim)<=mins(n.ini)){document.getElementById('cfw').textContent='O horário de fim precisa ser depois do início.';return false;}
+    if(!n.part.length){document.getElementById('cfw').textContent='Selecione pelo menos um participante.';return false;}
+    var cf=conflicts(n,m.id);if(cf.length&&!m._ok){document.getElementById('cfw').innerHTML='Conflito de horário:<br>'+cf.map(e).join('<br>')+'<br><b>Clique em Salvar de novo para marcar mesmo assim.</b>';m._ok=true;return false;}
+    db.meetings=db.meetings.filter(function(x){return x.id!==n.id;});db.meetings.push(n);
+    if(fd.get('avisar')&&n.cliente)db.messages.push({id:NX.uid(),cliente:n.cliente,de:'equipe',autor:S.user.nome,texto:'Reunião '+(isNew?'agendada':'atualizada')+': '+n.titulo+' em '+NX.fdate(n.data)+', das '+n.ini+' às '+n.fim+(n.local?' ('+n.local+')':'')+'.',em:new Date().toISOString(),lida:false});
+    persist();S.ag.date=n.data;agenda();NX.toast(isNew?'Reunião marcada.':'Reunião atualizada.');});
+  var d=document.getElementById('delm');if(d)d.onclick=function(){if(confirm('Excluir esta reunião?')){db.meetings=db.meetings.filter(function(x){return x.id!==m.id;});persist();dlg.close();agenda();}};
+}
+function staffDialog(s){openDlg('<h2>'+(s.id?'Editar pessoa':'Adicionar pessoa')+'</h2><div class="grid"><label>Nome<input name="nome" required value="'+e(s.nome)+'"></label><label>Cargo<input name="cargo" value="'+e(s.cargo||'')+'"></label><label>E-mail<input name="email" type="email" required value="'+e(s.email)+'"></label><label>Cor na agenda<input name="cor" type="color" value="'+s.cor+'"></label><label style="grid-column:1/-1">Google Agenda (e-mail ou ID da agenda)<input name="gcal" value="'+e(s.gcal||'')+'" placeholder="ex.: nome@gmail.com"></label></div><label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" name="diretor" '+(s.diretor?'checked':'')+' style="width:auto;min-height:auto"> Faz parte da diretoria</label>',
+  function(fd){var o=s.id?s:{id:NX.uid()};['nome','cargo','email','cor','gcal'].forEach(function(k){o[k]=fd.get(k);});o.diretor=!!fd.get('diretor');if(!s.id)db.staff.push(o);persist();agenda();NX.toast('Equipe atualizada.');});}
+
 /* ---------- DIÁLOGOS ---------- */
 var dlg=document.getElementById('dlg'),df=document.getElementById('dlgForm');
 function openDlg(html,onsave){df.innerHTML=html+'<div class="row between"><button type="button" class="btn b-line" id="dc">Cancelar</button><button class="btn b-blue" type="submit">Salvar</button></div>';
@@ -173,7 +260,7 @@ function oblDialog(cid){openDlg('<h2>Nova obrigação'+(cid==='*'?' geral':'')+'
 
 /* ---------- ROTEADOR ---------- */
 function render(){db=NX.load();if(!S.user){login();return;}var r=route();
-  if(r[0]==='clientes')clientes(r[1]);else if(r[0]==='mensagens')mensagens();else if(r[0]==='obrigacoes')obrigacoes();else painel();}
+  if(r[0]==='clientes')clientes(r[1]);else if(r[0]==='mensagens')mensagens();else if(r[0]==='obrigacoes')obrigacoes();else if(r[0]==='agenda')agenda();else painel();}
 window.addEventListener('hashchange',render);
 window.NX_onSync=function(){if(!dlg.open&&document.activeElement.tagName!=='INPUT')render();};
 render();
