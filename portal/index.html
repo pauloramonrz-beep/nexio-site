@@ -56,7 +56,9 @@ function guiaRow(f){var s=NX.statusOf(f);return '<div class="list-item"><div><b>
 
 function eventosMes(m){var ev=NX.obligationsFor(db,S.cid,m).map(function(o){return {data:o.data,titulo:o.titulo};});
   myFiles().filter(visivel).forEach(function(f){if(f.venc&&f.venc.slice(0,7)===m){var s=NX.statusOf(f);ev.push({data:f.venc,titulo:(f.tipo==='Guia'?'Guia: ':'Vence: ')+f.titulo,cls:s.c==='ok'?'ok':s.c==='bad'?'bad':''});}});
-  return ev;}
+  var norm=function(s){return s.toLowerCase().replace(/^(guia|vence): /,'').replace(/[^a-z0-9]/g,'');};
+  var guias=ev.filter(function(x){return /^(Guia|Vence): /.test(x.titulo);});
+  return ev.filter(function(x){if(/^(Guia|Vence): /.test(x.titulo))return true;var k=norm(x.titulo);return !guias.some(function(g){return g.data===x.data&&(norm(g.titulo).indexOf(k)>-1||k.indexOf(norm(g.titulo))>-1);});});}
 function inicio(){
   var c=me(),t=NX.today(),fs=myFiles();
   var pagar=fs.filter(function(f){return visivel(f)&&f.tipo==='Guia'&&f.status!=='pago';}).sort(function(a,b){return a.venc<b.venc?-1:1;});
