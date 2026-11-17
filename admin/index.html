@@ -114,7 +114,7 @@ function tabArquivos(c,el,rr){RR=rr||function(){clientes(c.id);};
   var F=S.fold,D=S.dv,all=liveFiles(c.id);
   all.forEach(function(f){if(f.de==='cliente'&&!f.visto){f.visto=true;hist(f,'Recebido pela equipe');}});persist();
   // árvore
-  var tree='<nav aria-label="Pastas do cliente" style="flex:0 0 250px;min-width:0;border-right:1px solid var(--line);padding-right:12px;font-size:14px"><button class="btn b-text" data-tr="root" style="font-weight:700;color:var(--ink);padding:0 4px">'+e(c.nome)+'</button><ul style="list-style:none;margin:6px 0 0;padding:0">'+
+  var tree='<nav aria-label="Pastas do cliente" style="flex:0 0 230px;min-width:0;border-right:1px solid var(--line);padding-right:12px;font-size:14px"><button class="btn b-text" data-tr="root" style="font-weight:700;color:var(--ink);padding:0 4px">'+e(c.nome)+'</button><ul style="list-style:none;margin:6px 0 0;padding:0">'+
     SETORES.map(function(s){var l=all.filter(function(f){return setorOf(f)===s;}),open=F.setor===s,anos={};l.forEach(function(f){anos[compOf(f).slice(0,4)]=1;});
       return '<li><button class="btn b-text" data-tr="s|'+e(s)+'" style="width:100%;justify-content:flex-start;gap:6px;color:'+(open?'var(--blue)':'var(--ink)')+';font-weight:'+(open?700:500)+';padding:0 4px">'+(open?'−':'+')+' '+ICO_F+' '+e(s)+' '+(RESTRITOS.indexOf(s)>-1?ICO_L:ICO_S)+'<span style="margin-left:auto;color:var(--muted);font-size:12px">'+l.length+'</span></button>'+
       (open?'<ul style="list-style:none;margin:0;padding-left:22px">'+Object.keys(anos).sort().reverse().map(function(a){var ao=F.ano===a;return '<li><button class="btn b-text" data-tr="a|'+a+'" style="width:100%;justify-content:flex-start;color:'+(ao?'var(--blue)':'var(--ink)')+';font-weight:'+(ao?700:500)+';padding:0 4px;min-height:32px">'+(ao?'−':'+')+' '+a+'</button>'+
@@ -125,7 +125,7 @@ function tabArquivos(c,el,rr){RR=rr||function(){clientes(c.id);};
   if(D.vis!=='todos')l=l.filter(function(f){return f.de==='equipe'&&(D.vis==='nao'?!f.visto:f.visto);});
   l.sort(function(a,b){return (compOf(b)+b.criado)<(compOf(a)+a.criado)?-1:1;});
   var trail=[e(c.nome)];if(F.setor)trail.push(e(F.setor));if(F.ano)trail.push(F.ano);if(F.comp)trail.push(MESES[+F.comp.slice(5)-1]);
-  var list='<div style="flex:999 1 480px;min-width:0"><div class="row between" style="margin-bottom:12px;align-items:center"><div class="row" style="align-items:center">'+
+  var list='<div style="flex:999 1 360px;min-width:0"><div class="row between" style="margin-bottom:12px;align-items:center"><div class="row" style="align-items:center">'+
     '<div class="seg" role="group" aria-label="Filtro de visualização" style="display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden">'+[['todos','Todos'],['nao','Não visualizados'],['sim','Visualizados']].map(function(o){return '<button data-vis="'+o[0]+'" aria-pressed="'+(D.vis===o[0])+'" style="border:0;padding:0 12px;min-height:38px;font:600 13px Inter,sans-serif;cursor:pointer;background:'+(D.vis===o[0]?'var(--blue)':'#fff')+';color:'+(D.vis===o[0]?'#fff':'var(--muted)')+'">'+o[1]+'</button>';}).join('')+'</div>'+
     '<label class="sr" for="dq">Pesquisar documentos</label><input id="dq" placeholder="Pesquisar…" value="'+e(D.q)+'" style="width:200px;min-height:38px"></div>'+
     '<div class="row"><button class="btn b-line" id="upm">Upload em massa</button><button class="btn b-blue" id="up">Novo documento</button></div></div>'+
