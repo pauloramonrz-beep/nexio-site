@@ -40,7 +40,7 @@ function login(){
 
 /* ---------- LAYOUT ---------- */
 function shell(active,html){
-  var nav=[['painel','Painel',0],['clientes','Clientes',newDocs()],['documentos','Documentos',0],['mensagens','Mensagens',unread()],['comunicacoes','Comunicações',0],['agenda','Agenda da equipe',0],['obrigacoes','Obrigações',0]];
+  var nav=[['painel','Painel',0],['clientes','Clientes',newDocs()],['processos','Processos',0],['documentos','Documentos',0],['mensagens','Mensagens',unread()],['comunicacoes','Comunicações',0],['agenda','Agenda da equipe',0],['obrigacoes','Obrigações',0]];
   root.innerHTML='<div class="app"><aside class="side"><a class="logo" href="#/painel"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a><div class="role">Painel da equipe</div>'+NX.sideToggleHTML()+
   nav.map(function(n){return '<a class="nav" href="#/'+n[0]+'"'+(active===n[0]?' aria-current="page"':'')+'>'+n[1]+(n[2]?'<span class="cnt">'+n[2]+'</span>':'')+'</a>';}).join('')+
   '<div class="foot"><span>'+e(S.user.nome)+'</span><a href="/portal/" target="_blank" rel="noopener">Ver portal do cliente</a><a href="#" id="reset">Restaurar dados de exemplo</a><a href="#" id="logout">Sair</a></div></aside><main class="main">'+html+'</main></div>';
@@ -62,7 +62,7 @@ function painel(){
   '<a class="kpi" href="#/clientes"><span>Documentos novos de clientes</span><strong>'+newDocs()+'</strong></a>'+
   '<div class="kpi"><span>Notas emitidas pelos clientes no mês</span><strong>'+(db.notas||[]).filter(function(n){return n.status==='autorizada'&&n.emissao.slice(0,7)===NX.ym();}).length+'</strong></div>'+
   '<div class="kpi"><span>Guias vencidas sem baixa</span><strong style="color:var(--bad)">'+venc.length+'</strong></div></div>'+
-  (function(){ensureAgenda();var hj=db.meetings.filter(function(m){return m.data===NX.today();}).sort(function(x,y){return x.ini<y.ini?-1:1;});return '<section class="card" style="margin-bottom:18px"><div class="row between" style="margin-bottom:6px"><h2 style="margin:0">Reuniões de hoje</h2><a class="btn b-text" href="#/agenda">Abrir agenda</a></div>'+(hj.length?hj.map(function(m){return '<div class="list-item"><div><b>'+m.ini+'–'+m.fim+' · '+e(m.titulo)+'</b><small>'+m.part.map(function(id){var s=staffBy(id);return s?e(s.nome):'';}).join(', ')+(m.cliente&&cli(m.cliente)?' · Cliente: '+e(cli(m.cliente).nome):'')+'</small></div><span class="tag info">'+e(m.local||'')+'</span></div>';}).join(''):'<p class="empty">Nenhuma reunião hoje.</p>')+'</section>';})()+'<div class="cols"><section class="card"><h2>Guias vencendo em 7 dias</h2>'+(prox.length?prox.map(function(f){var c=cli(f.cliente);return '<div class="list-item"><div><b>'+e(f.titulo)+'</b><small>'+e(c?c.nome:'')+' · vence '+NX.fdate(f.venc)+'</small></div><strong>'+NX.brl(f.valor)+'</strong></div>';}).join(''):'<p class="empty">Nenhuma guia vencendo nos próximos 7 dias.</p>')+'</section>'+
+  (function(){ensureProc();var t0=NX.today(),mine=db.tasks.filter(function(t){return t.resp===S.user.id&&t.status!=='ok'&&((t.tipo==='pessoal'?t.data:(t.meta||t.venc))||'9')<=t0;});return '<section class="card" style="margin-bottom:18px"><div class="row between" style="margin-bottom:6px"><h2 style="margin:0">Minhas tarefas para hoje e atrasadas</h2><a class="btn b-text" href="#/processos" data-ag>Abrir processos</a></div>'+(mine.length?mine.slice(0,6).map(function(t){var c=cli(t.cliente);return '<div class="list-item"><div><b>'+e(t.titulo)+'</b><small>'+(t.tipo==='cliente'?e(c?c.nome:'')+' · vence '+NX.fdate(t.venc):'Tarefa pessoal · '+NX.fdate(t.data))+'</small></div><span class="pill '+stInfo(t.status)[2]+'" style="cursor:default">'+stInfo(t.status)[1]+'</span></div>';}).join(''):'<p class="empty">Nada pendente para hoje.</p>')+'</section>';})()+(function(){ensureAgenda();var hj=db.meetings.filter(function(m){return m.data===NX.today();}).sort(function(x,y){return x.ini<y.ini?-1:1;});return '<section class="card" style="margin-bottom:18px"><div class="row between" style="margin-bottom:6px"><h2 style="margin:0">Reuniões de hoje</h2><a class="btn b-text" href="#/agenda">Abrir agenda</a></div>'+(hj.length?hj.map(function(m){return '<div class="list-item"><div><b>'+m.ini+'–'+m.fim+' · '+e(m.titulo)+'</b><small>'+m.part.map(function(id){var s=staffBy(id);return s?e(s.nome):'';}).join(', ')+(m.cliente&&cli(m.cliente)?' · Cliente: '+e(cli(m.cliente).nome):'')+'</small></div><span class="tag info">'+e(m.local||'')+'</span></div>';}).join(''):'<p class="empty">Nenhuma reunião hoje.</p>')+'</section>';})()+'<div class="cols"><section class="card"><h2>Guias vencendo em 7 dias</h2>'+(prox.length?prox.map(function(f){var c=cli(f.cliente);return '<div class="list-item"><div><b>'+e(f.titulo)+'</b><small>'+e(c?c.nome:'')+' · vence '+NX.fdate(f.venc)+'</small></div><strong>'+NX.brl(f.valor)+'</strong></div>';}).join(''):'<p class="empty">Nenhuma guia vencendo nos próximos 7 dias.</p>')+'</section>'+
   '<section class="card"><h2>Pendências</h2>'+
   (venc.map(function(f){var c=cli(f.cliente);return '<div class="list-item"><div><b>'+e(c?c.nome:'')+'</b><small>'+e(f.titulo)+' venceu em '+NX.fdate(f.venc)+' e não foi marcada como paga</small></div><a class="btn b-text" href="#/clientes/'+f.cliente+'">Abrir</a></div>';}).join('')||'')+
   db.clients.filter(function(c){return unread(c.id)||newDocs(c.id);}).map(function(c){return '<div class="list-item"><div><b>'+e(c.nome)+'</b><small>'+(unread(c.id)?unread(c.id)+' mensagem(ns) nova(s) ':'')+(newDocs(c.id)?newDocs(c.id)+' documento(s) enviado(s)':'')+'</small></div><a class="btn b-text" href="#/clientes/'+c.id+'">Abrir</a></div>';}).join('')+
@@ -143,7 +143,7 @@ function tabArquivos(c,el,rr){RR=rr||function(){clientes(c.id);};
     onUpload:function(L){var pl=NX.placeFor(db,L,'Fiscal');fileDialog(c,{setor:pl.setor==='__custom'?null:pl.setor,comp:pl.comp,folder:pl.folder});},
     onMass:function(){massDialog(c);},
     onDropFiles:function(files,L,re){var pl=NX.placeFor(db,L,'Contábil'),n=0;files.forEach(function(file){NX.readFile(file,function(r){var g=guessFromName(r.nome);
-      var f={id:NX.uid(),cliente:c.id,setor:pl.setor,folder:pl.folder,tipo:g.tipo,titulo:g.titulo,comp:L.comp?pl.comp:g.comp,venc:'',valor:0,status:g.tipo==='Guia'?'pendente':'disponivel',de:'equipe',por:S.user.nome,nome:r.nome,data:r.data,size:r.size,criado:NX.today(),visto:false};hist(f,'Enviado pela equipe');db.files.push(f);
+      var f={id:NX.uid(),cliente:c.id,setor:pl.setor,folder:pl.folder,tipo:g.tipo,titulo:g.titulo,comp:L.comp?pl.comp:g.comp,venc:'',valor:0,status:g.tipo==='Guia'?'pendente':'disponivel',de:'equipe',por:S.user.nome,nome:r.nome,data:r.data,size:r.size,criado:NX.today(),visto:false};hist(f,'Enviado pela equipe');db.files.push(f);onDocAdded(f);
       if(++n===files.length&&persist()!==false){re();NX.toast(n+' documento(s) enviado(s).');}});});}});}
   RR=function(){draw();};draw();
 }
@@ -153,7 +153,7 @@ function commentDialog(f,after){
 function massDialog(c){var picked=[];
   openDlg('<h2>Upload em massa — '+e(c.nome)+'</h2><p class="help">Escolha vários arquivos. O sistema identifica a competência pelo nome (ex.: “Guia DAS 10-2026.pdf”) e sugere o setor. Revise antes de salvar.</p><label class="btn b-line" style="display:inline-flex;flex-direction:row;color:var(--blue);align-self:flex-start">Escolher arquivos<input type="file" id="mf" multiple style="display:none"></label><div id="ml"></div><label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" name="avisar" checked style="width:auto;min-height:auto"> Avisar o cliente por mensagem</label>',
   function(fd){if(!picked.length){NX.toast('Escolha os arquivos.');return false;}
-    picked.forEach(function(p,i){var f={id:NX.uid(),cliente:c.id,setor:fd.get('s'+i),tipo:p.g.tipo,titulo:fd.get('t'+i),comp:fd.get('c'+i),venc:'',valor:0,status:p.g.tipo==='Guia'?'pendente':'disponivel',de:'equipe',nome:p.nome,data:p.data,size:p.size,criado:NX.today(),visto:false};f.por=S.user.nome;hist(f,'Enviado (upload em massa)');db.files.push(f);});
+    picked.forEach(function(p,i){var f={id:NX.uid(),cliente:c.id,setor:fd.get('s'+i),tipo:p.g.tipo,titulo:fd.get('t'+i),comp:fd.get('c'+i),venc:'',valor:0,status:p.g.tipo==='Guia'?'pendente':'disponivel',de:'equipe',nome:p.nome,data:p.data,size:p.size,criado:NX.today(),visto:false};f.por=S.user.nome;hist(f,'Enviado (upload em massa)');db.files.push(f);onDocAdded(f);});
     if(fd.get('avisar'))db.messages.push({id:NX.uid(),cliente:c.id,de:'equipe',autor:S.user.nome,texto:picked.length+' novo(s) documento(s) disponível(is) no portal.',em:new Date().toISOString(),lida:false});
     if(persist()===false){db.files.splice(-picked.length);return false;}RR();NX.toast(picked.length+' documento(s) enviado(s).');});
   document.getElementById('mf').onchange=function(ev){var fs=[].slice.call(ev.target.files),done=0;picked=[];
@@ -330,6 +330,162 @@ function meetingDialog(m){var isNew=!m.id;
 function staffDialog(s){openDlg('<h2>'+(s.id?'Editar pessoa':'Adicionar pessoa')+'</h2><div class="grid"><label>Nome<input name="nome" required value="'+e(s.nome)+'"></label><label>Cargo<input name="cargo" value="'+e(s.cargo||'')+'"></label><label>E-mail<input name="email" type="email" required value="'+e(s.email)+'"></label><label>Cor na agenda<input name="cor" type="color" value="'+s.cor+'"></label><label style="grid-column:1/-1">Google Agenda (e-mail ou ID da agenda)<input name="gcal" value="'+e(s.gcal||'')+'" placeholder="ex.: nome@gmail.com"></label></div><label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" name="diretor" '+(s.diretor?'checked':'')+' style="width:auto;min-height:auto"> Faz parte da diretoria</label>',
   function(fd){var o=s.id?s:{id:NX.uid()};['nome','cargo','email','cor','gcal'].forEach(function(k){o[k]=fd.get(k);});o.diretor=!!fd.get('diretor');if(!s.id)db.staff.push(o);persist();agenda();NX.toast('Equipe atualizada.');});}
 
+/* ---------- PROCESSOS (estilo monday.com) ---------- */
+var ST=[['nao','Não iniciado','s0'],['and','Em andamento','s1'],['agu','Aguardando cliente','s2'],['ok','Concluído','s3']];
+var stInfo=function(k){return ST.filter(function(s){return s[0]===k;})[0]||ST[0];};
+var DEPTO=['Fiscal','Departamento Pessoal','Contábil','Financeiro','Societário','Certidões'];
+function planoKey(c){var p=(c.plano||'').toUpperCase();return /MEI/.test(p)?'MEI':/PF/.test(p)?'PF':'SN';}
+function nextMonth(m){return NX.shiftMonth(m,1);}
+function dayIn(m,d){var last=new Date(+m.slice(0,4),+m.slice(5),0).getDate();return m+'-'+String(Math.min(d,last)).padStart(2,'0');}
+function ensureProc(){
+  db.procT=db.procT||null;db.tasks=db.tasks||[];
+  if(!db.procT){var R=function(i){return db.staff[i]?db.staff[i].id:db.staff[0].id;};
+    db.procT=[
+      {id:NX.uid(),titulo:'Apuração do Simples Nacional (DAS)',setor:'Fiscal',planos:['SN'],meta:15,venc:20,multa:true,match:'das|simples',resp:R(1)},
+      {id:NX.uid(),titulo:'Folha de pagamento',setor:'Departamento Pessoal',planos:['SN'],meta:3,venc:5,multa:false,match:'folha|holerite',resp:R(1)},
+      {id:NX.uid(),titulo:'FGTS Digital',setor:'Departamento Pessoal',planos:['SN'],meta:15,venc:20,multa:true,match:'fgts',resp:R(1)},
+      {id:NX.uid(),titulo:'DCTFWeb / INSS',setor:'Departamento Pessoal',planos:['SN'],meta:12,venc:20,multa:true,match:'dctf|inss',resp:R(1)},
+      {id:NX.uid(),titulo:'Balancete mensal',setor:'Contábil',planos:['SN'],meta:25,venc:30,multa:false,match:'balancete',resp:R(0)},
+      {id:NX.uid(),titulo:'DAS-MEI',setor:'Fiscal',planos:['MEI'],meta:15,venc:20,multa:true,match:'das',resp:R(1)},
+      {id:NX.uid(),titulo:'Carnê-Leão (DARF)',setor:'Fiscal',planos:['PF'],meta:20,venc:28,multa:true,match:'carn|darf',resp:R(1)}];
+    gerarDemandas(NX.shiftMonth(NX.ym(),-1),true);gerarDemandas(NX.ym(),true);
+    var me=db.staff[0].id,t=NX.today();
+    [['Ligar para cliente novo (onboarding)',0,'alta'],['Revisar contratos do mês',1,'media'],['Estudar mudanças da Reforma Tributária',3,'baixa']].forEach(function(x){var d=new Date();d.setDate(d.getDate()+x[1]);db.tasks.push({id:NX.uid(),tipo:'pessoal',owner:me,resp:me,titulo:x[0],data:d.toISOString().slice(0,10),status:'nao',prio:x[2],criado:t});});
+    persist();}
+}
+function gerarDemandas(comp,silent){var n=0;
+  db.clients.forEach(function(c){db.procT.forEach(function(tp){if(tp.planos.indexOf(planoKey(c))<0)return;
+    if(db.tasks.some(function(t){return t.tipo==='cliente'&&t.cliente===c.id&&t.tpl===tp.id&&t.comp===comp;}))return;
+    var vm=nextMonth(comp);db.tasks.push({id:NX.uid(),tipo:'cliente',cliente:c.id,tpl:tp.id,titulo:tp.titulo,setor:tp.setor,comp:comp,meta:dayIn(vm,tp.meta),venc:dayIn(vm,tp.venc),multa:tp.multa,resp:tp.resp,status:'nao',prio:tp.multa?'alta':'media',criado:NX.today(),log:[{em:new Date().toISOString(),ev:'Demanda criada automaticamente',por:'Sistema'}]});n++;});});
+  if(!silent){persist();NX.toast(n+' demanda(s) criada(s) para '+NX.fcomp(comp)+'.');}return n;}
+function tlog(t,ev){t.log=t.log||[];t.log.push({em:new Date().toISOString(),ev:ev,por:S.user?S.user.nome:'Sistema'});}
+function setStatus(t,k,why){if(t.status===k)return;t.status=k;if(k==='ok'){t.concluido=NX.today();}else delete t.concluido;tlog(t,'Status: '+stInfo(k)[1]+(why?' ('+why+')':''));}
+/* vínculo com documentos: ao enviar um documento, conclui a demanda correspondente */
+function onDocAdded(f){ensureProc();if(f.de!=='equipe')return;var name=(f.titulo+' '+f.nome).toLowerCase(),hit=null;
+  db.tasks.forEach(function(t){if(hit||t.tipo!=='cliente'||t.cliente!==f.cliente||t.status==='ok')return;var tp=db.procT.filter(function(x){return x.id===t.tpl;})[0];
+    var okName=tp&&tp.match&&new RegExp(tp.match,'i').test(name);if(okName&&(t.comp===f.comp||!f.comp))hit=t;});
+  if(hit){hit.doc=f.id;setStatus(hit,'ok','documento “'+f.titulo+'” enviado');persist();NX.toast('Demanda “'+hit.titulo+'” concluída automaticamente.');}}
+function late(t){return t.status!=='ok'&&t.venc&&t.venc<NX.today();}
+function riscoMulta(t){var d=new Date();d.setDate(d.getDate()+5);return t.multa&&t.status!=='ok'&&t.venc&&t.venc<=d.toISOString().slice(0,10);}
+function av(id){var s=staffBy(id);if(!s)return '<span class="av" style="background:#ccc">?</span>';return '<span class="av" style="background:'+(s.cor||'#0740EF')+'" title="'+e(s.nome)+'">'+e(s.nome.split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase())+'</span>';}
+S.pr=S.pr||{tab:'tabela',comp:NX.shiftMonth(NX.ym(),-1),grp:'cliente',resp:'',setor:'',st:'',q:'',agUser:null};
+function processos(){ensureProc();ensureAgenda&&ensureAgenda();var P=S.pr;P.agUser=P.agUser||S.user.id;if(!staffBy(P.agUser))P.agUser=db.staff[0].id;
+  var tabs=[['tabela','Tabela'],['kanban','Kanban'],['agenda','Minha agenda'],['indicadores','Indicadores'],['modelos','Modelos de demandas']];
+  shell('processos',head('Controle de processos','Demandas mensais dos clientes, agenda de tarefas da equipe e indicadores de produtividade.','<button class="btn b-line" id="gen">Gerar demandas de '+NX.fcomp(P.comp)+'</button><button class="btn b-blue" id="newt">+ Nova demanda</button>')+
+  '<section class="card"><div class="tabs" role="tablist">'+tabs.map(function(t){return '<button role="tab" data-pt="'+t[0]+'" aria-selected="'+(P.tab===t[0])+'">'+t[1]+'</button>';}).join('')+'</div><div id="prc"></div></section>');
+  root.querySelectorAll('[data-pt]').forEach(function(b){b.onclick=function(){P.tab=b.getAttribute('data-pt');processos();};});
+  document.getElementById('gen').onclick=function(){gerarDemandas(P.comp);processos();};
+  document.getElementById('newt').onclick=function(){taskDialog({tipo:P.tab==='agenda'?'pessoal':'cliente',comp:P.comp,status:'nao',prio:'media',resp:P.tab==='agenda'?P.agUser:S.user.id,owner:P.agUser});};
+  var el=document.getElementById('prc');({tabela:pTabela,kanban:pKanban,agenda:pAgenda,indicadores:pInd,modelos:pModelos})[P.tab](el);
+}
+function filtered(){var P=S.pr,q=P.q.toLowerCase();return db.tasks.filter(function(t){return t.tipo==='cliente'&&t.comp===P.comp&&(!P.resp||t.resp===P.resp)&&(!P.setor||t.setor===P.setor)&&(!P.st||(P.st==='late'?late(t):t.status===P.st))&&(!q||(t.titulo+' '+((cli(t.cliente)||{}).nome||'')).toLowerCase().indexOf(q)>-1);});}
+function filtersHTML(){var P=S.pr;return '<div class="row" style="margin-bottom:16px;align-items:flex-end"><label>Competência<input type="month" id="fc" value="'+P.comp+'"></label>'+
+  '<label>Agrupar por<select id="fg">'+[['cliente','Cliente'],['resp','Responsável'],['setor','Setor'],['status','Status']].map(function(o){return '<option value="'+o[0]+'"'+(P.grp===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></label>'+
+  '<label>Responsável<select id="fr"><option value="">Todos</option>'+db.staff.map(function(s){return '<option value="'+s.id+'"'+(P.resp===s.id?' selected':'')+'>'+e(s.nome)+'</option>';}).join('')+'</select></label>'+
+  '<label>Setor<select id="fs"><option value="">Todos</option>'+DEPTO.map(function(s){return '<option'+(P.setor===s?' selected':'')+'>'+s+'</option>';}).join('')+'</select></label>'+
+  '<label>Status<select id="fst"><option value="">Todos</option>'+ST.map(function(s){return '<option value="'+s[0]+'"'+(P.st===s[0]?' selected':'')+'>'+s[1]+'</option>';}).join('')+'<option value="late"'+(P.st==='late'?' selected':'')+'>Atrasadas</option></select></label>'+
+  '<label>Buscar<input id="fq" value="'+e(P.q)+'" placeholder="Cliente ou demanda"></label></div>';}
+function bindFilters(){var P=S.pr,g=function(id){return document.getElementById(id);};
+  g('fc').onchange=function(ev){if(ev.target.value){P.comp=ev.target.value;processos();}};g('fg')&&(g('fg').onchange=function(ev){P.grp=ev.target.value;processos();});
+  g('fr').onchange=function(ev){P.resp=ev.target.value;processos();};g('fs').onchange=function(ev){P.setor=ev.target.value;processos();};g('fst').onchange=function(ev){P.st=ev.target.value;processos();};
+  g('fq').oninput=function(ev){P.q=ev.target.value;clearTimeout(g('fq')._t);g('fq')._t=setTimeout(function(){processos();var x=document.getElementById('fq');x.focus();x.setSelectionRange(x.value.length,x.value.length);},350);};}
+function statusMenu(t,btn){var m=document.createElement('div');m.style.cssText='position:fixed;z-index:200;background:#fff;border:1px solid var(--line);border-radius:10px;padding:6px;box-shadow:0 10px 30px rgba(14,26,69,.2);display:flex;flex-direction:column;gap:4px';
+  ST.forEach(function(s){var b=document.createElement('button');b.className='pill '+s[2];b.textContent=s[1];b.onclick=function(){setStatus(t,s[0]);persist();m.remove();processos();};m.appendChild(b);});
+  var r=btn.getBoundingClientRect();m.style.left=r.left+'px';m.style.top=(r.bottom+4)+'px';document.body.appendChild(m);
+  setTimeout(function(){document.addEventListener('click',function h(ev){if(!m.contains(ev.target)){m.remove();document.removeEventListener('click',h);}});},0);}
+function rowHTML(t){var c=cli(t.cliente),s=stInfo(t.status),doc=t.doc&&db.files.filter(function(f){return f.id===t.doc&&!f.deleted;})[0];
+  return '<tr><td><button class="btn b-text" data-et="'+t.id+'" style="padding:0;font-weight:600;color:var(--ink);text-align:left">'+e(t.titulo)+'</button>'+(t.tipo==='cliente'?'<small style="display:block;color:var(--muted)">'+e(c?c.nome:'—')+' · '+e(t.setor)+'</small>':'')+'</td>'+
+  '<td>'+av(t.resp)+'</td><td><button class="pill '+s[2]+'" data-st="'+t.id+'">'+s[1]+'</button></td><td><span class="pri '+(t.prio||'media')+'">'+({alta:'Alta',media:'Média',baixa:'Baixa'})[t.prio||'media']+'</span></td>'+
+  '<td style="font-size:13px">'+NX.fdate(t.meta||t.data)+'</td><td style="font-size:13px" class="'+(late(t)?'late':'')+'">'+NX.fdate(t.venc)+(t.multa?' <span title="Sujeita a multa" style="color:var(--bad)">●</span>':'')+'</td>'+
+  '<td style="font-size:13px">'+(doc?'<button class="btn b-text" data-doc="'+doc.id+'" style="padding:0">'+e(doc.titulo)+'</button>':'<span style="color:var(--muted)">—</span>')+'</td><td style="font-size:13px">'+(t.concluido?NX.fdate(t.concluido):'')+'</td></tr>';}
+function bindRows(el){el.onclick=function(ev){var b=ev.target.closest('button');if(!b)return;var id;
+  if(id=b.getAttribute('data-st')){ev.stopPropagation();statusMenu(db.tasks.filter(function(t){return t.id===id;})[0],b);}
+  if(id=b.getAttribute('data-et'))taskDialog(db.tasks.filter(function(t){return t.id===id;})[0]);
+  if(id=b.getAttribute('data-doc')){var f=db.files.filter(function(x){return x.id===id;})[0];NX.viewer(f,{db:db,me:'equipe',path:setorOf(f)+' › '+NX.fcomp(compOf(f)),actions:[{label:'Baixar',cls:'b-blue',close:false,fn:function(x){NX.download(x);}}]});}
+  if(id=b.getAttribute('data-ck')){var t=db.tasks.filter(function(x){return x.id===id;})[0];setStatus(t,t.status==='ok'?'nao':'ok');persist();processos();}};}
+var THEAD='<thead><tr><th>Demanda</th><th>Resp.</th><th>Status</th><th>Prioridade</th><th>Meta</th><th>Vencimento</th><th>Documento</th><th>Concluída</th></tr></thead>';
+function pTabela(el){var P=S.pr,l=filtered(),groups={},label={};
+  l.forEach(function(t){var k=P.grp==='cliente'?t.cliente:P.grp==='resp'?t.resp:P.grp==='setor'?t.setor:t.status;(groups[k]=groups[k]||[]).push(t);
+    label[k]=P.grp==='cliente'?((cli(k)||{}).nome||'—'):P.grp==='resp'?((staffBy(k)||{}).nome||'—'):P.grp==='status'?stInfo(k)[1]:k;});
+  var colors=['#0740EF','#00A36C','#7B3FE4','#E2445C','#0E7490','#B45309'];
+  el.innerHTML=filtersHTML()+(l.length?Object.keys(groups).sort(function(a,b){return label[a]<label[b]?-1:1;}).map(function(k,i){var g=groups[k],done=g.filter(function(t){return t.status==='ok';}).length;
+    return '<div class="grp" style="border-color:'+colors[i%colors.length]+'"><h3 style="color:'+colors[i%colors.length]+'">'+e(label[k])+'<small style="color:var(--muted);font:500 13px Inter">'+done+' de '+g.length+' concluídas</small></h3><div class="tbl"><table>'+THEAD+'<tbody>'+g.sort(function(a,b){return (a.venc||'')<(b.venc||'')?-1:1;}).map(rowHTML).join('')+'</tbody></table></div>'+
+    '<div class="bar-track" style="height:8px;margin:6px 10px 0" aria-label="Progresso"><i style="width:'+(done/g.length*100)+'%;background:#00A36C"></i></div></div>';}).join(''):'<p class="empty">Nenhuma demanda nessa competência. Clique em “Gerar demandas” no topo.</p>');
+  bindFilters();bindRows(el);}
+function pKanban(el){var l=filtered();
+  el.innerHTML=filtersHTML()+'<div class="kanban">'+ST.map(function(s){var g=l.filter(function(t){return t.status===s[0];});
+    return '<div class="kcol"><h3><span class="pill '+s[2]+'" style="min-width:0;cursor:default">'+s[1]+'</span><span>'+g.length+'</span></h3>'+g.map(function(t){var c=cli(t.cliente);return '<div class="kcard"><button class="btn b-text" data-et="'+t.id+'" style="padding:0;justify-content:flex-start;min-height:0"><b style="text-align:left">'+e(t.titulo)+'</b></button><span style="color:var(--muted)">'+e(c?c.nome:'')+'</span><div class="row between" style="align-items:center">'+av(t.resp)+'<span class="'+(late(t)?'late':'')+'">'+NX.fdate(t.venc)+'</span></div><div class="row" style="gap:4px">'+ST.filter(function(x){return x[0]!==s[0];}).map(function(x){return '<button class="btn b-text" data-mv="'+t.id+'|'+x[0]+'" style="min-height:28px;font-size:12px;padding:0 6px">→ '+x[1]+'</button>';}).join('')+'</div></div>';}).join('')+'</div>';}).join('')+'</div>';
+  bindFilters();bindRows(el);var oc=el.onclick;el.onclick=function(ev){var b=ev.target.closest('[data-mv]');if(b){var p=b.getAttribute('data-mv').split('|'),t=db.tasks.filter(function(x){return x.id===p[0];})[0];setStatus(t,p[1]);persist();processos();return;}oc(ev);};}
+function pAgenda(el){var P=S.pr,u=P.agUser,t0=NX.today();
+  var mine=db.tasks.filter(function(t){return t.resp===u&&(t.tipo==='pessoal'||t.status!=='ok');});
+  var dkey=function(t){return t.tipo==='pessoal'?t.data:(t.meta||t.venc);};
+  var buckets=[['Atrasadas',function(d){return d<t0;}],['Hoje',function(d){return d===t0;}],['Próximos 7 dias',function(d){var x=new Date();x.setDate(x.getDate()+7);return d>t0&&d<=x.toISOString().slice(0,10);}],['Mais adiante',function(d){var x=new Date();x.setDate(x.getDate()+7);return d>x.toISOString().slice(0,10);}]];
+  var open=mine.filter(function(t){return t.status!=='ok';}),doneW=db.tasks.filter(function(t){var x=new Date();x.setDate(x.getDate()-7);return t.resp===u&&t.status==='ok'&&t.concluido>=x.toISOString().slice(0,10);});
+  el.innerHTML='<div class="row between" style="margin-bottom:16px;align-items:flex-end"><label>Agenda de<select id="agu">'+db.staff.map(function(s){return '<option value="'+s.id+'"'+(u===s.id?' selected':'')+'>'+e(s.nome)+'</option>';}).join('')+'</select></label>'+
+    '<form id="qa" class="row" style="flex:1;max-width:620px;align-items:flex-end"><label style="flex:1">Nova tarefa rápida<input id="qat" placeholder="Ex.: Conferir notas da Clínica X" required></label><label>Data<input type="date" id="qad" value="'+t0+'"></label><button class="btn b-blue">Adicionar</button></form></div>'+
+    '<div class="kpis"><div class="kpi main"><span>Tarefas em aberto</span><strong>'+open.length+'</strong></div><div class="kpi"><span>Atrasadas</span><strong style="color:var(--bad)">'+open.filter(function(t){return dkey(t)<t0;}).length+'</strong></div><div class="kpi"><span>Concluídas (7 dias)</span><strong style="color:var(--ok)">'+doneW.length+'</strong></div></div>'+
+    buckets.map(function(b){var l=open.filter(function(t){return dkey(t)&&b[1](dkey(t));}).sort(function(a,c){return dkey(a)<dkey(c)?-1:1;});if(!l.length)return '';
+      return '<div class="agenda-day"><h3>'+b[0]+' ('+l.length+')</h3>'+l.map(function(t){var c=cli(t.cliente);return '<div class="list-item"><div style="display:flex;gap:12px;align-items:center"><button class="chk'+(t.status==='ok'?' on':'')+'" data-ck="'+t.id+'" aria-label="Concluir '+e(t.titulo)+'">'+(t.status==='ok'?'✓':'')+'</button><div><button class="btn b-text" data-et="'+t.id+'" style="padding:0;min-height:0;color:var(--ink);font-weight:600">'+e(t.titulo)+'</button><small>'+(t.tipo==='cliente'?'Demanda · '+e(c?c.nome:'')+' · vence '+NX.fdate(t.venc):'Tarefa pessoal')+' · '+NX.fdate(dkey(t))+'</small></div></div><div class="row" style="align-items:center"><span class="pri '+(t.prio||'media')+'">'+({alta:'Alta',media:'Média',baixa:'Baixa'})[t.prio||'media']+'</span><button class="pill '+stInfo(t.status)[2]+'" data-st="'+t.id+'" style="min-width:120px">'+stInfo(t.status)[1]+'</button></div></div>';}).join('')+'</div>';}).join('')+
+    (open.length?'':'<p class="empty">Nenhuma tarefa em aberto. 🎉</p>');
+  document.getElementById('agu').onchange=function(ev){P.agUser=ev.target.value;processos();};
+  document.getElementById('qa').onsubmit=function(ev){ev.preventDefault();db.tasks.push({id:NX.uid(),tipo:'pessoal',owner:u,resp:u,titulo:document.getElementById('qat').value.trim(),data:document.getElementById('qad').value||t0,status:'nao',prio:'media',criado:t0,log:[]});persist();processos();NX.toast('Tarefa adicionada.');};
+  bindRows(el);}
+function donut(parts){var tot=parts.reduce(function(s,p){return s+p.v;},0)||1,a=0,r=60,c=2*Math.PI*r;
+  return '<svg width="170" height="170" viewBox="0 0 170 170" role="img" aria-label="Distribuição por status">'+parts.map(function(p){var len=p.v/tot*c,s='<circle cx="85" cy="85" r="'+r+'" fill="none" stroke="'+p.c+'" stroke-width="26" stroke-dasharray="'+len+' '+(c-len)+'" stroke-dashoffset="'+(-a)+'" transform="rotate(-90 85 85)"></circle>';a+=len;return s;}).join('')+
+  '<text x="85" y="82" text-anchor="middle" font-family="Space Grotesk" font-size="26" font-weight="700" fill="#0E1A45">'+Math.round((parts[3]?parts[3].v:0)/tot*100)+'%</text><text x="85" y="102" text-anchor="middle" font-size="12" fill="#4A5A86">concluído</text></svg>';}
+function pInd(el){var P=S.pr,l=db.tasks.filter(function(t){return t.tipo==='cliente'&&t.comp===P.comp;}),t0=NX.today();
+  var done=l.filter(function(t){return t.status==='ok';}),noPrazo=done.filter(function(t){return !t.venc||t.concluido<=t.venc;}).length;
+  var cores={nao:'#8D97B5',and:'#0740EF',agu:'#7B3FE4',ok:'#00A36C'};
+  var bySt=ST.map(function(s){return {k:s[0],n:s[1],v:l.filter(function(t){return t.status===s[0];}).length,c:cores[s[0]]};});
+  function stackRows(keyFn,labels){var ks={};l.forEach(function(t){ks[keyFn(t)]=1;});return Object.keys(ks).map(function(k){var g=l.filter(function(t){return keyFn(t)===k;});
+    return '<div class="bar-row"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+e(labels(k))+'</span><div class="bar-track">'+ST.map(function(s){var n=g.filter(function(t){return t.status===s[0];}).length;return n?'<i style="width:'+(n/g.length*100)+'%;background:'+cores[s[0]]+'" title="'+s[1]+': '+n+'"></i>':'';}).join('')+'</div><b style="text-align:right">'+g.filter(function(t){return t.status==='ok';}).length+'/'+g.length+'</b></div>';}).join('');}
+  // produtividade semanal (todas as tarefas concluídas, cliente + pessoais) nas últimas 6 semanas por responsável
+  var weeks=[];for(var i=5;i>=0;i--){var s=new Date();s.setDate(s.getDate()-s.getDay()-7*i);var e2=new Date(s);e2.setDate(s.getDate()+6);weeks.push([s.toISOString().slice(0,10),e2.toISOString().slice(0,10)]);}
+  var maxW=1,wdata=weeks.map(function(w){var row={};db.staff.forEach(function(st){row[st.id]=db.tasks.filter(function(t){return t.resp===st.id&&t.status==='ok'&&t.concluido>=w[0]&&t.concluido<=w[1];}).length;});var sum=Object.keys(row).reduce(function(a,k){return a+row[k];},0);maxW=Math.max(maxW,sum);return row;});
+  var legend='<div class="legend" style="margin-top:8px">'+ST.map(function(s){return '<span style="--c:'+cores[s[0]]+'">'+s[1]+'</span>';}).join('')+'</div>';
+  el.innerHTML='<div class="row" style="margin-bottom:16px"><label>Competência<input type="month" id="fc" value="'+P.comp+'"></label></div>'+
+  '<div class="kpis"><div class="kpi main"><span>Demandas da competência</span><strong>'+l.length+'</strong></div><div class="kpi"><span>Concluídas</span><strong style="color:var(--ok)">'+done.length+' <small style="font-size:14px">('+(l.length?Math.round(done.length/l.length*100):0)+'%)</small></strong></div>'+
+  '<div class="kpi"><span>Concluídas no prazo</span><strong>'+(done.length?Math.round(noPrazo/done.length*100):0)+'%</strong></div><div class="kpi"><span>Atrasadas</span><strong style="color:var(--bad)">'+l.filter(late).length+'</strong></div>'+
+  '<div class="kpi"><span>Risco de multa (5 dias)</span><strong style="color:var(--bad)">'+l.filter(riscoMulta).length+'</strong></div><div class="kpi"><span>Aguardando cliente</span><strong style="color:#7B3FE4">'+l.filter(function(t){return t.status==='agu';}).length+'</strong></div></div>'+
+  '<div class="cols"><section class="card"><h2>Status geral</h2><div class="row" style="align-items:center;gap:24px">'+donut(bySt)+'<div class="bars" style="flex:1">'+bySt.map(function(b){return '<div class="row between"><span class="legend"><span style="--c:'+b.c+'">'+b.n+'</span></span><b>'+b.v+'</b></div>';}).join('')+'</div></div></section>'+
+  '<section class="card"><h2>Por responsável</h2><div class="bars">'+stackRows(function(t){return t.resp;},function(k){return (staffBy(k)||{}).nome||'—';})+'</div>'+legend+'</section></div>'+
+  '<div class="cols" style="margin-top:18px"><section class="card"><h2>Por setor</h2><div class="bars">'+stackRows(function(t){return t.setor;},function(k){return k;})+'</div>'+legend+'</section>'+
+  '<section class="card"><h2>Produtividade da equipe (tarefas concluídas por semana)</h2><svg viewBox="0 0 520 220" width="100%" role="img" aria-label="Tarefas concluídas por semana">'+wdata.map(function(row,i){var x=30+i*80,y=190;return db.staff.map(function(st){var v=row[st.id],h=v/maxW*160;y-=h;return v?'<rect x="'+x+'" y="'+y+'" width="46" height="'+h+'" fill="'+(st.cor||'#0740EF')+'" rx="3"><title>'+e(st.nome)+': '+v+'</title></rect>':'';}).join('')+
+    '<text x="'+(x+23)+'" y="208" text-anchor="middle" font-size="11" fill="#4A5A86">'+weeks[i][0].slice(8,10)+'/'+weeks[i][0].slice(5,7)+'</text><text x="'+(x+23)+'" y="'+(y-6)+'" text-anchor="middle" font-size="12" font-weight="700" fill="#0E1A45">'+Object.keys(row).reduce(function(a,k){return a+row[k];},0)+'</text>';}).join('')+
+    '<line x1="20" y1="190" x2="510" y2="190" stroke="#DCE3F5"></line></svg><div class="legend">'+db.staff.map(function(s){return '<span style="--c:'+(s.cor||'#0740EF')+'">'+e(s.nome)+'</span>';}).join('')+'</div></section></div>'+
+  '<section class="card" style="margin-top:18px"><h2>Clientes com pendências</h2>'+(function(){var m={};l.filter(function(t){return t.status!=='ok';}).forEach(function(t){m[t.cliente]=(m[t.cliente]||0)+1;});var ks=Object.keys(m).sort(function(a,b){return m[b]-m[a];});var mx=ks.length?m[ks[0]]:1;
+    return ks.length?'<div class="bars">'+ks.map(function(k){return '<div class="bar-row"><span>'+e((cli(k)||{}).nome||'—')+'</span><div class="bar-track"><i style="width:'+(m[k]/mx*100)+'%;background:#E2445C"></i></div><b style="text-align:right">'+m[k]+'</b></div>';}).join('')+'</div>':'<p class="empty">Nenhuma pendência. 🎉</p>';})()+'</section>';
+  document.getElementById('fc').onchange=function(ev){if(ev.target.value){P.comp=ev.target.value;processos();}};}
+function pModelos(el){
+  el.innerHTML='<p class="help" style="margin-bottom:12px">Modelos de demandas recorrentes. Todo mês, “Gerar demandas” cria uma tarefa por cliente conforme o plano (SN, MEI, PF). Quando um documento com o nome correspondente é enviado ao cliente, a demanda é concluída automaticamente.</p><button class="btn b-blue" id="addtp" style="margin-bottom:12px">+ Novo modelo</button>'+
+  '<div class="tbl"><table><thead><tr><th>Demanda</th><th>Setor</th><th>Planos</th><th>Meta</th><th>Vencimento</th><th>Multa</th><th>Responsável padrão</th><th>Conclui ao enviar documento com</th><th></th></tr></thead><tbody>'+
+  db.procT.map(function(tp){return '<tr><td><b>'+e(tp.titulo)+'</b></td><td>'+e(tp.setor)+'</td><td>'+tp.planos.join(', ')+'</td><td>dia '+tp.meta+'</td><td>dia '+tp.venc+'</td><td>'+(tp.multa?'Sim':'Não')+'</td><td>'+av(tp.resp)+'</td><td><code>'+e(tp.match.split('|').join(' ou '))+'</code></td><td><button class="btn b-text" data-tp="'+tp.id+'">Editar</button></td></tr>';}).join('')+'</tbody></table></div>';
+  document.getElementById('addtp').onclick=function(){tplDialog({id:'',titulo:'',setor:'Fiscal',planos:['SN'],meta:15,venc:20,multa:true,match:'',resp:S.user.id});};
+  el.onclick=function(ev){var id=ev.target.getAttribute('data-tp');if(id)tplDialog(db.procT.filter(function(x){return x.id===id;})[0]);};}
+function tplDialog(tp){openDlg('<h2>'+(tp.id?'Editar modelo':'Novo modelo de demanda')+'</h2><div class="grid"><label style="grid-column:1/-1">Nome da demanda<input name="titulo" required value="'+e(tp.titulo)+'"></label><label>Setor<select name="setor">'+DEPTO.map(function(s){return '<option'+(s===tp.setor?' selected':'')+'>'+s+'</option>';}).join('')+'</select></label>'+
+  '<label>Responsável padrão<select name="resp">'+db.staff.map(function(s){return '<option value="'+s.id+'"'+(s.id===tp.resp?' selected':'')+'>'+e(s.nome)+'</option>';}).join('')+'</select></label><label>Dia da meta<input name="meta" type="number" min="1" max="31" value="'+tp.meta+'"></label><label>Dia do vencimento<input name="venc" type="number" min="1" max="31" value="'+tp.venc+'"></label>'+
+  '<label style="grid-column:1/-1">Conclui ao enviar documento contendo (separe por |)<input name="match" value="'+e(tp.match)+'" placeholder="ex.: das|simples"></label></div><div class="row">'+['SN','MEI','PF'].map(function(p){return '<label style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" name="p_'+p+'" '+(tp.planos.indexOf(p)>-1?'checked':'')+' style="width:auto;min-height:auto">Plano '+p+'</label>';}).join('')+'<label style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" name="multa" '+(tp.multa?'checked':'')+' style="width:auto;min-height:auto">Sujeita a multa</label></div>'+(tp.id?'<button type="button" class="btn b-danger" id="rmtp" style="align-self:flex-start">Excluir modelo</button>':''),
+  function(fd){var o=tp.id?tp:{id:NX.uid()};o.titulo=fd.get('titulo');o.setor=fd.get('setor');o.resp=fd.get('resp');o.meta=+fd.get('meta')||1;o.venc=+fd.get('venc')||1;o.match=fd.get('match')||'';o.multa=!!fd.get('multa');o.planos=['SN','MEI','PF'].filter(function(p){return fd.get('p_'+p);});if(!tp.id)db.procT.push(o);persist();processos();NX.toast('Modelo salvo.');});
+  var r=document.getElementById('rmtp');if(r)r.onclick=function(){if(confirm('Excluir este modelo? As demandas já criadas continuam.')){db.procT=db.procT.filter(function(x){return x.id!==tp.id;});persist();dlg.close();processos();}};}
+function taskDialog(t){var isNew=!t.id,pes=t.tipo==='pessoal';
+  openDlg('<h2>'+(isNew?(pes?'Nova tarefa':'Nova demanda'):'Editar')+'</h2><div class="grid"><label style="grid-column:1/-1">Título<input name="titulo" required value="'+e(t.titulo||'')+'"></label>'+
+  '<label>Tipo<select name="tipo" id="ttipo"><option value="cliente"'+(!pes?' selected':'')+'>Demanda de cliente</option><option value="pessoal"'+(pes?' selected':'')+'>Tarefa pessoal / interna</option></select></label>'+
+  '<label id="tcli">Cliente<select name="cliente">'+db.clients.map(function(c){return '<option value="'+c.id+'"'+(c.id===t.cliente?' selected':'')+'>'+e(c.nome)+'</option>';}).join('')+'</select></label>'+
+  '<label>Responsável<select name="resp">'+db.staff.map(function(s){return '<option value="'+s.id+'"'+(s.id===t.resp?' selected':'')+'>'+e(s.nome)+'</option>';}).join('')+'</select></label>'+
+  '<label>Status<select name="status">'+ST.map(function(s){return '<option value="'+s[0]+'"'+(s[0]===t.status?' selected':'')+'>'+s[1]+'</option>';}).join('')+'</select></label>'+
+  '<label>Prioridade<select name="prio">'+[['alta','Alta'],['media','Média'],['baixa','Baixa']].map(function(p){return '<option value="'+p[0]+'"'+(p[0]===(t.prio||'media')?' selected':'')+'>'+p[1]+'</option>';}).join('')+'</select></label>'+
+  '<label id="tset">Setor<select name="setor">'+DEPTO.map(function(s){return '<option'+(s===t.setor?' selected':'')+'>'+s+'</option>';}).join('')+'</select></label>'+
+  '<label id="tcomp">Competência<input type="month" name="comp" value="'+(t.comp||NX.ym())+'"></label><label>'+(pes?'Data':'Meta interna')+'<input type="date" name="meta" value="'+(t.meta||t.data||NX.today())+'"></label><label id="tven">Vencimento legal<input type="date" name="venc" value="'+(t.venc||'')+'"></label>'+
+  '<label style="grid-column:1/-1">Observações<textarea name="notas">'+e(t.notas||'')+'</textarea></label></div>'+
+  (t.log&&t.log.length?'<details><summary style="font-size:14px">Histórico ('+t.log.length+')</summary>'+t.log.slice().reverse().map(function(x){return '<div class="list-item" style="font-size:13px"><span>'+e(x.ev)+' · '+e(x.por)+'</span><small>'+NX.ftime(x.em)+'</small></div>';}).join('')+'</details>':'')+
+  (isNew?'':'<button type="button" class="btn b-danger" id="rmt" style="align-self:flex-start">Excluir</button>'),
+  function(fd){var o=isNew?{id:NX.uid(),criado:NX.today(),log:[]}:t,np=fd.get('tipo')==='pessoal';o.tipo=np?'pessoal':'cliente';o.titulo=fd.get('titulo');o.resp=fd.get('resp');o.prio=fd.get('prio');o.notas=fd.get('notas');
+    if(np){o.owner=o.owner||o.resp;o.data=fd.get('meta');delete o.cliente;}else{o.cliente=fd.get('cliente');o.setor=fd.get('setor');o.comp=fd.get('comp');o.meta=fd.get('meta');o.venc=fd.get('venc');}
+    if(isNew){o.status=fd.get('status');tlog(o,'Criada');db.tasks.push(o);}else{setStatus(o,fd.get('status'));tlog(o,'Editada');}persist();processos();NX.toast('Salvo.');});
+  function sync(){var np=document.getElementById('ttipo').value==='pessoal';['tcli','tset','tcomp','tven'].forEach(function(id){document.getElementById(id).style.display=np?'none':'';});}
+  document.getElementById('ttipo').onchange=sync;sync();
+  var r=document.getElementById('rmt');if(r)r.onclick=function(){if(confirm('Excluir?')){db.tasks=db.tasks.filter(function(x){return x.id!==t.id;});persist();dlg.close();processos();}};}
+
 /* ---------- DIÁLOGOS ---------- */
 var dlg=document.getElementById('dlg'),df=document.getElementById('dlgForm');
 function openDlg(html,onsave){df.innerHTML=html+'<div class="row between"><button type="button" class="btn b-line" id="dc">Cancelar</button><button class="btn b-blue" type="submit">Salvar</button></div>';
@@ -343,7 +499,7 @@ function fileDialog(c,pre){pre=pre||{};var picked=null;
   '<label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" name="avisar" checked style="width:auto;min-height:auto"> Avisar o cliente por mensagem</label>',
   function(fd){if(!picked){NX.toast('Escolha o arquivo.');return false;}var tipo=fd.get('tipo');var v=String(fd.get('valor')||'').replace(/\./g,'').replace(',','.');
     var f={id:NX.uid(),cliente:c.id,setor:pre.folder&&!pre.setor?'__custom':fd.get('setor'),folder:pre.folder||null,por:S.user.nome,tipo:tipo,titulo:fd.get('titulo'),comp:fd.get('comp'),venc:fd.get('venc'),valor:parseFloat(v)||0,status:tipo==='Guia'?'pendente':'disponivel',de:'equipe',nome:picked.nome,data:picked.data,size:picked.size,criado:NX.today(),visto:false};
-    f.shared=RESTRITOS.indexOf(f.setor)<0;hist(f,'Enviado pela equipe');db.files.push(f);
+    f.shared=RESTRITOS.indexOf(f.setor)<0;hist(f,'Enviado pela equipe');db.files.push(f);onDocAdded(f);
     if(fd.get('avisar'))db.messages.push({id:NX.uid(),cliente:c.id,de:'equipe',autor:S.user.nome,texto:'Novo arquivo disponível: '+f.titulo+(f.venc?' (vence em '+NX.fdate(f.venc)+')':'')+'. Acesse a aba Guias e arquivos.',em:new Date().toISOString(),lida:false});
     if(persist()===false){db.files.pop();return false;}RR();NX.toast('Arquivo enviado para o cliente.');});
   function take(file){NX.readFile(file,function(r){picked=r;document.getElementById('fn').textContent=r.nome+' · '+NX.fsize(r.size);});}
@@ -356,7 +512,7 @@ function oblDialog(cid){openDlg('<h2>Nova obrigação'+(cid==='*'?' geral':'')+'
 
 /* ---------- ROTEADOR ---------- */
 function render(){db=NX.load();if(!S.user){login();return;}var r=route();
-  if(r[0]==='clientes')clientes(r[1]);else if(r[0]==='mensagens')mensagens();else if(r[0]==='obrigacoes')obrigacoes();else if(r[0]==='agenda')agenda();else if(r[0]==='documentos')documentos();else if(r[0]==='comunicacoes')comunicacoes();else painel();}
+  if(r[0]==='clientes')clientes(r[1]);else if(r[0]==='mensagens')mensagens();else if(r[0]==='obrigacoes')obrigacoes();else if(r[0]==='agenda')agenda();else if(r[0]==='documentos')documentos();else if(r[0]==='processos')processos();else if(r[0]==='comunicacoes')comunicacoes();else painel();}
 window.addEventListener('hashchange',render);
 window.NX_onSync=function(){if(!dlg.open&&document.activeElement.tagName!=='INPUT')render();};
 render();
