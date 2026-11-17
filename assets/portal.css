@@ -91,3 +91,11 @@ dialog h2{color:var(--blue2);font-size:20px}
 .help{font-size:13px;color:var(--muted);margin:0}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 @media(max-width:760px){.side{flex:1 1 100%;flex-direction:row;flex-wrap:wrap;align-items:center;padding:14px}.logo{margin:0 12px 0 0}.role{display:none}.side .foot{display:none}.side a.nav{padding:8px 10px}.main{padding:20px 16px 50px}.cal-d{min-height:60px}.ev{font-size:10px}}
+.folders{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.fold{display:flex;gap:12px;align-items:center;text-align:left;border:1px solid var(--line);background:#fff;border-radius:14px;padding:14px;cursor:pointer;min-height:68px;font:inherit;color:var(--ink)}
+.fold:hover{border-color:var(--blue);background:var(--infob)}
+.fold .fi{width:42px;height:42px;border-radius:10px;background:var(--infob);color:var(--blue);display:grid;place-items:center;flex-shrink:0}
+.fold b{display:block}.fold small{color:var(--muted);font-size:12px}
+.crumbs{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:14px;margin-bottom:14px}
+.crumbs button{border:0;background:none;color:var(--blue);font:600 14px Inter,sans-serif;cursor:pointer;padding:6px 4px;min-height:36px}
+.crumbs b{padding:6px 4px}
