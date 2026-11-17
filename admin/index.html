@@ -17,6 +17,7 @@
 <dialog id="dlg"><form method="dialog" id="dlgForm"></form></dialog>
 
 <script src="/assets/store.js"></script>
+<script src="/assets/explorer.js"></script>
 <script>
 (function(){
 var db=NX.load(), e=NX.esc, S={sel:null,tab:'arquivos',month:NX.ym(),user:null};
@@ -124,53 +125,27 @@ function folderClick(t,F){if(t.hasAttribute('data-go')){var v=t.getAttribute('da
   if(t.hasAttribute('data-cr')){var lv=t.getAttribute('data-cr');if(lv==='root')F.setor=F.ano=F.comp=null;else if(lv==='setor')F.ano=F.comp=null;else if(lv==='ano')F.comp=null;return true;}return false;}
 var RR=function(){};
 function x0(f){return f.tipo==='Guia'&&f.status!=='pago';}
+S.xpA=S.xpA||{};
+function editDoc(f,after){openDlg('<h2>Editar documento</h2><div class="grid"><label style="grid-column:1/-1">Nome<input name="titulo" value="'+e(f.titulo)+'" required></label><label>Setor<select name="setor">'+SETORES.map(function(s){return '<option'+(s===setorOf(f)?' selected':'')+'>'+s+'</option>';}).join('')+'</select></label><label>Competência<input name="comp" type="month" value="'+compOf(f)+'" required></label><label>Vencimento<input name="venc" type="date" value="'+(f.venc||'')+'"></label><label>Valor (R$)<input name="valor" value="'+(f.valor?String(f.valor).replace('.',','):'')+'" inputmode="decimal"></label></div><label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" name="shared" '+(shared(f)?'checked':'')+' style="width:auto;min-height:auto"> Compartilhar com o cliente (aparece no portal)</label>',
+  function(fd){f.titulo=fd.get('titulo');f.setor=fd.get('setor');f.comp=fd.get('comp');f.venc=fd.get('venc');f.valor=parseFloat(String(fd.get('valor')||'').replace(/\./g,'').replace(',','.'))||0;f.shared=!!fd.get('shared');hist(f,'Editado');persist();after();NX.toast('Documento atualizado.');});}
 function tabArquivos(c,el,rr){RR=rr||function(){clientes(c.id);};
-  if(S.foldC!==c.id){S.foldC=c.id;S.fold={setor:null,ano:null,comp:null};}
-  var F=S.fold,D=S.dv,all=liveFiles(c.id);
-  all.forEach(function(f){if(f.de==='cliente'&&!f.visto){f.visto=true;hist(f,'Recebido pela equipe');}});persist();
-  // árvore
-  var tree='<nav aria-label="Pastas do cliente" style="flex:0 0 230px;min-width:0;border-right:1px solid var(--line);padding-right:12px;font-size:14px"><button class="btn b-text" data-tr="root" style="font-weight:700;color:var(--ink);padding:0 4px">'+e(c.nome)+'</button><ul style="list-style:none;margin:6px 0 0;padding:0">'+
-    SETORES.map(function(s){var l=all.filter(function(f){return setorOf(f)===s;}),open=F.setor===s,anos={};l.forEach(function(f){anos[compOf(f).slice(0,4)]=1;});
-      return '<li><button class="btn b-text" data-tr="s|'+e(s)+'" style="width:100%;justify-content:flex-start;gap:6px;color:'+(open?'var(--blue)':'var(--ink)')+';font-weight:'+(open?700:500)+';padding:0 4px">'+(open?'−':'+')+' '+ICO_F+' '+e(s)+' '+(RESTRITOS.indexOf(s)>-1?ICO_L:ICO_S)+'<span style="margin-left:auto;color:var(--muted);font-size:12px">'+l.length+'</span></button>'+
-      (open?'<ul style="list-style:none;margin:0;padding-left:22px">'+Object.keys(anos).sort().reverse().map(function(a){var ao=F.ano===a;return '<li><button class="btn b-text" data-tr="a|'+a+'" style="width:100%;justify-content:flex-start;color:'+(ao?'var(--blue)':'var(--ink)')+';font-weight:'+(ao?700:500)+';padding:0 4px;min-height:32px">'+(ao?'−':'+')+' '+a+'</button>'+
-        (ao?'<ul style="list-style:none;margin:0;padding-left:20px">'+MESES.map(function(mn,i){var k=a+'-'+String(i+1).padStart(2,'0'),n=l.filter(function(f){return compOf(f)===k;}).length;return n?'<li><button class="btn b-text" data-tr="c|'+k+'" style="width:100%;justify-content:flex-start;padding:0 4px;min-height:30px;font-weight:'+(F.comp===k?700:400)+';color:'+(F.comp===k?'var(--blue)':'var(--ink)')+'">'+mn+' <span style="margin-left:auto;color:var(--muted);font-size:12px">'+n+'</span></button></li>':'';}).join('')+'</ul>':'')+'</li>';}).join('')+'</ul>':'')+'</li>';}).join('')+'</ul></nav>';
-  // lista
-  var l=all.filter(function(f){return (!F.setor||setorOf(f)===F.setor)&&(!F.ano||compOf(f).slice(0,4)===F.ano)&&(!F.comp||compOf(f)===F.comp);});
-  if(D.q){var q=D.q.toLowerCase();l=all.filter(function(f){return (f.titulo+' '+f.nome).toLowerCase().indexOf(q)>-1;});}
-  if(D.vis!=='todos')l=l.filter(function(f){return f.de==='equipe'&&(D.vis==='nao'?!f.visto:f.visto);});
-  l.sort(function(a,b){return (compOf(b)+b.criado)<(compOf(a)+a.criado)?-1:1;});
-  var trail=[e(c.nome)];if(F.setor)trail.push(e(F.setor));if(F.ano)trail.push(F.ano);if(F.comp)trail.push(MESES[+F.comp.slice(5)-1]);
-  var list='<div style="flex:999 1 360px;min-width:0"><div class="row between" style="margin-bottom:12px;align-items:center"><div class="row" style="align-items:center">'+
-    '<div class="seg" role="group" aria-label="Filtro de visualização" style="display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden">'+[['todos','Todos'],['nao','Não visualizados'],['sim','Visualizados']].map(function(o){return '<button data-vis="'+o[0]+'" aria-pressed="'+(D.vis===o[0])+'" style="border:0;padding:0 12px;min-height:38px;font:600 13px Inter,sans-serif;cursor:pointer;background:'+(D.vis===o[0]?'var(--blue)':'#fff')+';color:'+(D.vis===o[0]?'#fff':'var(--muted)')+'">'+o[1]+'</button>';}).join('')+'</div>'+
-    '<label class="sr" for="dq">Pesquisar documentos</label><input id="dq" placeholder="Pesquisar…" value="'+e(D.q)+'" style="width:200px;min-height:38px"></div>'+
-    '<div class="row"><button class="btn b-line" id="upm">Upload em massa</button><button class="btn b-blue" id="up">Novo documento</button></div></div>'+
-    '<p class="help" style="margin-bottom:8px">'+(D.q?'Resultado da pesquisa em todas as pastas':trail.join(' › '))+' · '+l.length+' documento(s)</p>'+
-    '<div class="tbl"><table><thead><tr><th>Nome</th><th>Compet.</th><th>Vencimento</th><th>Situação</th><th>Visualizado</th><th>Compart.</th><th><span class="sr">Ações</span></th></tr></thead><tbody>'+
-    (l.length?l.map(function(f){var s=NX.statusOf(f),nc=(f.coments||[]).length;return '<tr><td class="name"><button data-open="'+f.id+'" style="border:0;background:none;padding:0;font:600 14px Inter,sans-serif;color:var(--blue);cursor:pointer;text-align:left">'+e(f.titulo)+'</button><small style="display:block;color:var(--muted)">'+(f.folder&&db.folders?'Pasta: '+e(((db.folders.filter(function(x){return x.id===f.folder;})[0])||{}).nome||'')+' · ':'')+'Anexado por '+e(NX.uploader(f,db))+' · '+e(setorOf(f))+' · '+e(f.nome)+' '+NX.fsize(f.size)+(f.valor?' · '+NX.brl(f.valor):'')+'</small></td><td>'+NX.fcomp(compOf(f))+'</td><td>'+NX.fdate(f.venc)+'</td><td><span class="tag '+s.c+'">'+s.t+'</span></td><td>'+(f.de==='equipe'?(f.visto?'<span class="tag ok">Sim</span>':'<span class="tag warn">Não</span>'):'—')+'</td><td>'+(shared(f)?ICO_S:ICO_L)+'</td>'+
-      '<td style="white-space:nowrap"><button class="btn b-text" data-dl="'+f.id+'">Baixar</button><button class="btn b-text" data-cm="'+f.id+'">Comentários'+(nc?' ('+nc+')':'')+'</button><button class="btn b-text" data-ed="'+f.id+'">Editar</button>'+(f.tipo==='Guia'&&f.status!=='pago'?'<button class="btn b-text" data-pay="'+f.id+'">Dar baixa</button>':'')+'<button class="btn b-text" data-hi="'+f.id+'">Histórico</button><button class="btn b-danger" data-rm="'+f.id+'">Excluir</button></td></tr>';}).join(''):'<tr><td colspan="7" class="empty">Nenhum documento aqui.</td></tr>')+'</tbody></table></div></div>';
-  var lvl=(!D.q&&D.vis==='todos')?folderLevel(all,F,SETORES):null;
-  if(lvl){list=list.replace(/<p class="help" style="margin-bottom:8px">[\s\S]*$/,'')+crumbsHTML(c.nome,F)+folderCards(lvl)+'</div>';}
-  else if(!D.q&&D.vis==='todos'){list=list.replace('<p class="help" style="margin-bottom:8px">','<div>'+crumbsHTML(c.nome,F)+'</div><p class="help" style="margin-bottom:8px;display:none">');}
-  el.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:18px">'+tree+list+'</div>';
-  document.getElementById('up').onclick=function(){fileDialog(c,{setor:F.setor,comp:F.comp});};
-  document.getElementById('upm').onclick=function(){massDialog(c);};
-  var dq=document.getElementById('dq');dq.oninput=function(){D.q=dq.value;clearTimeout(dq._t);dq._t=setTimeout(function(){RR();var x=document.getElementById('dq');x.focus();x.setSelectionRange(x.value.length,x.value.length);},350);};
-  el.onclick=function(ev){var t=ev.target.closest('button');if(!t)return;var id,f;
-    if(folderClick(t,F)){D.q='';RR();return;}
-    if(t.hasAttribute('data-tr')){var v=t.getAttribute('data-tr'),p=v.split('|');D.q='';
-      if(v==='root'){F.setor=F.ano=F.comp=null;}else if(p[0]==='s'){if(F.setor===p[1]){F.setor=F.ano=F.comp=null;}else{F.setor=p[1];F.ano=F.comp=null;}}else if(p[0]==='a'){if(F.ano===p[1]){F.ano=F.comp=null;}else{F.ano=p[1];F.comp=null;}}else F.comp=p[1];RR();return;}
-    if(t.hasAttribute('data-vis')){D.vis=t.getAttribute('data-vis');RR();return;}
-    var get=function(a){var i=t.getAttribute(a);return i&&db.files.filter(function(x){return x.id===i;})[0];};
-    if(f=get('data-dl')){hist(f,'Baixado pela equipe');persist();NX.download(f);}
-    if(f=get('data-open')){hist(f,'Aberto pela equipe');persist();var acts=[{label:'Baixar',cls:'b-blue',close:false,fn:function(x){hist(x,'Baixado pela equipe');persist();NX.download(x);}}];if(x0(f))acts.push({label:'Dar baixa',fn:function(x){x.status='pago';hist(x,'Baixa de pagamento pela equipe');persist();}});
-      NX.viewer(f,{db:db,me:'equipe',path:setorOf(f)+' › '+NX.fcomp(compOf(f)),actions:acts,onClose:function(){RR();},onComment:function(x,t){x.coments=x.coments||[];x.coments.push({em:new Date().toISOString(),de:'equipe',autor:S.user.nome,texto:t});hist(x,'Comentário da equipe');persist();}});}
-    if(f=get('data-pay')){f.status='pago';hist(f,'Baixa de pagamento pela equipe');persist();RR();NX.toast('Guia marcada como paga.');}
-    if(f=get('data-rm')){if(confirm('Mover "'+f.titulo+'" para a lixeira?')){f.deleted=new Date().toISOString();hist(f,'Enviado para a lixeira');persist();RR();NX.toast('Documento movido para a lixeira.');}}
-    if(f=get('data-hi')){openDlg('<h2>Histórico</h2><p class="help">'+e(f.titulo)+'</p>'+((f.hist||[]).length?f.hist.slice().reverse().map(function(h){return '<div class="list-item"><span>'+e(h.ev)+(h.por?' · '+e(h.por):'')+'</span><small>'+NX.ftime(h.em)+'</small></div>';}).join(''):'<p class="empty">Sem histórico registrado.</p>'),function(){});}
-    if(f=get('data-cm'))commentDialog(f,function(){RR();});
-    if(f=get('data-ed'))openDlg('<h2>Editar documento</h2><div class="grid"><label style="grid-column:1/-1">Nome<input name="titulo" value="'+e(f.titulo)+'" required></label><label>Setor<select name="setor">'+SETORES.map(function(s){return '<option'+(s===setorOf(f)?' selected':'')+'>'+s+'</option>';}).join('')+'</select></label><label>Competência<input name="comp" type="month" value="'+compOf(f)+'" required></label><label>Vencimento<input name="venc" type="date" value="'+(f.venc||'')+'"></label><label>Valor (R$)<input name="valor" value="'+(f.valor?String(f.valor).replace('.',','):'')+'" inputmode="decimal"></label></div><label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" name="shared" '+(shared(f)?'checked':'')+' style="width:auto;min-height:auto"> Compartilhar com o cliente (aparece no portal)</label>',
-      function(fd){f.titulo=fd.get('titulo');f.setor=fd.get('setor');f.comp=fd.get('comp');f.venc=fd.get('venc');f.valor=parseFloat(String(fd.get('valor')||'').replace(/\./g,'').replace(',','.'))||0;f.shared=!!fd.get('shared');hist(f,'Editado');persist();RR();NX.toast('Documento atualizado.');});
-  };
+  if(S.xpA.cli!==c.id)S.xpA={cli:c.id};
+  db.files.forEach(function(f){if(f.cliente===c.id&&f.de==='cliente'&&!f.visto&&!f.deleted){f.visto=true;hist(f,'Recebido pela equipe');}});persist();
+  var st=S.xpA;
+  function openF(f){hist(f,'Aberto pela equipe');persist();
+    var acts=[{label:'Baixar',cls:'b-blue',close:false,fn:function(x){hist(x,'Baixado pela equipe');persist();NX.download(x);}},{label:'Editar',fn:function(x){setTimeout(function(){editDoc(x,draw);},0);}}];
+    if(x0(f))acts.push({label:'Dar baixa',fn:function(x){x.status='pago';hist(x,'Baixa de pagamento pela equipe');persist();}});
+    acts.push({label:'Excluir',cls:'b-danger',fn:function(x){if(!confirm('Mover "'+x.titulo+'" para a lixeira?'))return false;x.deleted=new Date().toISOString();hist(x,'Enviado para a lixeira');persist();NX.toast('Documento movido para a lixeira.');}});
+    NX.viewer(f,{db:db,me:'equipe',path:NX.xpPath(f),actions:acts,onClose:function(){draw();},onComment:function(x,t){x.coments=x.coments||[];x.coments.push({em:new Date().toISOString(),de:'equipe',autor:S.user.nome,texto:t});hist(x,'Comentário da equipe');persist();}});}
+  function draw(){NX.explorer(el,{db:db,cliente:c.id,role:'equipe',st:st,rootLabel:c.nome,setores:SETORES,restritos:RESTRITOS,setorOf:setorOf,visible:function(f){return !f.deleted;},
+    onOpen:openF,
+    onNewFolder:function(L,re){if(NX.newFolder(db,c.id,L,S.user.nome)){persist();re();NX.toast('Pasta criada.');}},
+    onUpload:function(L){var pl=NX.placeFor(db,L,'Fiscal');fileDialog(c,{setor:pl.setor==='__custom'?null:pl.setor,comp:pl.comp,folder:pl.folder});},
+    onMass:function(){massDialog(c);},
+    onDropFiles:function(files,L,re){var pl=NX.placeFor(db,L,'Contábil'),n=0;files.forEach(function(file){NX.readFile(file,function(r){var g=guessFromName(r.nome);
+      var f={id:NX.uid(),cliente:c.id,setor:pl.setor,folder:pl.folder,tipo:g.tipo,titulo:g.titulo,comp:L.comp?pl.comp:g.comp,venc:'',valor:0,status:g.tipo==='Guia'?'pendente':'disponivel',de:'equipe',por:S.user.nome,nome:r.nome,data:r.data,size:r.size,criado:NX.today(),visto:false};hist(f,'Enviado pela equipe');db.files.push(f);
+      if(++n===files.length&&persist()!==false){re();NX.toast(n+' documento(s) enviado(s).');}});});}});}
+  RR=function(){draw();};draw();
 }
 function commentDialog(f,after){
   openDlg('<h2>Comentários</h2><p class="help">'+e(f.titulo)+(shared(f)?' · o cliente vê estes comentários':' · documento restrito à equipe')+'</p><div class="chat" style="max-height:260px">'+((f.coments||[]).length?f.coments.map(function(m){return '<div class="msg '+(m.de==='equipe'?'me':'them')+'">'+e(m.texto)+'<small>'+e(m.autor)+' · '+NX.ftime(m.em)+'</small></div>';}).join(''):'<p class="empty">Nenhum comentário.</p>')+'</div><label>Novo comentário<input name="t" placeholder="Escreva um comentário…"></label>',
@@ -178,7 +153,7 @@ function commentDialog(f,after){
 function massDialog(c){var picked=[];
   openDlg('<h2>Upload em massa — '+e(c.nome)+'</h2><p class="help">Escolha vários arquivos. O sistema identifica a competência pelo nome (ex.: “Guia DAS 10-2026.pdf”) e sugere o setor. Revise antes de salvar.</p><label class="btn b-line" style="display:inline-flex;flex-direction:row;color:var(--blue);align-self:flex-start">Escolher arquivos<input type="file" id="mf" multiple style="display:none"></label><div id="ml"></div><label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" name="avisar" checked style="width:auto;min-height:auto"> Avisar o cliente por mensagem</label>',
   function(fd){if(!picked.length){NX.toast('Escolha os arquivos.');return false;}
-    picked.forEach(function(p,i){var f={id:NX.uid(),cliente:c.id,setor:fd.get('s'+i),tipo:p.g.tipo,titulo:fd.get('t'+i),comp:fd.get('c'+i),venc:'',valor:0,status:p.g.tipo==='Guia'?'pendente':'disponivel',de:'equipe',nome:p.nome,data:p.data,size:p.size,criado:NX.today(),visto:false};hist(f,'Enviado (upload em massa)');db.files.push(f);});
+    picked.forEach(function(p,i){var f={id:NX.uid(),cliente:c.id,setor:fd.get('s'+i),tipo:p.g.tipo,titulo:fd.get('t'+i),comp:fd.get('c'+i),venc:'',valor:0,status:p.g.tipo==='Guia'?'pendente':'disponivel',de:'equipe',nome:p.nome,data:p.data,size:p.size,criado:NX.today(),visto:false};f.por=S.user.nome;hist(f,'Enviado (upload em massa)');db.files.push(f);});
     if(fd.get('avisar'))db.messages.push({id:NX.uid(),cliente:c.id,de:'equipe',autor:S.user.nome,texto:picked.length+' novo(s) documento(s) disponível(is) no portal.',em:new Date().toISOString(),lida:false});
     if(persist()===false){db.files.splice(-picked.length);return false;}RR();NX.toast(picked.length+' documento(s) enviado(s).');});
   document.getElementById('mf').onchange=function(ev){var fs=[].slice.call(ev.target.files),done=0;picked=[];
@@ -367,10 +342,10 @@ function fileDialog(c,pre){pre=pre||{};var picked=null;
   '<div class="drop" id="fd"><p style="margin:0 0 10px">Arraste o arquivo ou</p><label class="btn b-line" style="display:inline-flex;flex-direction:row;color:var(--blue)">Escolher arquivo<input type="file" id="fi" style="display:none"></label><p class="help" id="fn" style="margin-top:8px">Nenhum arquivo escolhido (até 1,5 MB no protótipo)</p></div>'+
   '<label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" name="avisar" checked style="width:auto;min-height:auto"> Avisar o cliente por mensagem</label>',
   function(fd){if(!picked){NX.toast('Escolha o arquivo.');return false;}var tipo=fd.get('tipo');var v=String(fd.get('valor')||'').replace(/\./g,'').replace(',','.');
-    var f={id:NX.uid(),cliente:c.id,setor:fd.get('setor'),tipo:tipo,titulo:fd.get('titulo'),comp:fd.get('comp'),venc:fd.get('venc'),valor:parseFloat(v)||0,status:tipo==='Guia'?'pendente':'disponivel',de:'equipe',nome:picked.nome,data:picked.data,size:picked.size,criado:NX.today(),visto:false};
+    var f={id:NX.uid(),cliente:c.id,setor:pre.folder&&!pre.setor?'__custom':fd.get('setor'),folder:pre.folder||null,por:S.user.nome,tipo:tipo,titulo:fd.get('titulo'),comp:fd.get('comp'),venc:fd.get('venc'),valor:parseFloat(v)||0,status:tipo==='Guia'?'pendente':'disponivel',de:'equipe',nome:picked.nome,data:picked.data,size:picked.size,criado:NX.today(),visto:false};
     f.shared=RESTRITOS.indexOf(f.setor)<0;hist(f,'Enviado pela equipe');db.files.push(f);
     if(fd.get('avisar'))db.messages.push({id:NX.uid(),cliente:c.id,de:'equipe',autor:S.user.nome,texto:'Novo arquivo disponível: '+f.titulo+(f.venc?' (vence em '+NX.fdate(f.venc)+')':'')+'. Acesse a aba Guias e arquivos.',em:new Date().toISOString(),lida:false});
-    if(persist()===false){db.files.pop();return false;}S.fold={setor:f.setor,ano:(f.comp||NX.ym()).slice(0,4),comp:f.comp||NX.ym()};RR();NX.toast('Arquivo enviado para o cliente.');});
+    if(persist()===false){db.files.pop();return false;}RR();NX.toast('Arquivo enviado para o cliente.');});
   function take(file){NX.readFile(file,function(r){picked=r;document.getElementById('fn').textContent=r.nome+' · '+NX.fsize(r.size);});}
   document.getElementById('fi').onchange=function(ev){if(ev.target.files[0])take(ev.target.files[0]);};
   var z=document.getElementById('fd');z.ondragover=function(ev){ev.preventDefault();z.classList.add('over');};z.ondragleave=function(){z.classList.remove('over');};z.ondrop=function(ev){ev.preventDefault();z.classList.remove('over');if(ev.dataTransfer.files[0])take(ev.dataTransfer.files[0]);};
