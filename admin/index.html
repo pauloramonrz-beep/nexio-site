@@ -353,6 +353,10 @@ function ensureProc(){
     [['Ligar para cliente novo (onboarding)',0,'alta'],['Revisar contratos do mês',1,'media'],['Estudar mudanças da Reforma Tributária',3,'baixa']].forEach(function(x){var d=new Date();d.setDate(d.getDate()+x[1]);db.tasks.push({id:NX.uid(),tipo:'pessoal',owner:me,resp:me,titulo:x[0],data:d.toISOString().slice(0,10),status:'nao',prio:x[2],criado:t});});
     persist();}
 }
+function demoProc(){if(db.procDemo)return;db.procDemo=1;var prev=NX.shiftMonth(NX.ym(),-1),i=0,ks=['ok','ok','and','agu','ok','nao','ok'];
+  db.tasks.forEach(function(t){if(t.tipo==='cliente'&&t.comp===prev){var k=ks[i%ks.length];t.status=k;if(k==='ok'){var d=new Date();d.setDate(d.getDate()-(i*4)%32);t.concluido=d.toISOString().slice(0,10);if(i%3===0)t.resp=db.staff[i%db.staff.length].id;}i++;}});
+  for(var w=1;w<=5;w++){db.staff.forEach(function(s,j){for(var n=0;n<(w+j)%4+1;n++){var d=new Date();d.setDate(d.getDate()-7*w+n);db.tasks.push({id:NX.uid(),tipo:'pessoal',owner:s.id,resp:s.id,titulo:'Tarefa interna (exemplo)',data:d.toISOString().slice(0,10),status:'ok',concluido:d.toISOString().slice(0,10),prio:'media',criado:d.toISOString().slice(0,10),log:[]});}});}
+  persist();}
 function gerarDemandas(comp,silent){var n=0;
   db.clients.forEach(function(c){db.procT.forEach(function(tp){if(tp.planos.indexOf(planoKey(c))<0)return;
     if(db.tasks.some(function(t){return t.tipo==='cliente'&&t.cliente===c.id&&t.tpl===tp.id&&t.comp===comp;}))return;
@@ -369,7 +373,7 @@ function late(t){return t.status!=='ok'&&t.venc&&t.venc<NX.today();}
 function riscoMulta(t){var d=new Date();d.setDate(d.getDate()+5);return t.multa&&t.status!=='ok'&&t.venc&&t.venc<=d.toISOString().slice(0,10);}
 function av(id){var s=staffBy(id);if(!s)return '<span class="av" style="background:#ccc">?</span>';return '<span class="av" style="background:'+(s.cor||'#0740EF')+'" title="'+e(s.nome)+'">'+e(s.nome.split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase())+'</span>';}
 S.pr=S.pr||{tab:'tabela',comp:NX.shiftMonth(NX.ym(),-1),grp:'cliente',resp:'',setor:'',st:'',q:'',agUser:null};
-function processos(){ensureProc();ensureAgenda&&ensureAgenda();var P=S.pr;P.agUser=P.agUser||S.user.id;if(!staffBy(P.agUser))P.agUser=db.staff[0].id;
+function processos(){ensureProc();demoProc();ensureAgenda&&ensureAgenda();var P=S.pr;P.agUser=P.agUser||S.user.id;if(!staffBy(P.agUser))P.agUser=db.staff[0].id;
   var tabs=[['tabela','Tabela'],['kanban','Kanban'],['agenda','Minha agenda'],['indicadores','Indicadores'],['modelos','Modelos de demandas']];
   shell('processos',head('Controle de processos','Demandas mensais dos clientes, agenda de tarefas da equipe e indicadores de produtividade.','<button class="btn b-line" id="gen">Gerar demandas de '+NX.fcomp(P.comp)+'</button><button class="btn b-blue" id="newt">+ Nova demanda</button>')+
   '<section class="card"><div class="tabs" role="tablist">'+tabs.map(function(t){return '<button role="tab" data-pt="'+t[0]+'" aria-selected="'+(P.tab===t[0])+'">'+t[1]+'</button>';}).join('')+'</div><div id="prc"></div></section>');
