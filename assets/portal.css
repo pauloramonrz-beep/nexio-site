@@ -100,18 +100,19 @@ dialog h2{color:var(--blue2);font-size:20px}
 .crumbs button{border:0;background:none;color:var(--blue);font:600 14px Inter,sans-serif;cursor:pointer;padding:6px 4px;min-height:36px}
 .crumbs b{padding:6px 4px}
 /* menu lateral recolhível */
-.side-toggle{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.12);color:#fff;border:0;border-radius:10px;min-height:40px;padding:0 12px;cursor:pointer;font:600 13px Inter,sans-serif;margin:0 0 10px}
-.side-toggle:hover{background:rgba(255,255,255,.2)}
-.side a.nav .lbl{white-space:nowrap}
-.app.min .side{flex:0 0 76px;padding:22px 10px}
-.app.min .side .logo small,.app.min .side .role,.app.min .side .foot span,.app.min .side .foot a:not(.keep){display:none}
-.app.min .side .logo b{font-size:15px;letter-spacing:.05em}
-.app.min .side a.nav{justify-content:center;padding:10px 0;position:relative}
+.side{position:relative}
+.side-toggle{position:absolute;top:22px;right:12px;display:grid;place-items:center;width:34px;height:34px;background:transparent;color:#D9E3FF;border:0;border-radius:8px;cursor:pointer;padding:0}
+.side-toggle:hover{background:rgba(255,255,255,.14);color:#fff}
+.side a.nav{justify-content:flex-start}
+.side a.nav .ni{display:inline-flex;flex-shrink:0;opacity:.95}
+.side a.nav .lbl{white-space:nowrap;flex:1}
+.app.min .side{flex:0 0 72px;padding:70px 10px 22px}
+.app.min .side-toggle{right:50%;transform:translateX(50%)}
+.app.min .side .logo,.app.min .side .role,.app.min .side .foot{display:none}
+.app.min .side a.nav{justify-content:center;padding:11px 0;position:relative}
 .app.min .side a.nav .lbl{display:none}
-.app.min .side a.nav::before{content:attr(data-ab);font:700 13px 'Space Grotesk',sans-serif}
-.app.min .side a.nav .cnt{position:absolute;top:2px;right:2px;font-size:10px;padding:0 5px}
-.app.min .side-toggle span{display:none}
-.app.min .side-toggle{justify-content:center;padding:0}
+.app.min .side a.nav .cnt{position:absolute;top:3px;right:6px;font-size:10px;padding:0 5px;line-height:16px}
+.side .logo{padding-right:40px}
 /* visualizador */
 .nxv{border:0;border-radius:18px;padding:0;width:min(1100px,calc(100% - 24px));max-width:none;height:min(88vh,860px);color:var(--ink)}
 .nxv::backdrop{background:rgba(14,26,69,.55)}

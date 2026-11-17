@@ -110,12 +110,19 @@
 /* ---- menu lateral recolhível + visualizador de documentos (compartilhado) ---- */
 (function(){
   function isMin(){try{return localStorage.getItem('nx_side_min')==='1';}catch(e){return false;}}
-  NX.sideToggleHTML=function(){return '<button class="side-toggle" id="sideT" aria-label="'+(isMin()?'Expandir menu':'Recolher menu')+'" aria-expanded="'+(!isMin())+'">'+(isMin()?'»':'«')+'<span>Recolher menu</span></button>';};
+  var IC={'Início':'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z','Painel':'M3 3h8v8H3zM13 3h8v5h-8zM13 10h8v11h-8zM3 13h8v8H3z','Clientes':'M16 20v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 20v-1a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8',
+   'Documentos':'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z','Obrigações':'M7 3v3M17 3v3M4 8h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM9 14l2 2 4-4',
+   'Notas fiscais':'M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM14 3v5h5M9 13h6M9 17h6','Controle financeiro':'M4 19V5M4 19h16M8 15l4-4 3 3 5-6','Mensagens':'M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z',
+   'Comunicações':'M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1zM16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12','Agenda da equipe':'M7 3v3M17 3v3M4 8h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM8 12h3M8 16h3M13 12h3'};
+  function svg(d,sz){return '<svg width="'+(sz||20)+'" height="'+(sz||20)+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+d+'"/></svg>';}
+  var TOG='M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM9 5v14';
+  NX.sideToggleHTML=function(){return '<button class="side-toggle" id="sideT" title="'+(isMin()?'Expandir menu':'Recolher menu')+'" aria-label="'+(isMin()?'Expandir menu':'Recolher menu')+'" aria-expanded="'+(!isMin())+'">'+svg(TOG,18)+'</button>';};
   NX.applySide=function(){var app=document.querySelector('.app');if(!app)return;app.classList.toggle('min',isMin());
     app.querySelectorAll('.side a.nav').forEach(function(a){if(a.querySelector('.lbl'))return;var cnt=a.querySelector('.cnt');var txt=[].slice.call(a.childNodes).filter(function(n){return n.nodeType===3;}).map(function(n){return n.textContent;}).join('').trim();
-      [].slice.call(a.childNodes).forEach(function(n){if(n.nodeType===3)a.removeChild(n);});var s=document.createElement('span');s.className='lbl';s.textContent=txt;a.insertBefore(s,cnt||null);
-      a.setAttribute('data-ab',txt.split(/\s+/).filter(function(w){return w.length>2;}).slice(0,2).map(function(w){return w[0].toUpperCase();}).join('')||txt.slice(0,2));a.title=txt;});
-    var b=document.getElementById('sideT');if(b)b.onclick=function(){try{localStorage.setItem('nx_side_min',isMin()?'0':'1');}catch(e){}NX.applySide();b.innerHTML=(isMin()?'»':'«')+'<span>Recolher menu</span>';b.setAttribute('aria-expanded',String(!isMin()));};};
+      [].slice.call(a.childNodes).forEach(function(n){if(n.nodeType===3)a.removeChild(n);});
+      var w=document.createElement('span');w.className='ni';w.innerHTML=svg(IC[txt]||IC['Documentos']);a.insertBefore(w,a.firstChild);
+      var s=document.createElement('span');s.className='lbl';s.textContent=txt;a.insertBefore(s,cnt||null);a.title=txt;});
+    var b=document.getElementById('sideT');if(b)b.onclick=function(){try{localStorage.setItem('nx_side_min',isMin()?'0':'1');}catch(e){}NX.applySide();var m=isMin();b.title=b.ariaLabel=m?'Expandir menu':'Recolher menu';b.setAttribute('aria-label',b.title);b.setAttribute('aria-expanded',String(!m));};};
   NX.blobUrl=function(d){try{var p=d.split(','),mime=(p[0].match(/:(.*?);/)||[])[1]||'application/octet-stream',bin=atob(p[1]),u=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return URL.createObjectURL(new Blob([u],{type:mime}));}catch(e){return null;}};
   NX.uploader=function(f,db){if(f.por)return f.por;if(f.de==='cliente'){var c=(db.clients||[]).filter(function(x){return x.id===f.cliente;})[0];return c?(c.resp||c.nome):'Cliente';}return 'Equipe NEXIO';};
   /* ctx: {db, path, actions:[{label,cls,fn}], onClose} */
