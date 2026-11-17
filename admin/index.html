@@ -40,9 +40,10 @@ function login(){
 /* ---------- LAYOUT ---------- */
 function shell(active,html){
   var nav=[['painel','Painel',0],['clientes','Clientes',newDocs()],['documentos','Documentos',0],['mensagens','Mensagens',unread()],['comunicacoes','Comunicações',0],['agenda','Agenda da equipe',0],['obrigacoes','Obrigações',0]];
-  root.innerHTML='<div class="app"><aside class="side"><a class="logo" href="#/painel"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a><div class="role">Painel da equipe</div>'+
+  root.innerHTML='<div class="app"><aside class="side"><a class="logo" href="#/painel"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a><div class="role">Painel da equipe</div>'+NX.sideToggleHTML()+
   nav.map(function(n){return '<a class="nav" href="#/'+n[0]+'"'+(active===n[0]?' aria-current="page"':'')+'>'+n[1]+(n[2]?'<span class="cnt">'+n[2]+'</span>':'')+'</a>';}).join('')+
   '<div class="foot"><span>'+e(S.user.nome)+'</span><a href="/portal/" target="_blank" rel="noopener">Ver portal do cliente</a><a href="#" id="reset">Restaurar dados de exemplo</a><a href="#" id="logout">Sair</a></div></aside><main class="main">'+html+'</main></div>';
+  NX.applySide();
   document.getElementById('logout').onclick=function(ev){ev.preventDefault();S.user=null;try{sessionStorage.removeItem('nx_staff');}catch(x){}render();};
   document.getElementById('reset').onclick=function(ev){ev.preventDefault();if(confirm('Apagar tudo e restaurar os dados de exemplo?')){db=NX.seed();persist();render();NX.toast('Dados de exemplo restaurados.');}};
 }
@@ -90,7 +91,7 @@ function clientes(id){
 /* ---------- DOCUMENTOS (espelhado no Onvio Documentos) ---------- */
 var SETORES=['Fiscal','Departamento Pessoal','Contábil','Financeiro','Societário','Certidões','Notas fiscais','Enviados pelo cliente','Administrativo (interno)'];
 var RESTRITOS=['Administrativo (interno)'];
-function setorOf(f){if(f.setor)return f.setor;if(f.tipo==='Nota fiscal')return 'Notas fiscais';if(f.de==='cliente')return 'Enviados pelo cliente';
+function setorOf(f){if(f.setor==='__custom')return 'Enviados pelo cliente';if(f.setor)return f.setor;if(f.tipo==='Nota fiscal')return 'Notas fiscais';if(f.de==='cliente')return 'Enviados pelo cliente';
   if(f.tipo==='Folha de pagamento'||/fgts|inss|folha|e-?social|dctfweb|f[ée]rias|rescis|pr[óo]-?labore/i.test(f.titulo))return 'Departamento Pessoal';
   if(/cnd|certid/i.test(f.titulo))return 'Certidões';if(f.tipo==='Contrato')return 'Societário';if(f.tipo==='Relatório')return 'Contábil';if(f.tipo==='Guia')return 'Fiscal';return 'Contábil';}
 function compOf(f){return f.comp||(f.criado||NX.today()).slice(0,7);}
@@ -122,6 +123,7 @@ function crumbsHTML(root,F){var c=[['root',root]];if(F.setor)c.push(['setor',F.s
 function folderClick(t,F){if(t.hasAttribute('data-go')){var v=t.getAttribute('data-go');if(!F.setor)F.setor=v;else if(!F.ano)F.ano=v;else F.comp=v;return true;}
   if(t.hasAttribute('data-cr')){var lv=t.getAttribute('data-cr');if(lv==='root')F.setor=F.ano=F.comp=null;else if(lv==='setor')F.ano=F.comp=null;else if(lv==='ano')F.comp=null;return true;}return false;}
 var RR=function(){};
+function x0(f){return f.tipo==='Guia'&&f.status!=='pago';}
 function tabArquivos(c,el,rr){RR=rr||function(){clientes(c.id);};
   if(S.foldC!==c.id){S.foldC=c.id;S.fold={setor:null,ano:null,comp:null};}
   var F=S.fold,D=S.dv,all=liveFiles(c.id);
@@ -144,7 +146,7 @@ function tabArquivos(c,el,rr){RR=rr||function(){clientes(c.id);};
     '<div class="row"><button class="btn b-line" id="upm">Upload em massa</button><button class="btn b-blue" id="up">Novo documento</button></div></div>'+
     '<p class="help" style="margin-bottom:8px">'+(D.q?'Resultado da pesquisa em todas as pastas':trail.join(' › '))+' · '+l.length+' documento(s)</p>'+
     '<div class="tbl"><table><thead><tr><th>Nome</th><th>Compet.</th><th>Vencimento</th><th>Situação</th><th>Visualizado</th><th>Compart.</th><th><span class="sr">Ações</span></th></tr></thead><tbody>'+
-    (l.length?l.map(function(f){var s=NX.statusOf(f),nc=(f.coments||[]).length;return '<tr><td><b>'+e(f.titulo)+'</b><small style="display:block;color:var(--muted)">'+e(setorOf(f))+' · '+e(f.nome)+' '+NX.fsize(f.size)+(f.valor?' · '+NX.brl(f.valor):'')+'</small></td><td>'+NX.fcomp(compOf(f))+'</td><td>'+NX.fdate(f.venc)+'</td><td><span class="tag '+s.c+'">'+s.t+'</span></td><td>'+(f.de==='equipe'?(f.visto?'<span class="tag ok">Sim</span>':'<span class="tag warn">Não</span>'):'—')+'</td><td>'+(shared(f)?ICO_S:ICO_L)+'</td>'+
+    (l.length?l.map(function(f){var s=NX.statusOf(f),nc=(f.coments||[]).length;return '<tr><td class="name"><button data-open="'+f.id+'" style="border:0;background:none;padding:0;font:600 14px Inter,sans-serif;color:var(--blue);cursor:pointer;text-align:left">'+e(f.titulo)+'</button><small style="display:block;color:var(--muted)">'+(f.folder&&db.folders?'Pasta: '+e(((db.folders.filter(function(x){return x.id===f.folder;})[0])||{}).nome||'')+' · ':'')+'Anexado por '+e(NX.uploader(f,db))+' · '+e(setorOf(f))+' · '+e(f.nome)+' '+NX.fsize(f.size)+(f.valor?' · '+NX.brl(f.valor):'')+'</small></td><td>'+NX.fcomp(compOf(f))+'</td><td>'+NX.fdate(f.venc)+'</td><td><span class="tag '+s.c+'">'+s.t+'</span></td><td>'+(f.de==='equipe'?(f.visto?'<span class="tag ok">Sim</span>':'<span class="tag warn">Não</span>'):'—')+'</td><td>'+(shared(f)?ICO_S:ICO_L)+'</td>'+
       '<td style="white-space:nowrap"><button class="btn b-text" data-dl="'+f.id+'">Baixar</button><button class="btn b-text" data-cm="'+f.id+'">Comentários'+(nc?' ('+nc+')':'')+'</button><button class="btn b-text" data-ed="'+f.id+'">Editar</button>'+(f.tipo==='Guia'&&f.status!=='pago'?'<button class="btn b-text" data-pay="'+f.id+'">Dar baixa</button>':'')+'<button class="btn b-text" data-hi="'+f.id+'">Histórico</button><button class="btn b-danger" data-rm="'+f.id+'">Excluir</button></td></tr>';}).join(''):'<tr><td colspan="7" class="empty">Nenhum documento aqui.</td></tr>')+'</tbody></table></div></div>';
   var lvl=(!D.q&&D.vis==='todos')?folderLevel(all,F,SETORES):null;
   if(lvl){list=list.replace(/<p class="help" style="margin-bottom:8px">[\s\S]*$/,'')+crumbsHTML(c.nome,F)+folderCards(lvl)+'</div>';}
@@ -160,6 +162,8 @@ function tabArquivos(c,el,rr){RR=rr||function(){clientes(c.id);};
     if(t.hasAttribute('data-vis')){D.vis=t.getAttribute('data-vis');RR();return;}
     var get=function(a){var i=t.getAttribute(a);return i&&db.files.filter(function(x){return x.id===i;})[0];};
     if(f=get('data-dl')){hist(f,'Baixado pela equipe');persist();NX.download(f);}
+    if(f=get('data-open')){hist(f,'Aberto pela equipe');persist();var acts=[{label:'Baixar',cls:'b-blue',close:false,fn:function(x){hist(x,'Baixado pela equipe');persist();NX.download(x);}}];if(x0(f))acts.push({label:'Dar baixa',fn:function(x){x.status='pago';hist(x,'Baixa de pagamento pela equipe');persist();}});
+      NX.viewer(f,{db:db,me:'equipe',path:setorOf(f)+' › '+NX.fcomp(compOf(f)),actions:acts,onClose:function(){RR();},onComment:function(x,t){x.coments=x.coments||[];x.coments.push({em:new Date().toISOString(),de:'equipe',autor:S.user.nome,texto:t});hist(x,'Comentário da equipe');persist();}});}
     if(f=get('data-pay')){f.status='pago';hist(f,'Baixa de pagamento pela equipe');persist();RR();NX.toast('Guia marcada como paga.');}
     if(f=get('data-rm')){if(confirm('Mover "'+f.titulo+'" para a lixeira?')){f.deleted=new Date().toISOString();hist(f,'Enviado para a lixeira');persist();RR();NX.toast('Documento movido para a lixeira.');}}
     if(f=get('data-hi')){openDlg('<h2>Histórico</h2><p class="help">'+e(f.titulo)+'</p>'+((f.hist||[]).length?f.hist.slice().reverse().map(function(h){return '<div class="list-item"><span>'+e(h.ev)+(h.por?' · '+e(h.por):'')+'</span><small>'+NX.ftime(h.em)+'</small></div>';}).join(''):'<p class="empty">Sem histórico registrado.</p>'),function(){});}

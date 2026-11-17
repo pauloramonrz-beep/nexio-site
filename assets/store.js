@@ -107,3 +107,37 @@
   // sincroniza entre abas (equipe e cliente abertos ao mesmo tempo)
   window.addEventListener('storage', function (e) { if (e.key === KEY && typeof window.NX_onSync === 'function') window.NX_onSync(); });
 })();
+/* ---- menu lateral recolhível + visualizador de documentos (compartilhado) ---- */
+(function(){
+  function isMin(){try{return localStorage.getItem('nx_side_min')==='1';}catch(e){return false;}}
+  NX.sideToggleHTML=function(){return '<button class="side-toggle" id="sideT" aria-label="'+(isMin()?'Expandir menu':'Recolher menu')+'" aria-expanded="'+(!isMin())+'">'+(isMin()?'»':'«')+'<span>Recolher menu</span></button>';};
+  NX.applySide=function(){var app=document.querySelector('.app');if(!app)return;app.classList.toggle('min',isMin());
+    app.querySelectorAll('.side a.nav').forEach(function(a){if(a.querySelector('.lbl'))return;var cnt=a.querySelector('.cnt');var txt=[].slice.call(a.childNodes).filter(function(n){return n.nodeType===3;}).map(function(n){return n.textContent;}).join('').trim();
+      [].slice.call(a.childNodes).forEach(function(n){if(n.nodeType===3)a.removeChild(n);});var s=document.createElement('span');s.className='lbl';s.textContent=txt;a.insertBefore(s,cnt||null);
+      a.setAttribute('data-ab',txt.split(/\s+/).filter(function(w){return w.length>2;}).slice(0,2).map(function(w){return w[0].toUpperCase();}).join('')||txt.slice(0,2));a.title=txt;});
+    var b=document.getElementById('sideT');if(b)b.onclick=function(){try{localStorage.setItem('nx_side_min',isMin()?'0':'1');}catch(e){}NX.applySide();b.innerHTML=(isMin()?'»':'«')+'<span>Recolher menu</span>';b.setAttribute('aria-expanded',String(!isMin()));};};
+  NX.blobUrl=function(d){try{var p=d.split(','),mime=(p[0].match(/:(.*?);/)||[])[1]||'application/octet-stream',bin=atob(p[1]),u=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return URL.createObjectURL(new Blob([u],{type:mime}));}catch(e){return null;}};
+  NX.uploader=function(f,db){if(f.por)return f.por;if(f.de==='cliente'){var c=(db.clients||[]).filter(function(x){return x.id===f.cliente;})[0];return c?(c.resp||c.nome):'Cliente';}return 'Equipe NEXIO';};
+  /* ctx: {db, path, actions:[{label,cls,fn}], onClose} */
+  NX.viewer=function(f,ctx){var e=NX.esc,dlg=document.getElementById('nxv');if(!dlg){dlg=document.createElement('dialog');dlg.id='nxv';dlg.className='nxv';document.body.appendChild(dlg);}
+    var prev,url=null,ext=(f.nome.split('.').pop()||'').toLowerCase();
+    if(!f.data)prev='<div class="empty" style="max-width:340px"><p style="font-size:40px;margin:0">📄</p><p>Arquivo de exemplo, sem conteúdo real no protótipo.</p></div>';
+    else{url=NX.blobUrl(f.data);if(/^(png|jpe?g|gif|webp)$/.test(ext))prev='<img src="'+url+'" alt="'+e(f.titulo)+'">';else if(/^(pdf|txt|xml|csv|html?)$/.test(ext))prev='<iframe src="'+url+'" title="Pré-visualização de '+e(f.titulo)+'"></iframe>';else prev='<div class="empty"><p>Pré-visualização não disponível para arquivos .'+e(ext)+'.</p><p class="help">Use o botão Baixar.</p></div>';}
+    var h=(f.hist||[]),views=h.filter(function(x){return /visualiz/i.test(x.ev);}),dls=h.filter(function(x){return /baixad/i.test(x.ev);});
+    var st=NX.statusOf(f),anexo=(h.filter(function(x){return /enviad|recebid/i.test(x.ev);})[0]||{}).em;
+    dlg.innerHTML='<div class="nxv-wrap"><div class="nxv-prev">'+prev+'</div><div class="nxv-side"><div class="row between" style="align-items:flex-start"><h2>'+e(f.titulo)+'</h2><button class="btn b-text" id="nxvx" aria-label="Fechar">✕</button></div>'+
+      '<div class="row">'+(ctx.actions||[]).map(function(a,i){return '<button class="btn '+(a.cls||'b-line')+'" data-a="'+i+'">'+e(a.label)+'</button>';}).join('')+'</div>'+
+      '<dl class="kv"><dt>Situação</dt><dd><span class="tag '+st.c+'">'+st.t+'</span></dd><dt>Pasta</dt><dd>'+e(ctx.path||'—')+'</dd><dt>Competência</dt><dd>'+NX.fcomp(f.comp)+'</dd><dt>Vencimento</dt><dd>'+NX.fdate(f.venc)+'</dd>'+(f.valor?'<dt>Valor</dt><dd>'+NX.brl(f.valor)+'</dd>':'')+
+      '<dt>Anexado por</dt><dd>'+e(NX.uploader(f,ctx.db))+'</dd><dt>Anexado em</dt><dd>'+(anexo?NX.ftime(anexo):NX.fdate(f.criado))+'</dd><dt>Arquivo</dt><dd>'+e(f.nome)+(f.size?' · '+NX.fsize(f.size):'')+'</dd>'+
+      '<dt>Visualizado</dt><dd>'+(views.length?views.map(function(v){return e(v.por||'—')+' em '+NX.ftime(v.em);}).join('<br>'):(f.visto&&f.de==='equipe'?'Sim':'Ainda não'))+'</dd><dt>Downloads</dt><dd>'+(dls.length?dls.length+' (último: '+e(dls[dls.length-1].por||'')+', '+NX.ftime(dls[dls.length-1].em)+')':'Nenhum')+'</dd></dl>'+
+      '<div><h3 style="font-size:15px;margin-bottom:6px">Comentários</h3><div class="chat" style="max-height:200px">'+((f.coments||[]).length?f.coments.map(function(m){var mine=m.de===ctx.me;return '<div class="msg '+(mine?'me':'them')+'">'+e(m.texto)+'<small>'+e(m.autor)+' · '+NX.ftime(m.em)+'</small></div>';}).join(''):'<p class="help">Nenhum comentário.</p>')+'</div>'+
+      (ctx.onComment?'<form id="nxvc" class="chat-form"><label class="sr" for="nxvt">Comentário</label><input id="nxvt" placeholder="Escreva um comentário…"><button class="btn b-blue">Enviar</button></form>':'')+'</div>'+
+      '<details><summary style="font-size:14px">Histórico completo ('+h.length+')</summary>'+h.slice().reverse().map(function(x){return '<div class="list-item" style="font-size:13px"><span>'+e(x.ev)+(x.por?' · '+e(x.por):'')+'</span><small>'+NX.ftime(x.em)+'</small></div>';}).join('')+'</details></div></div>';
+    function close(){dlg.close();}
+    dlg.onclose=function(){if(url)URL.revokeObjectURL(url);if(ctx.onClose)ctx.onClose();};
+    dlg.querySelector('#nxvx').onclick=close;
+    dlg.querySelectorAll('[data-a]').forEach(function(b){b.onclick=function(){var a=ctx.actions[+b.getAttribute('data-a')];if(a.fn(f)!==false&&a.close!==false)close();};});
+    var cf=dlg.querySelector('#nxvc');if(cf)cf.onsubmit=function(ev){ev.preventDefault();var t=dlg.querySelector('#nxvt').value.trim();if(!t)return;ctx.onComment(f,t);dlg.onclose=null;if(url)URL.revokeObjectURL(url);NX.viewer(f,ctx);};
+    if(!dlg.open)dlg.showModal();
+  };
+})();
