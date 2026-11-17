@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portal do Cliente | NEXIO</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0740EF">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/portal.css">
+</head>
+<body>
+<div id="root"></div>
+<div class="toast" role="status" id="toast"></div>
+<script src="/assets/store.js"></script>
+<script>
+(function(){
+var db=NX.load(), e=NX.esc, S={cid:null,month:NX.ym(),filtro:'todos'};
+try{S.cid=sessionStorage.getItem('nx_client');}catch(x){}
+var root=document.getElementById('root');
+function me(){return db.clients.filter(function(c){return c.id===S.cid;})[0];}
+function persist(){NX.save(db);}
+function myFiles(){return db.files.filter(function(f){return f.cliente===S.cid;}).sort(function(a,b){return a.criado<b.criado?1:-1;});}
+function unread(){return db.messages.filter(function(m){return m.cliente===S.cid&&m.de==='equipe'&&!m.lida;}).length;}
+function novos(){return myFiles().filter(function(f){return f.de==='equipe'&&!f.visto;}).length;}
+function route(){return location.hash.replace('#/','')||'inicio';}
+
+function login(){
+  root.innerHTML='<div class="login"><form class="box" id="lf"><a class="logo" href="/"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a><h1>Portal do Cliente</h1>'+
+  '<label>E-mail<input id="le" type="email" required autocomplete="username"></label><label>Senha<input id="lp" type="password" required autocomplete="current-password"></label>'+
+  '<button class="btn b-blue">Entrar</button><p class="help" id="err" role="alert"></p>'+
+  '<p class="help"><b>Protótipo:</b> entre com um cliente de exemplo:</p><div class="row">'+db.clients.slice(0,3).map(function(c){return '<button type="button" class="btn b-line" data-q="'+c.id+'" style="min-height:36px;font-size:13px">'+e(c.nome)+'</button>';}).join('')+'</div>'+
+  '<p class="help">Esqueceu a senha? Fale com a NEXIO pelo <a href="https://wa.me/5511939565190">WhatsApp</a>.</p></form></div>';
+  document.getElementById('lf').onsubmit=function(ev){ev.preventDefault();var em=document.getElementById('le').value.trim().toLowerCase(),pw=document.getElementById('lp').value;
+    var c=db.clients.filter(function(x){return (x.email||'').toLowerCase()===em&&x.senha===pw;})[0];
+    if(!c){document.getElementById('err').textContent='E-mail ou senha incorretos.';return;}enter(c.id);};
+  root.querySelectorAll('[data-q]').forEach(function(b){b.onclick=function(){enter(b.getAttribute('data-q'));};});
+}
+function enter(id){S.cid=id;try{sessionStorage.setItem('nx_client',id);}catch(x){}location.hash='#/inicio';render();}
+
+function shell(active,html){
+  var c=me(),nav=[['inicio','Início',0],['arquivos','Guias e arquivos',novos()],['calendario','Obrigações',0],['mensagens','Mensagens',unread()]];
+  root.innerHTML='<div class="app"><aside class="side"><a class="logo" href="#/inicio"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a><div class="role">Portal do cliente</div>'+
+  nav.map(function(n){return '<a class="nav" href="#/'+n[0]+'"'+(active===n[0]?' aria-current="page"':'')+'>'+n[1]+(n[2]?'<span class="cnt">'+n[2]+'</span>':'')+'</a>';}).join('')+
+  '<a class="nav" href="/financeiro/">Controle financeiro</a>'+
+  '<div class="foot"><span>'+e(c.nome)+'</span><a href="https://wa.me/5511939565190">Falar no WhatsApp</a><a href="#" id="logout">Sair</a></div></aside><main class="main">'+html+'</main></div>';
+  document.getElementById('logout').onclick=function(ev){ev.preventDefault();S.cid=null;try{sessionStorage.removeItem('nx_client');}catch(x){}location.hash='';render();};
+}
+function head(t,sub){return '<div class="page-h"><div><h1>'+t+'</h1>'+(sub?'<p>'+sub+'</p>':'')+'</div><span class="badge-proto">Protótipo</span></div>';}
+function guiaRow(f){var s=NX.statusOf(f);return '<div class="list-item"><div><b>'+e(f.titulo)+(!f.visto&&f.de==='equipe'?'<span class="dot" aria-label="novo"></span>':'')+'</b><small>'+(f.venc?'Vence em '+NX.fdate(f.venc)+' · ':'')+'Competência '+NX.fcomp(f.comp)+'</small></div><div class="row" style="align-items:center"><strong>'+(f.valor?NX.brl(f.valor):'')+'</strong><span class="tag '+s.c+'">'+s.t+'</span><button class="btn b-line" data-dl="'+f.id+'" style="min-height:38px">Baixar</button></div></div>';}
+
+function inicio(){
+  var c=me(),t=NX.today(),fs=myFiles();
+  var pagar=fs.filter(function(f){return f.tipo==='Guia'&&f.status!=='pago';}).sort(function(a,b){return a.venc<b.venc?-1:1;});
+  var total=pagar.reduce(function(s,f){return s+(f.valor||0);},0);
+  var prox=NX.obligationsFor(db,S.cid,NX.ym()).concat(NX.obligationsFor(db,S.cid,NX.shiftMonth(NX.ym(),1))).filter(function(o){return o.data>=t;}).slice(0,5);
+  shell('inicio',head('Olá, '+e(function(n){var p=n.split(' ');return /^dra?\.$/i.test(p[0])?p.slice(0,2).join(' '):p[0];}(c.resp||c.nome)),'Tudo o que você precisa da sua contabilidade, em um só lugar.')+
+  '<div class="kpis"><a class="kpi main" href="#/arquivos"><span>Guias a pagar</span><strong>'+NX.brl(total)+'</strong></a><a class="kpi" href="#/arquivos"><span>Arquivos novos</span><strong>'+novos()+'</strong></a><a class="kpi" href="#/mensagens"><span>Mensagens novas</span><strong>'+unread()+'</strong></a><div class="kpi"><span>Seu plano</span><strong style="font-size:20px">'+e(c.plano)+'</strong></div></div>'+
+  '<div class="cols"><section class="card"><h2>Guias para pagar</h2>'+(pagar.length?pagar.map(guiaRow).join(''):'<p class="empty">Nenhuma guia pendente. Tudo em dia!</p>')+'</section>'+
+  '<section class="card"><h2>Próximas obrigações</h2>'+(prox.length?prox.map(function(o){return '<div class="list-item"><div><b>'+e(o.titulo)+'</b><small>'+e(o.desc||'')+'</small></div><span class="tag info">'+NX.fdate(o.data)+'</span></div>';}).join(''):'<p class="empty">Nenhuma obrigação nos próximos dias.</p>')+'<a class="btn b-text" href="#/calendario" style="margin-top:8px">Ver calendário completo</a></section></div>');
+  bindDl();
+}
+function arquivos(){
+  var fs=myFiles(),f2=fs.filter(function(f){return S.filtro==='todos'||(S.filtro==='guias'?f.tipo==='Guia':S.filtro==='enviados'?f.de==='cliente':f.tipo!=='Guia'&&f.de==='equipe');});
+  var filtros=[['todos','Todos'],['guias','Guias'],['docs','Relatórios e documentos'],['enviados','Enviados por mim']];
+  shell('arquivos',head('Guias e arquivos','Baixe suas guias e relatórios e envie documentos para a NEXIO.')+
+  '<section class="card"><h2>Enviar documento para a NEXIO</h2><div class="drop" id="dz"><p style="margin:0 0 10px">Extratos, notas fiscais, comprovantes, contratos… arraste aqui ou</p><label class="btn b-blue" style="display:inline-flex;flex-direction:row;color:#fff">Escolher arquivo<input type="file" id="fi" style="display:none"></label><p class="help" style="margin-top:8px">Até 1,5 MB por arquivo no protótipo.</p></div></section>'+
+  '<section class="card"><div class="tabs" role="tablist">'+filtros.map(function(t){return '<button role="tab" data-f="'+t[0]+'" aria-selected="'+(S.filtro===t[0])+'">'+t[1]+'</button>';}).join('')+'</div>'+
+  '<div class="tbl"><table><thead><tr><th>Arquivo</th><th>Compet.</th><th>Vencimento</th><th>Valor</th><th>Situação</th><th><span class="sr">Ações</span></th></tr></thead><tbody>'+
+  (f2.length?f2.map(function(f){var s=NX.statusOf(f);return '<tr><td><b>'+e(f.titulo)+'</b>'+(!f.visto&&f.de==='equipe'?'<span class="dot" aria-label="novo"></span>':'')+'<small style="display:block;color:var(--muted)">'+e(f.tipo)+' · '+e(f.nome)+'</small></td><td>'+NX.fcomp(f.comp)+'</td><td>'+NX.fdate(f.venc)+'</td><td>'+(f.valor?NX.brl(f.valor):'—')+'</td><td><span class="tag '+s.c+'">'+s.t+'</span></td><td style="white-space:nowrap"><button class="btn b-text" data-dl="'+f.id+'">Baixar</button>'+(f.tipo==='Guia'&&f.status!=='pago'?'<button class="btn b-text" data-pay="'+f.id+'">Já paguei</button>':'')+'</td></tr>';}).join(''):'<tr><td colspan="6" class="empty">Nada por aqui.</td></tr>')+'</tbody></table></div></section>');
+  root.querySelectorAll('[data-f]').forEach(function(b){b.onclick=function(){S.filtro=b.getAttribute('data-f');arquivos();};});
+  bindDl();
+  root.querySelector('.main').addEventListener('click',function(ev){var id=ev.target.getAttribute('data-pay');if(id){db.files.forEach(function(f){if(f.id===id)f.status='pago';});db.messages.push({id:NX.uid(),cliente:S.cid,de:'cliente',autor:me().resp||me().nome,texto:'Informei o pagamento da guia: '+db.files.filter(function(f){return f.id===id;})[0].titulo+'.',em:new Date().toISOString(),lida:false});persist();arquivos();NX.toast('Pagamento informado. Obrigado!');}});
+  function send(file){NX.readFile(file,function(r){db.files.push({id:NX.uid(),cliente:S.cid,tipo:'Documento',titulo:r.nome.replace(/\.[^.]+$/,''),comp:NX.ym(),venc:'',valor:0,status:'recebido',de:'cliente',nome:r.nome,data:r.data,size:r.size,criado:NX.today(),visto:false});if(persist()!==false){S.filtro='enviados';arquivos();NX.toast('Documento enviado para a NEXIO.');}});}
+  document.getElementById('fi').onchange=function(ev){if(ev.target.files[0])send(ev.target.files[0]);};
+  var z=document.getElementById('dz');z.ondragover=function(ev){ev.preventDefault();z.classList.add('over');};z.ondragleave=function(){z.classList.remove('over');};z.ondrop=function(ev){ev.preventDefault();z.classList.remove('over');if(ev.dataTransfer.files[0])send(ev.dataTransfer.files[0]);};
+}
+function bindDl(){root.querySelectorAll('[data-dl]').forEach(function(b){b.onclick=function(){var id=b.getAttribute('data-dl');var f=db.files.filter(function(x){return x.id===id;})[0];if(f.de==='equipe'&&!f.visto){f.visto=true;persist();}NX.download(f);var r=route();if(r==='arquivos')arquivos();else if(r==='inicio')inicio();};});}
+function calendario(){
+  var ev=NX.obligationsFor(db,S.cid,S.month).map(function(o){return {data:o.data,titulo:o.titulo};});
+  myFiles().forEach(function(f){if(f.tipo==='Guia'&&f.venc&&f.venc.slice(0,7)===S.month){var s=NX.statusOf(f);ev.push({data:f.venc,titulo:'Guia: '+f.titulo,cls:s.c==='ok'?'ok':s.c==='bad'?'bad':''});}});
+  var lista=ev.slice().sort(function(a,b){return a.data<b.data?-1:1;});
+  shell('calendario',head('Calendário de obrigações','Prazos de impostos, guias e envio de documentos.')+
+  '<section class="card"><div class="cal-nav"><button class="btn b-line" id="pm" aria-label="Mês anterior">‹</button><strong>'+NX.monthLabel(S.month)+'</strong><button class="btn b-line" id="nm" aria-label="Próximo mês">›</button></div>'+NX.calendarHTML(S.month,ev)+'</section>'+
+  '<section class="card"><h2>No mês</h2>'+(lista.length?lista.map(function(o){return '<div class="list-item"><b>'+e(o.titulo)+'</b><span class="tag '+(o.cls==='bad'?'bad':o.cls==='ok'?'ok':'info')+'">'+NX.fdate(o.data)+'</span></div>';}).join(''):'<p class="empty">Nada neste mês.</p>')+'</section>');
+  document.getElementById('pm').onclick=function(){S.month=NX.shiftMonth(S.month,-1);calendario();};
+  document.getElementById('nm').onclick=function(){S.month=NX.shiftMonth(S.month,1);calendario();};
+}
+function mensagens(){
+  db.messages.forEach(function(m){if(m.cliente===S.cid&&m.de==='equipe')m.lida=true;});persist();
+  var ms=db.messages.filter(function(m){return m.cliente===S.cid;}).sort(function(a,b){return a.em<b.em?-1:1;});
+  shell('mensagens',head('Mensagens','Fale com a equipe da NEXIO. Respondemos em horário comercial.')+'<section class="card"><div class="chat" id="chat">'+
+  (ms.length?ms.map(function(m){return '<div class="msg '+(m.de==='cliente'?'me':'them')+'">'+e(m.texto)+'<small>'+(m.de==='equipe'?e(m.autor)+' · NEXIO':'Você')+' · '+NX.ftime(m.em)+'</small></div>';}).join(''):'<p class="empty">Envie sua primeira mensagem.</p>')+
+  '</div><form class="chat-form" id="cf"><label class="sr" for="ct">Mensagem</label><input id="ct" placeholder="Escreva sua mensagem…" required><button class="btn b-blue">Enviar</button></form></section>');
+  var ch=document.getElementById('chat');ch.scrollTop=ch.scrollHeight;
+  document.getElementById('cf').onsubmit=function(ev){ev.preventDefault();var t=document.getElementById('ct').value.trim();if(!t)return;db.messages.push({id:NX.uid(),cliente:S.cid,de:'cliente',autor:me().resp||me().nome,texto:t,em:new Date().toISOString(),lida:false});persist();mensagens();};
+}
+function render(){db=NX.load();if(!S.cid||!me()){login();return;}var r=route();
+  if(r==='arquivos')arquivos();else if(r==='calendario')calendario();else if(r==='mensagens')mensagens();else inicio();}
+window.addEventListener('hashchange',render);
+window.NX_onSync=function(){if(document.activeElement.tagName!=='INPUT')render();};
+render();
+})();
+</script>
+</body>
+</html>

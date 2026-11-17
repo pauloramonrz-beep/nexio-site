@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel da Equipe | NEXIO</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0740EF">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/portal.css">
+</head>
+<body>
+<div id="root"></div>
+<div class="toast" role="status" id="toast"></div>
+
+<dialog id="dlg"><form method="dialog" id="dlgForm"></form></dialog>
+
+<script src="/assets/store.js"></script>
+<script>
+(function(){
+var db=NX.load(), e=NX.esc, S={sel:null,tab:'arquivos',month:NX.ym(),user:null};
+try{S.user=JSON.parse(sessionStorage.getItem('nx_staff')||'null');}catch(x){}
+var root=document.getElementById('root');
+function persist(){NX.save(db);}
+function cli(id){return db.clients.filter(function(c){return c.id===id;})[0];}
+function unread(cid){return db.messages.filter(function(m){return m.de==='cliente'&&!m.lida&&(!cid||m.cliente===cid);}).length;}
+function newDocs(cid){return db.files.filter(function(f){return f.de==='cliente'&&!f.visto&&(!cid||f.cliente===cid);}).length;}
+function route(){return (location.hash.replace('#/','')||'painel').split('/');}
+
+/* ---------- LOGIN ---------- */
+function login(){
+  root.innerHTML='<div class="login"><form class="box" id="lf"><a class="logo" href="/"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a><h1>Painel da equipe</h1>'+
+  '<label>E-mail<input id="le" type="email" required value="paulo@nexioic.com.br" autocomplete="username"></label>'+
+  '<label>Senha<input id="lp" type="password" required value="demo" autocomplete="current-password"></label>'+
+  '<button class="btn b-blue" type="submit">Entrar</button><p class="help">Protótipo: qualquer senha entra. Na versão final, cada funcionário terá login próprio.</p></form></div>';
+  document.getElementById('lf').onsubmit=function(ev){ev.preventDefault();var em=document.getElementById('le').value;var st=db.staff.filter(function(s){return s.email===em;})[0]||{id:'eqx',nome:em.split('@')[0],email:em};S.user=st;try{sessionStorage.setItem('nx_staff',JSON.stringify(st));}catch(x){}render();};
+}
+
+/* ---------- LAYOUT ---------- */
+function shell(active,html){
+  var nav=[['painel','Painel',0],['clientes','Clientes',newDocs()],['mensagens','Mensagens',unread()],['obrigacoes','Obrigações',0]];
+  root.innerHTML='<div class="app"><aside class="side"><a class="logo" href="#/painel"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a><div class="role">Painel da equipe</div>'+
+  nav.map(function(n){return '<a class="nav" href="#/'+n[0]+'"'+(active===n[0]?' aria-current="page"':'')+'>'+n[1]+(n[2]?'<span class="cnt">'+n[2]+'</span>':'')+'</a>';}).join('')+
+  '<div class="foot"><span>'+e(S.user.nome)+'</span><a href="/portal/" target="_blank" rel="noopener">Ver portal do cliente</a><a href="#" id="reset">Restaurar dados de exemplo</a><a href="#" id="logout">Sair</a></div></aside><main class="main">'+html+'</main></div>';
+  document.getElementById('logout').onclick=function(ev){ev.preventDefault();S.user=null;try{sessionStorage.removeItem('nx_staff');}catch(x){}render();};
+  document.getElementById('reset').onclick=function(ev){ev.preventDefault();if(confirm('Apagar tudo e restaurar os dados de exemplo?')){db=NX.seed();persist();render();NX.toast('Dados de exemplo restaurados.');}};
+}
+function head(t,sub,right){return '<div class="page-h"><div><h1>'+t+'</h1>'+(sub?'<p>'+sub+'</p>':'')+'</div><div class="row">'+(right||'')+'<span class="badge-proto">Protótipo</span></div></div>';}
+
+/* ---------- PAINEL ---------- */
+function painel(){
+  var t=NX.today(),in7=new Date();in7.setDate(in7.getDate()+7);in7=in7.toISOString().slice(0,10);
+  var guias=db.files.filter(function(f){return f.tipo==='Guia'&&f.status!=='pago';});
+  var venc=guias.filter(function(f){return f.venc&&f.venc<t;}), prox=guias.filter(function(f){return f.venc>=t&&f.venc<=in7;});
+  var naoVistas=db.files.filter(function(f){return f.de==='equipe'&&!f.visto;}).length;
+  var h=head('Olá, '+e(S.user.nome),'Resumo do dia — '+new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'}))+
+  '<div class="kpis"><a class="kpi main" href="#/clientes"><span>Clientes ativos</span><strong>'+db.clients.length+'</strong></a>'+
+  '<a class="kpi" href="#/mensagens"><span>Mensagens não lidas</span><strong>'+unread()+'</strong></a>'+
+  '<a class="kpi" href="#/clientes"><span>Documentos novos de clientes</span><strong>'+newDocs()+'</strong></a>'+
+  '<div class="kpi"><span>Guias vencidas sem baixa</span><strong style="color:var(--bad)">'+venc.length+'</strong></div></div>'+
+  '<div class="cols"><section class="card"><h2>Guias vencendo em 7 dias</h2>'+(prox.length?prox.map(function(f){var c=cli(f.cliente);return '<div class="list-item"><div><b>'+e(f.titulo)+'</b><small>'+e(c?c.nome:'')+' · vence '+NX.fdate(f.venc)+'</small></div><strong>'+NX.brl(f.valor)+'</strong></div>';}).join(''):'<p class="empty">Nenhuma guia vencendo nos próximos 7 dias.</p>')+'</section>'+
+  '<section class="card"><h2>Pendências</h2>'+
+  (venc.map(function(f){var c=cli(f.cliente);return '<div class="list-item"><div><b>'+e(c?c.nome:'')+'</b><small>'+e(f.titulo)+' venceu em '+NX.fdate(f.venc)+' e não foi marcada como paga</small></div><a class="btn b-text" href="#/clientes/'+f.cliente+'">Abrir</a></div>';}).join('')||'')+
+  db.clients.filter(function(c){return unread(c.id)||newDocs(c.id);}).map(function(c){return '<div class="list-item"><div><b>'+e(c.nome)+'</b><small>'+(unread(c.id)?unread(c.id)+' mensagem(ns) nova(s) ':'')+(newDocs(c.id)?newDocs(c.id)+' documento(s) enviado(s)':'')+'</small></div><a class="btn b-text" href="#/clientes/'+c.id+'">Abrir</a></div>';}).join('')+
+  '<p class="help" style="margin-top:12px">'+naoVistas+' arquivo(s) enviados pela equipe ainda não foram abertos pelos clientes.</p></section></div>';
+  shell('painel',h);
+}
+
+/* ---------- CLIENTES ---------- */
+function clientes(id){
+  if(id&&!cli(id))id=null; S.sel=id||S.sel; if(S.sel&&!cli(S.sel))S.sel=null;
+  var list='<section class="card" style="flex:1 1 280px;max-width:360px"><div class="row between" style="margin-bottom:10px"><h2 style="margin:0">Clientes</h2><button class="btn b-blue" id="addc">+ Novo</button></div>'+
+  '<label class="sr" for="q">Buscar cliente</label><input id="q" placeholder="Buscar cliente…" style="margin-bottom:10px"><nav class="client-list" id="cl"></nav></section>';
+  var det='<section class="card" style="flex:999 1 520px" id="det"></section>';
+  shell('clientes',head('Clientes','Envie guias e arquivos, acompanhe obrigações e converse com cada cliente.')+'<div class="cols">'+list+det+'</div>');
+  function drawList(q){q=(q||'').toLowerCase();document.getElementById('cl').innerHTML=db.clients.filter(function(c){return !q||(c.nome+c.doc).toLowerCase().indexOf(q)>-1;}).map(function(c){var n=unread(c.id)+newDocs(c.id);return '<a href="#/clientes/'+c.id+'"'+(c.id===S.sel?' aria-current="true"':'')+'><span><b>'+e(c.nome)+'</b><small style="display:block;color:var(--muted);font-size:12px">'+e(c.plano)+'</small></span>'+(n?'<span class="tag info">'+n+' novo(s)</span>':'')+'</a>';}).join('')||'<p class="empty">Nenhum cliente.</p>';}
+  drawList();document.getElementById('q').oninput=function(ev){drawList(ev.target.value);};
+  document.getElementById('addc').onclick=function(){clientDialog();};
+  var el=document.getElementById('det');
+  if(!S.sel){el.innerHTML='<p class="empty">Selecione um cliente na lista ou cadastre um novo.</p>';return;}
+  var c=cli(S.sel);
+  var tabs=[['arquivos','Guias e arquivos'],['obrigacoes','Obrigações'],['mensagens','Mensagens'+(unread(c.id)?' ('+unread(c.id)+')':'')],['dados','Dados do cliente']];
+  el.innerHTML='<div class="row between" style="margin-bottom:12px"><div><h2 style="margin:0">'+e(c.nome)+'</h2><p class="help">'+e(c.doc)+' · '+e(c.plano)+' · '+e(c.resp)+'</p></div></div>'+
+  '<div class="tabs" role="tablist">'+tabs.map(function(t){return '<button role="tab" data-t="'+t[0]+'" aria-selected="'+(S.tab===t[0])+'">'+t[1]+'</button>';}).join('')+'</div><div id="tabc"></div>';
+  el.querySelectorAll('[data-t]').forEach(function(b){b.onclick=function(){S.tab=b.getAttribute('data-t');clientes(S.sel);};});
+  ({arquivos:tabArquivos,obrigacoes:tabObrig,mensagens:tabMsgs,dados:tabDados})[S.tab](c,document.getElementById('tabc'));
+}
+function tabArquivos(c,el){
+  var fs=db.files.filter(function(f){return f.cliente===c.id;}).sort(function(a,b){return a.criado<b.criado?1:-1;});
+  fs.forEach(function(f){if(f.de==='cliente')f.visto=true;});persist();
+  el.innerHTML='<div class="row" style="margin-bottom:14px"><button class="btn b-blue" id="up">Enviar guia ou arquivo</button></div>'+
+  '<div class="tbl"><table><thead><tr><th>Arquivo</th><th>Tipo</th><th>Compet.</th><th>Vencimento</th><th>Valor</th><th>Situação</th><th>Cliente abriu?</th><th><span class="sr">Ações</span></th></tr></thead><tbody>'+
+  (fs.length?fs.map(function(f){var s=NX.statusOf(f);return '<tr><td><b>'+e(f.titulo)+'</b><small style="display:block;color:var(--muted)">'+e(f.nome)+' '+NX.fsize(f.size)+(f.de==='cliente'?' · enviado pelo cliente':'')+'</small></td><td>'+e(f.tipo)+'</td><td>'+NX.fcomp(f.comp)+'</td><td>'+NX.fdate(f.venc)+'</td><td>'+(f.valor?NX.brl(f.valor):'—')+'</td><td><span class="tag '+s.c+'">'+s.t+'</span></td><td>'+(f.de==='equipe'?(f.visto?'Sim':'Não'):'—')+'</td><td style="white-space:nowrap"><button class="btn b-text" data-dl="'+f.id+'">Baixar</button>'+(f.tipo==='Guia'&&f.status!=='pago'?'<button class="btn b-text" data-pay="'+f.id+'">Dar baixa</button>':'')+'<button class="btn b-danger" data-rm="'+f.id+'" aria-label="Excluir '+e(f.titulo)+'">Excluir</button></td></tr>';}).join(''):'<tr><td colspan="8" class="empty">Nenhum arquivo ainda.</td></tr>')+'</tbody></table></div>';
+  document.getElementById('up').onclick=function(){fileDialog(c);};
+  el.onclick=function(ev){var t=ev.target,id;
+    if(id=t.getAttribute('data-dl'))NX.download(db.files.filter(function(f){return f.id===id;})[0]);
+    if(id=t.getAttribute('data-pay')){db.files.forEach(function(f){if(f.id===id)f.status='pago';});persist();clientes(c.id);NX.toast('Guia marcada como paga.');}
+    if(id=t.getAttribute('data-rm')){if(confirm('Excluir este arquivo?')){db.files=db.files.filter(function(f){return f.id!==id;});persist();clientes(c.id);}}};
+}
+function tabObrig(c,el){
+  var own=db.obligations.filter(function(o){return o.cliente===c.id;});
+  var ev=NX.obligationsFor(db,c.id,S.month).map(function(o){return {data:o.data,titulo:o.titulo};});
+  db.files.forEach(function(f){if(f.cliente===c.id&&f.tipo==='Guia'&&f.venc&&f.venc.slice(0,7)===S.month)ev.push({data:f.venc,titulo:'Guia: '+f.titulo,cls:NX.statusOf(f).c==='ok'?'ok':NX.statusOf(f).c==='bad'?'bad':''});});
+  el.innerHTML='<div class="row between" style="margin-bottom:6px"><div class="cal-nav"><button class="btn b-line" id="pm" aria-label="Mês anterior">‹</button><strong>'+NX.monthLabel(S.month)+'</strong><button class="btn b-line" id="nm" aria-label="Próximo mês">›</button></div><button class="btn b-blue" id="addo">+ Obrigação deste cliente</button></div>'+
+  NX.calendarHTML(S.month,ev)+'<h3 style="margin:22px 0 8px;font-size:16px">Obrigações específicas deste cliente</h3>'+
+  (own.length?own.map(function(o){return '<div class="list-item"><div><b>'+e(o.titulo)+'</b><small>'+(o.recorrente?'Todo dia '+o.dia:'Em '+NX.fdate(o.data))+(o.desc?' · '+e(o.desc):'')+'</small></div><button class="btn b-danger" data-ro="'+o.id+'">Remover</button></div>';}).join(''):'<p class="help">Nenhuma. As obrigações gerais (aba Obrigações no menu) valem para todos os clientes.</p>');
+  document.getElementById('pm').onclick=function(){S.month=NX.shiftMonth(S.month,-1);clientes(c.id);};
+  document.getElementById('nm').onclick=function(){S.month=NX.shiftMonth(S.month,1);clientes(c.id);};
+  document.getElementById('addo').onclick=function(){oblDialog(c.id);};
+  el.onclick=function(ev2){var id=ev2.target.getAttribute('data-ro');if(id){db.obligations=db.obligations.filter(function(o){return o.id!==id;});persist();clientes(c.id);}};
+}
+function tabMsgs(c,el){
+  db.messages.forEach(function(m){if(m.cliente===c.id&&m.de==='cliente')m.lida=true;});persist();
+  var ms=db.messages.filter(function(m){return m.cliente===c.id;}).sort(function(a,b){return a.em<b.em?-1:1;});
+  el.innerHTML='<div class="chat" id="chat">'+(ms.length?ms.map(function(m){return '<div class="msg '+(m.de==='equipe'?'me':'them')+'">'+e(m.texto)+'<small>'+e(m.autor)+' · '+NX.ftime(m.em)+'</small></div>';}).join(''):'<p class="empty">Nenhuma mensagem ainda.</p>')+'</div>'+
+  '<form class="chat-form" id="cf"><label class="sr" for="ct">Mensagem</label><input id="ct" placeholder="Escreva para '+e(c.resp||c.nome)+'…" required><button class="btn b-blue">Enviar</button></form>';
+  var ch=document.getElementById('chat');ch.scrollTop=ch.scrollHeight;
+  document.getElementById('cf').onsubmit=function(ev){ev.preventDefault();var t=document.getElementById('ct').value.trim();if(!t)return;db.messages.push({id:NX.uid(),cliente:c.id,de:'equipe',autor:S.user.nome,texto:t,em:new Date().toISOString(),lida:false});persist();clientes(c.id);};
+}
+function tabDados(c,el){
+  el.innerHTML='<form id="df" class="grid">'+[['nome','Razão social / nome'],['doc','CNPJ / CPF'],['plano','Plano'],['resp','Responsável'],['email','E-mail'],['tel','Telefone'],['senha','Senha de acesso (protótipo)']].map(function(f){return '<label>'+f[1]+'<input name="'+f[0]+'" value="'+e(c[f[0]]||'')+'"></label>';}).join('')+
+  '<div style="grid-column:1/-1" class="row between"><button class="btn b-blue">Salvar dados</button><button type="button" class="btn b-danger" id="rmc">Excluir cliente</button></div></form>';
+  document.getElementById('df').onsubmit=function(ev){ev.preventDefault();new FormData(ev.target).forEach(function(v,k){c[k]=v;});persist();clientes(c.id);NX.toast('Dados salvos.');};
+  document.getElementById('rmc').onclick=function(){if(confirm('Excluir '+c.nome+' e todos os arquivos e mensagens dele?')){db.clients=db.clients.filter(function(x){return x.id!==c.id;});db.files=db.files.filter(function(x){return x.cliente!==c.id;});db.messages=db.messages.filter(function(x){return x.cliente!==c.id;});db.obligations=db.obligations.filter(function(x){return x.cliente!==c.id;});S.sel=null;persist();location.hash='#/clientes';render();}};
+}
+
+/* ---------- MENSAGENS (caixa geral) ---------- */
+function mensagens(){
+  var rows=db.clients.map(function(c){var ms=db.messages.filter(function(m){return m.cliente===c.id;}).sort(function(a,b){return a.em<b.em?1:-1;});return {c:c,last:ms[0],n:unread(c.id)};}).filter(function(r){return r.last;}).sort(function(a,b){return a.last.em<b.last.em?1:-1;});
+  shell('mensagens',head('Mensagens','Conversas com os clientes, das mais recentes para as mais antigas.')+'<section class="card">'+
+  (rows.length?rows.map(function(r){return '<div class="list-item"><div><b>'+e(r.c.nome)+(r.n?'<span class="dot" aria-label="não lida"></span>':'')+'</b><small>'+(r.last.de==='equipe'?'Você: ':'')+e(r.last.texto.slice(0,110))+' · '+NX.ftime(r.last.em)+'</small></div><a class="btn b-line" href="#/clientes/'+r.c.id+'" data-msg>Responder</a></div>';}).join(''):'<p class="empty">Nenhuma conversa.</p>')+'</section>');
+  root.querySelectorAll('[data-msg]').forEach(function(a){a.onclick=function(){S.tab='mensagens';};});
+}
+
+/* ---------- OBRIGAÇÕES GERAIS ---------- */
+function obrigacoes(){
+  var gen=db.obligations.filter(function(o){return o.cliente==='*';});
+  var ev=NX.obligationsFor(db,'__none__',S.month);
+  shell('obrigacoes',head('Obrigações','Calendário geral: as obrigações cadastradas aqui aparecem para todos os clientes.','<button class="btn b-blue" id="addo">+ Obrigação geral</button>')+
+  '<section class="card"><div class="cal-nav"><button class="btn b-line" id="pm" aria-label="Mês anterior">‹</button><strong>'+NX.monthLabel(S.month)+'</strong><button class="btn b-line" id="nm" aria-label="Próximo mês">›</button></div>'+NX.calendarHTML(S.month,ev)+'</section>'+
+  '<section class="card"><h2>Obrigações gerais cadastradas</h2>'+(gen.length?gen.map(function(o){return '<div class="list-item"><div><b>'+e(o.titulo)+'</b><small>'+(o.recorrente?'Mensal, todo dia '+o.dia:'Em '+NX.fdate(o.data))+(o.desc?' · '+e(o.desc):'')+'</small></div><button class="btn b-danger" data-ro="'+o.id+'">Remover</button></div>';}).join(''):'<p class="empty">Nenhuma obrigação geral.</p>')+'</section>');
+  document.getElementById('pm').onclick=function(){S.month=NX.shiftMonth(S.month,-1);obrigacoes();};
+  document.getElementById('nm').onclick=function(){S.month=NX.shiftMonth(S.month,1);obrigacoes();};
+  document.getElementById('addo').onclick=function(){oblDialog('*');};
+  root.querySelector('.main').addEventListener('click',function(ev2){var id=ev2.target.getAttribute('data-ro');if(id){db.obligations=db.obligations.filter(function(o){return o.id!==id;});persist();obrigacoes();}});
+}
+
+/* ---------- DIÁLOGOS ---------- */
+var dlg=document.getElementById('dlg'),df=document.getElementById('dlgForm');
+function openDlg(html,onsave){df.innerHTML=html+'<div class="row between"><button type="button" class="btn b-line" id="dc">Cancelar</button><button class="btn b-blue" type="submit">Salvar</button></div>';
+  document.getElementById('dc').onclick=function(){dlg.close();};
+  df.onsubmit=function(ev){ev.preventDefault();if(onsave(new FormData(df))!==false)dlg.close();};dlg.showModal();}
+function clientDialog(){openDlg('<h2>Novo cliente</h2><div class="grid"><label style="grid-column:1/-1">Razão social / nome<input name="nome" required></label><label>CNPJ / CPF<input name="doc" required></label><label>Plano<select name="plano">'+['NEXIO SN START','NEXIO SN PRO','NEXIO SN SCALE','NEXIO SN MAX','NEXIO MEI START','NEXIO MEI PRO','NEXIO PF ESSENTIAL','NEXIO PF PREMIUM'].map(function(p){return '<option>'+p+'</option>';}).join('')+'</select></label><label>Responsável<input name="resp"></label><label>Telefone<input name="tel"></label><label style="grid-column:1/-1">E-mail de acesso<input name="email" type="email" required></label><label>Senha inicial<input name="senha" value="1234" required></label></div>',
+  function(fd){var c={id:NX.uid(),criado:NX.today()};fd.forEach(function(v,k){c[k]=v;});db.clients.push(c);persist();S.sel=c.id;S.tab='arquivos';location.hash='#/clientes/'+c.id;render();NX.toast('Cliente cadastrado.');});}
+function fileDialog(c){var picked=null;
+  openDlg('<h2>Enviar para '+e(c.nome)+'</h2><div class="grid"><label>Tipo<select name="tipo" id="ft"><option>Guia</option><option>Relatório</option><option>Documento</option><option>Folha de pagamento</option><option>Contrato</option><option>Outro</option></select></label><label>Título<input name="titulo" required placeholder="Ex.: DAS — Simples Nacional"></label><label>Competência<input name="comp" type="month" value="'+NX.ym()+'"></label><label>Vencimento<input name="venc" type="date"></label><label>Valor (R$)<input name="valor" inputmode="decimal" placeholder="0,00"></label></div>'+
+  '<div class="drop" id="fd"><p style="margin:0 0 10px">Arraste o arquivo ou</p><label class="btn b-line" style="display:inline-flex;flex-direction:row;color:var(--blue)">Escolher arquivo<input type="file" id="fi" style="display:none"></label><p class="help" id="fn" style="margin-top:8px">Nenhum arquivo escolhido (até 1,5 MB no protótipo)</p></div>'+
+  '<label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" name="avisar" checked style="width:auto;min-height:auto"> Avisar o cliente por mensagem</label>',
+  function(fd){if(!picked){NX.toast('Escolha o arquivo.');return false;}var tipo=fd.get('tipo');var v=String(fd.get('valor')||'').replace(/\./g,'').replace(',','.');
+    var f={id:NX.uid(),cliente:c.id,tipo:tipo,titulo:fd.get('titulo'),comp:fd.get('comp'),venc:fd.get('venc'),valor:parseFloat(v)||0,status:tipo==='Guia'?'pendente':'disponivel',de:'equipe',nome:picked.nome,data:picked.data,size:picked.size,criado:NX.today(),visto:false};
+    db.files.push(f);
+    if(fd.get('avisar'))db.messages.push({id:NX.uid(),cliente:c.id,de:'equipe',autor:S.user.nome,texto:'Novo arquivo disponível: '+f.titulo+(f.venc?' (vence em '+NX.fdate(f.venc)+')':'')+'. Acesse a aba Guias e arquivos.',em:new Date().toISOString(),lida:false});
+    if(persist()===false){db.files.pop();return false;}clientes(c.id);NX.toast('Arquivo enviado para o cliente.');});
+  function take(file){NX.readFile(file,function(r){picked=r;document.getElementById('fn').textContent=r.nome+' · '+NX.fsize(r.size);});}
+  document.getElementById('fi').onchange=function(ev){if(ev.target.files[0])take(ev.target.files[0]);};
+  var z=document.getElementById('fd');z.ondragover=function(ev){ev.preventDefault();z.classList.add('over');};z.ondragleave=function(){z.classList.remove('over');};z.ondrop=function(ev){ev.preventDefault();z.classList.remove('over');if(ev.dataTransfer.files[0])take(ev.dataTransfer.files[0]);};
+}
+function oblDialog(cid){openDlg('<h2>Nova obrigação'+(cid==='*'?' geral':'')+'</h2><div class="grid"><label style="grid-column:1/-1">Título<input name="titulo" required placeholder="Ex.: DCTFWeb"></label><label>Repetição<select name="rec" id="rec"><option value="1">Mensal</option><option value="0">Data única</option></select></label><label id="ldia">Dia do mês<input name="dia" type="number" min="1" max="28" value="20"></label><label id="ldata" style="display:none">Data<input name="data" type="date"></label><label style="grid-column:1/-1">Descrição<input name="desc"></label></div>',
+  function(fd){var rec=fd.get('rec')==='1';if(!rec&&!fd.get('data')){NX.toast('Informe a data.');return false;}db.obligations.push({id:NX.uid(),cliente:cid,titulo:fd.get('titulo'),recorrente:rec,dia:+fd.get('dia')||1,data:fd.get('data'),desc:fd.get('desc')});persist();render();NX.toast('Obrigação cadastrada.');});
+  document.getElementById('rec').onchange=function(ev){var r=ev.target.value==='1';document.getElementById('ldia').style.display=r?'':'none';document.getElementById('ldata').style.display=r?'none':'';};}
+
+/* ---------- ROTEADOR ---------- */
+function render(){db=NX.load();if(!S.user){login();return;}var r=route();
+  if(r[0]==='clientes')clientes(r[1]);else if(r[0]==='mensagens')mensagens();else if(r[0]==='obrigacoes')obrigacoes();else painel();}
+window.addEventListener('hashchange',render);
+window.NX_onSync=function(){if(!dlg.open&&document.activeElement.tagName!=='INPUT')render();};
+render();
+})();
+</script>
+</body>
+</html>
