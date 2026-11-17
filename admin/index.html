@@ -87,16 +87,40 @@ function clientes(id){
   el.querySelectorAll('[data-t]').forEach(function(b){b.onclick=function(){S.tab=b.getAttribute('data-t');clientes(S.sel);};});
   ({arquivos:tabArquivos,obrigacoes:tabObrig,mensagens:tabMsgs,dados:tabDados})[S.tab](c,document.getElementById('tabc'));
 }
+var SETORES=['Fiscal','Departamento Pessoal','Contábil','Societário','Notas fiscais','Enviados pelo cliente'];
+function setorOf(f){if(f.setor)return f.setor;if(f.tipo==='Nota fiscal')return 'Notas fiscais';if(f.de==='cliente')return 'Enviados pelo cliente';
+  if(f.tipo==='Folha de pagamento'||/fgts|inss|folha|e-?social|dctfweb|f[ée]rias|rescis|pr[óo]-?labore/i.test(f.titulo))return 'Departamento Pessoal';
+  if(f.tipo==='Contrato')return 'Societário';if(f.tipo==='Relatório')return 'Contábil';if(f.tipo==='Guia')return 'Fiscal';return 'Contábil';}
+function compOf(f){return f.comp||(f.criado||NX.today()).slice(0,7);}
+var MESES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+var FOLDER='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0740EF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
 function tabArquivos(c,el){
-  var fs=db.files.filter(function(f){return f.cliente===c.id;}).sort(function(a,b){return a.criado<b.criado?1:-1;});
-  fs.forEach(function(f){if(f.de==='cliente')f.visto=true;});persist();
-  el.innerHTML='<div class="row" style="margin-bottom:14px"><button class="btn b-blue" id="up">Enviar guia ou arquivo</button></div>'+
-  '<div class="tbl"><table><thead><tr><th>Arquivo</th><th>Tipo</th><th>Compet.</th><th>Vencimento</th><th>Valor</th><th>Situação</th><th>Cliente abriu?</th><th><span class="sr">Ações</span></th></tr></thead><tbody>'+
-  (fs.length?fs.map(function(f){var s=NX.statusOf(f);return '<tr><td><b>'+e(f.titulo)+'</b><small style="display:block;color:var(--muted)">'+e(f.nome)+' '+NX.fsize(f.size)+(f.de==='cliente'?' · enviado pelo cliente':'')+'</small></td><td>'+e(f.tipo)+'</td><td>'+NX.fcomp(f.comp)+'</td><td>'+NX.fdate(f.venc)+'</td><td>'+(f.valor?NX.brl(f.valor):'—')+'</td><td><span class="tag '+s.c+'">'+s.t+'</span></td><td>'+(f.de==='equipe'?(f.visto?'Sim':'Não'):'—')+'</td><td style="white-space:nowrap"><button class="btn b-text" data-dl="'+f.id+'">Baixar</button>'+(f.tipo==='Guia'&&f.status!=='pago'?'<button class="btn b-text" data-pay="'+f.id+'">Dar baixa</button>':'')+'<button class="btn b-danger" data-rm="'+f.id+'" aria-label="Excluir '+e(f.titulo)+'">Excluir</button></td></tr>';}).join(''):'<tr><td colspan="8" class="empty">Nenhum arquivo ainda.</td></tr>')+'</tbody></table></div>';
-  document.getElementById('up').onclick=function(){fileDialog(c);};
-  el.onclick=function(ev){var t=ev.target,id;
+  if(S.foldC!==c.id){S.foldC=c.id;S.fold={setor:null,ano:null,comp:null};}
+  var F=S.fold,all=db.files.filter(function(f){return f.cliente===c.id;});
+  all.forEach(function(f){if(f.de==='cliente')f.visto=true;});persist();
+  var crumbs=[['root',e(c.nome)]];if(F.setor)crumbs.push(['setor',e(F.setor)]);if(F.ano)crumbs.push(['ano',F.ano]);if(F.comp)crumbs.push(['comp',MESES[+F.comp.slice(5)-1]]);
+  var h='<div class="row between" style="margin-bottom:14px;align-items:center"><nav aria-label="Pastas" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:14px">'+
+    crumbs.map(function(k,i){return i===crumbs.length-1?'<b>'+k[1]+'</b>':'<button class="btn b-text" data-cr="'+k[0]+'" style="padding:0 4px">'+k[1]+'</button><span aria-hidden="true">›</span>';}).join('')+'</nav><button class="btn b-blue" id="up">Enviar guia ou arquivo</button></div>';
+  function folders(items){return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px">'+items.map(function(it){return '<button class="'+'fold'+'" data-go="'+e(it.key)+'" style="display:flex;gap:12px;align-items:center;text-align:left;border:1px solid var(--line);background:#fff;border-radius:14px;padding:14px;cursor:pointer;min-height:64px"><span style="width:42px;height:42px;border-radius:10px;background:var(--infob);display:grid;place-items:center;flex-shrink:0">'+FOLDER+'</span><span><b style="display:block;color:var(--ink)">'+e(it.label)+'</b><small style="color:var(--muted)">'+it.n+' arquivo(s)'+(it.extra?' · '+it.extra:'')+'</small></span></button>';}).join('')+'</div>';}
+  function pend(l){var p=l.filter(function(f){return f.tipo==='Guia'&&f.status!=='pago';}).length;return p?p+' guia(s) a pagar':'';}
+  if(!F.setor){h+=folders(SETORES.map(function(s){var l=all.filter(function(f){return setorOf(f)===s;});return {key:s,label:s,n:l.length,extra:pend(l)};}));}
+  else if(!F.ano){var anos={};all.forEach(function(f){if(setorOf(f)===F.setor)anos[compOf(f).slice(0,4)]=1;});anos[NX.today().slice(0,4)]=1;
+    h+=folders(Object.keys(anos).sort().reverse().map(function(a){var l=all.filter(function(f){return setorOf(f)===F.setor&&compOf(f).slice(0,4)===a;});return {key:a,label:a,n:l.length,extra:pend(l)};}));}
+  else if(!F.comp){var ms=[];for(var i=12;i>=1;i--){var k=F.ano+'-'+String(i).padStart(2,'0');var l=all.filter(function(f){return setorOf(f)===F.setor&&compOf(f)===k;});if(l.length||k<=NX.ym())ms.push({key:k,label:MESES[i-1],n:l.length,extra:pend(l)});}
+    h+=ms.length?folders(ms):'<p class="empty">Nenhuma competência neste ano.</p>';}
+  else{var fs=all.filter(function(f){return setorOf(f)===F.setor&&compOf(f)===F.comp;}).sort(function(a,b){return a.criado<b.criado?1:-1;});
+    h+='<div class="tbl"><table><thead><tr><th>Arquivo</th><th>Tipo</th><th>Vencimento</th><th>Valor</th><th>Situação</th><th>Cliente abriu?</th><th><span class="sr">Ações</span></th></tr></thead><tbody>'+
+    (fs.length?fs.map(function(f){var s=NX.statusOf(f);return '<tr><td><b>'+e(f.titulo)+'</b><small style="display:block;color:var(--muted)">'+e(f.nome)+' '+NX.fsize(f.size)+(f.de==='cliente'?' · enviado pelo cliente':'')+'</small></td><td>'+e(f.tipo)+'</td><td>'+NX.fdate(f.venc)+'</td><td>'+(f.valor?NX.brl(f.valor):'—')+'</td><td><span class="tag '+s.c+'">'+s.t+'</span></td><td>'+(f.de==='equipe'?(f.visto?'Sim':'Não'):'—')+'</td><td style="white-space:nowrap"><button class="btn b-text" data-dl="'+f.id+'">Baixar</button>'+(f.tipo==='Guia'&&f.status!=='pago'?'<button class="btn b-text" data-pay="'+f.id+'">Dar baixa</button>':'')+'<button class="btn b-text" data-mv="'+f.id+'">Mover</button><button class="btn b-danger" data-rm="'+f.id+'" aria-label="Excluir '+e(f.titulo)+'">Excluir</button></td></tr>';}).join(''):'<tr><td colspan="7" class="empty">Pasta vazia. Use “Enviar guia ou arquivo”.</td></tr>')+'</tbody></table></div>';}
+  el.innerHTML=h;
+  document.getElementById('up').onclick=function(){fileDialog(c,{setor:F.setor,comp:F.comp});};
+  el.onclick=function(ev){var t=ev.target.closest('button');if(!t)return;var id;
+    if(t.hasAttribute('data-go')){var v=t.getAttribute('data-go');if(!F.setor)F.setor=v;else if(!F.ano)F.ano=v;else F.comp=v;clientes(c.id);return;}
+    if(t.hasAttribute('data-cr')){var lv=t.getAttribute('data-cr');if(lv==='root'){F.setor=F.ano=F.comp=null;}else if(lv==='setor'){F.ano=F.comp=null;}else if(lv==='ano'){F.comp=null;}clientes(c.id);return;}
     if(id=t.getAttribute('data-dl'))NX.download(db.files.filter(function(f){return f.id===id;})[0]);
     if(id=t.getAttribute('data-pay')){db.files.forEach(function(f){if(f.id===id)f.status='pago';});persist();clientes(c.id);NX.toast('Guia marcada como paga.');}
+    if(id=t.getAttribute('data-mv')){var f=db.files.filter(function(x){return x.id===id;})[0];
+      openDlg('<h2>Mover arquivo</h2><p class="help">'+e(f.titulo)+'</p><div class="grid"><label>Setor<select name="setor">'+SETORES.map(function(s){return '<option'+(s===setorOf(f)?' selected':'')+'>'+s+'</option>';}).join('')+'</select></label><label>Competência<input name="comp" type="month" value="'+compOf(f)+'" required></label></div>',
+      function(fd){f.setor=fd.get('setor');f.comp=fd.get('comp');persist();F.setor=f.setor;F.ano=f.comp.slice(0,4);F.comp=f.comp;clientes(c.id);NX.toast('Arquivo movido.');});}
     if(id=t.getAttribute('data-rm')){if(confirm('Excluir este arquivo?')){db.files=db.files.filter(function(f){return f.id!==id;});persist();clientes(c.id);}}};
 }
 function tabObrig(c,el){
@@ -241,15 +265,15 @@ function openDlg(html,onsave){df.innerHTML=html+'<div class="row between"><butto
   df.onsubmit=function(ev){ev.preventDefault();if(onsave(new FormData(df))!==false)dlg.close();};dlg.showModal();}
 function clientDialog(){openDlg('<h2>Novo cliente</h2><div class="grid"><label style="grid-column:1/-1">Razão social / nome<input name="nome" required></label><label>CNPJ / CPF<input name="doc" required></label><label>Plano<select name="plano">'+['NEXIO SN START','NEXIO SN PRO','NEXIO SN SCALE','NEXIO SN MAX','NEXIO MEI START','NEXIO MEI PRO','NEXIO PF ESSENTIAL','NEXIO PF PREMIUM'].map(function(p){return '<option>'+p+'</option>';}).join('')+'</select></label><label>Responsável<input name="resp"></label><label>Telefone<input name="tel"></label><label style="grid-column:1/-1">E-mail de acesso<input name="email" type="email" required></label><label>Senha inicial<input name="senha" value="1234" required></label></div>',
   function(fd){var c={id:NX.uid(),criado:NX.today()};fd.forEach(function(v,k){c[k]=v;});db.clients.push(c);persist();S.sel=c.id;S.tab='arquivos';location.hash='#/clientes/'+c.id;render();NX.toast('Cliente cadastrado.');});}
-function fileDialog(c){var picked=null;
-  openDlg('<h2>Enviar para '+e(c.nome)+'</h2><div class="grid"><label>Tipo<select name="tipo" id="ft"><option>Guia</option><option>Relatório</option><option>Documento</option><option>Folha de pagamento</option><option>Contrato</option><option>Outro</option></select></label><label>Título<input name="titulo" required placeholder="Ex.: DAS — Simples Nacional"></label><label>Competência<input name="comp" type="month" value="'+NX.ym()+'"></label><label>Vencimento<input name="venc" type="date"></label><label>Valor (R$)<input name="valor" inputmode="decimal" placeholder="0,00"></label></div>'+
+function fileDialog(c,pre){pre=pre||{};var picked=null;
+  openDlg('<h2>Enviar para '+e(c.nome)+'</h2><div class="grid"><label>Tipo<select name="tipo" id="ft"><option>Guia</option><option>Relatório</option><option>Documento</option><option>Folha de pagamento</option><option>Contrato</option><option>Outro</option></select></label><label>Título<input name="titulo" required placeholder="Ex.: DAS — Simples Nacional"></label><label>Setor<select name="setor" id="fsetor">'+SETORES.filter(function(s){return s!=='Enviados pelo cliente';}).map(function(s){return '<option'+(s===pre.setor?' selected':'')+'>'+s+'</option>';}).join('')+'</select></label><label>Competência<input name="comp" type="month" value="'+(pre.comp||NX.ym())+'"></label><label>Vencimento<input name="venc" type="date"></label><label>Valor (R$)<input name="valor" inputmode="decimal" placeholder="0,00"></label></div>'+
   '<div class="drop" id="fd"><p style="margin:0 0 10px">Arraste o arquivo ou</p><label class="btn b-line" style="display:inline-flex;flex-direction:row;color:var(--blue)">Escolher arquivo<input type="file" id="fi" style="display:none"></label><p class="help" id="fn" style="margin-top:8px">Nenhum arquivo escolhido (até 1,5 MB no protótipo)</p></div>'+
   '<label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" name="avisar" checked style="width:auto;min-height:auto"> Avisar o cliente por mensagem</label>',
   function(fd){if(!picked){NX.toast('Escolha o arquivo.');return false;}var tipo=fd.get('tipo');var v=String(fd.get('valor')||'').replace(/\./g,'').replace(',','.');
-    var f={id:NX.uid(),cliente:c.id,tipo:tipo,titulo:fd.get('titulo'),comp:fd.get('comp'),venc:fd.get('venc'),valor:parseFloat(v)||0,status:tipo==='Guia'?'pendente':'disponivel',de:'equipe',nome:picked.nome,data:picked.data,size:picked.size,criado:NX.today(),visto:false};
+    var f={id:NX.uid(),cliente:c.id,setor:fd.get('setor'),tipo:tipo,titulo:fd.get('titulo'),comp:fd.get('comp'),venc:fd.get('venc'),valor:parseFloat(v)||0,status:tipo==='Guia'?'pendente':'disponivel',de:'equipe',nome:picked.nome,data:picked.data,size:picked.size,criado:NX.today(),visto:false};
     db.files.push(f);
     if(fd.get('avisar'))db.messages.push({id:NX.uid(),cliente:c.id,de:'equipe',autor:S.user.nome,texto:'Novo arquivo disponível: '+f.titulo+(f.venc?' (vence em '+NX.fdate(f.venc)+')':'')+'. Acesse a aba Guias e arquivos.',em:new Date().toISOString(),lida:false});
-    if(persist()===false){db.files.pop();return false;}clientes(c.id);NX.toast('Arquivo enviado para o cliente.');});
+    if(persist()===false){db.files.pop();return false;}S.fold={setor:f.setor,ano:(f.comp||NX.ym()).slice(0,4),comp:f.comp||NX.ym()};clientes(c.id);NX.toast('Arquivo enviado para o cliente.');});
   function take(file){NX.readFile(file,function(r){picked=r;document.getElementById('fn').textContent=r.nome+' · '+NX.fsize(r.size);});}
   document.getElementById('fi').onchange=function(ev){if(ev.target.files[0])take(ev.target.files[0]);};
   var z=document.getElementById('fd');z.ondragover=function(ev){ev.preventDefault();z.classList.add('over');};z.ondragleave=function(){z.classList.remove('over');};z.ondrop=function(ev){ev.preventDefault();z.classList.remove('over');if(ev.dataTransfer.files[0])take(ev.dataTransfer.files[0]);};
