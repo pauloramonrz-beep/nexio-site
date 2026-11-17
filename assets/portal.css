@@ -180,3 +180,9 @@ button.xp-tg:hover{background:#E6ECFB}
 .xp-tile b{font-size:13px;word-break:break-word}.xp-tile small{font-size:12px;color:var(--muted)}
 .xp-bigf .xp-ft{min-width:46px;height:30px;font-size:12px}
 @media(max-width:760px){.xp-tree{flex:1 1 100%;border-right:0;border-bottom:1px solid var(--line);max-height:260px}}
+.xp{flex-wrap:nowrap}
+.xp-tree{flex:0 0 240px}
+.xp-main{flex:1 1 auto;min-width:0}
+.xp-t td.name{min-width:200px}
+.xp-bar{align-items:center}
+@media(max-width:760px){.xp{flex-wrap:wrap}.xp-tree{flex:1 1 100%}}
