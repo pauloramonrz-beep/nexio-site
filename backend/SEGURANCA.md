@@ -63,7 +63,8 @@ Versão 1.0 · 18/11/2026. Guia para quem for desenvolver o servidor do Portal d
 - [ ] 2FA ativo para toda a equipe
 - [ ] Vault configurado e Edge Functions `salvar-certificado` e `emitir-nfse` revisadas
 - [ ] Domínio de e-mail com SPF, DKIM e DMARC
-- [ ] Caixa privacidade@nexioic.com.br criada e encarregado designado
+- [x] Encarregado designado: Paulo Ramon Zani Batista (contato@rqcontabilidade.com.br)
+- [ ] Substituto do encarregado designado e publicado
 - [ ] Contrato com fornecedores (Supabase, e-mail) com cláusulas de proteção de dados
 - [ ] Anexo de proteção de dados assinado com os clientes
 - [ ] Teste de invasão básico (OWASP Top 10) antes do lançamento
