@@ -16,12 +16,15 @@
 
 <dialog id="dlg"><form method="dialog" id="dlgForm"></form></dialog>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="/assets/store.js"></script>
+<script src="/assets/auth.js"></script>
 <script src="/assets/explorer.js"></script>
 <script>
 (function(){
 var db=NX.load(), e=NX.esc, S={sel:null,tab:'arquivos',month:NX.ym(),user:null};
-try{S.user=JSON.parse(sessionStorage.getItem('nx_staff')||'null');}catch(x){}
+try{S.user=JSON.parse(sessionStorage.getItem('nx_staff')||'null');}catch(x){}if(S.user&&!S.user.real&&!/[?&]demo=1/.test(location.search)&&window.NXA&&NXA.ok)S.user=null;
+if(S.user&&S.user.real&&window.NXA&&NXA.ok)NXA.sb.auth.getSession().then(function(r){if(!(r.data&&r.data.session)){S.user=null;try{sessionStorage.removeItem('nx_staff');}catch(x){}render();}});
 var root=document.getElementById('root');
 function persist(){try{autoNotify();}catch(x){}return NX.save(db);}
 function cli(id){return db.clients.filter(function(c){return c.id===id;})[0];}
@@ -29,8 +32,35 @@ function unread(cid){return db.messages.filter(function(m){return m.de==='client
 function newDocs(cid){return db.files.filter(function(f){return !f.deleted&&f.de==='cliente'&&!f.visto&&(!cid||f.cliente===cid);}).length;}
 function route(){return (location.hash.replace('#/','')||'painel').split('/');}
 
-/* ---------- LOGIN ---------- */
+/* ---------- LOGIN (real, Supabase) ---------- */
+var DEMO=/[?&]demo=1/.test(location.search);
+function loginBox(inner){root.innerHTML='<div class="login"><div class="box" style="max-width:440px"><a class="logo" href="/"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a>'+inner+'</div></div>';}
+function entrarComPerfil(p){if(!p||p.tipo!=='equipe'||!p.ativo){NXA.sair();loginBox('<h1>Acesso não liberado</h1><p class="help" style="font-size:15px;color:var(--ink)">Seu usuário ainda não tem acesso ao Painel da Equipe. Fale com o Administrador.</p><button class="btn b-blue" onclick="location.href=\'/admin/\'">Voltar</button>');return;}
+  NX.ensureUsers(db);var st=db.staff.filter(function(s){return String(s.email).toLowerCase()===String(p.email).toLowerCase();})[0];
+  if(!st){st={id:'eq_'+p.id.slice(0,8),nome:p.nome,email:p.email,nivel:p.nivel_eq||'analista',setor:p.setor_eq||'',diretor:p.nivel_eq==='admin'};db.staff.push(st);}else{st.nivel=p.nivel_eq||st.nivel;st.nome=p.nome||st.nome;}
+  S.user={id:st.id,nome:st.nome,email:st.email,real:true};NX.log(db,{tipo:'equipe',quem:st.nome,nivel:NX.NIV_EQ[st.nivel].nome,acao:'Entrou no painel (login real)'});persist();NXA.acesso('Entrou no painel');
+  try{sessionStorage.setItem('nx_staff',JSON.stringify(S.user));}catch(x){}history.replaceState(null,'','/admin/#/painel');render();}
+function telaSenhaNova(tipo){loginBox('<h1>'+(tipo==='recovery'?'Nova senha':'Crie sua senha')+'</h1><p class="help" style="font-size:15px;color:var(--ink)">Use pelo menos 10 caracteres, misturando letras, números e símbolos. Não reutilize senhas de outros serviços.</p><form id="nsf"><label>Nova senha<input type="password" id="ns1" minlength="10" required autocomplete="new-password"></label><label>Repita a senha<input type="password" id="ns2" minlength="10" required autocomplete="new-password"></label><button class="btn b-blue">Salvar senha e entrar</button><p class="help" id="nserr" role="alert" style="color:var(--bad)"></p></form>');
+  document.getElementById('nsf').onsubmit=function(ev){ev.preventDefault();var a=document.getElementById('ns1').value,b=document.getElementById('ns2').value,er=document.getElementById('nserr');if(a!==b){er.textContent='As senhas não conferem.';return;}if(a.length<10){er.textContent='Use pelo menos 10 caracteres.';return;}
+    er.textContent='Salvando…';NXA.sb.auth.updateUser({password:a}).then(function(r){if(r.error){er.textContent='Não foi possível salvar: '+r.error.message;return;}NXA.acesso(tipo==='recovery'?'Redefiniu a senha':'Criou a senha (convite)');NXA.tipoLink=null;NXA.perfil().then(entrarComPerfil);});};}
 function login(){
+  if(DEMO){return loginDemo();}
+  if(!NXA.ok){loginBox('<h1>Painel da equipe</h1><p class="help" style="font-size:15px;color:var(--ink)">Não foi possível carregar o serviço de login. Verifique sua internet e recarregue a página.</p>');return;}
+  if(NXA.erroLink){loginBox('<h1>Link inválido</h1><p class="help" style="font-size:15px;color:var(--ink)">'+e(NXA.erroLink)+'. Links de convite e de senha valem por tempo limitado. Peça um novo ou use "Esqueci minha senha".</p><button class="btn b-blue" id="vb">Voltar ao login</button>');NXA.erroLink=null;history.replaceState(null,'','/admin/');document.getElementById('vb').onclick=function(){render();};return;}
+  loginBox('<h1>Painel da equipe</h1><p class="help">Carregando…</p>');
+  NXA.sb.auth.getSession().then(function(r){var s=r.data&&r.data.session;
+    if(s&&(NXA.tipoLink==='invite'||NXA.tipoLink==='recovery'||NXA.tipoLink==='signup')){telaSenhaNova(NXA.tipoLink);return;}
+    if(s){NXA.perfil().then(entrarComPerfil);return;}
+    loginBox('<h1>Painel da equipe</h1><form id="lf"><label>E-mail<input id="le" type="email" required autocomplete="username"></label><label>Senha<input id="lp" type="password" required autocomplete="current-password"></label><button class="btn b-blue" type="submit">Entrar</button><p class="help" id="lerr" role="alert" style="color:var(--bad)"></p></form><p class="help"><a href="#" id="esq">Esqueci minha senha</a></p><p class="help" style="font-size:12px">Acesso restrito à equipe NEXIO. Acessos são registrados. · <a href="/privacidade/">Privacidade</a></p>');
+    document.getElementById('lf').onsubmit=function(ev){ev.preventDefault();var er=document.getElementById('lerr');er.textContent='Entrando…';
+      NXA.sb.auth.signInWithPassword({email:document.getElementById('le').value.trim(),password:document.getElementById('lp').value}).then(function(r){if(r.error){er.textContent=/invalid/i.test(r.error.message)?'E-mail ou senha incorretos.':'Não foi possível entrar: '+r.error.message;return;}NXA.perfil().then(entrarComPerfil);});};
+    document.getElementById('esq').onclick=function(ev){ev.preventDefault();var em=document.getElementById('le').value.trim();if(!em){document.getElementById('lerr').textContent='Digite seu e-mail acima e clique de novo em "Esqueci minha senha".';return;}
+      NXA.sb.auth.resetPasswordForEmail(em,{redirectTo:'https://nexioic.com.br/admin/'}).then(function(){document.getElementById('lerr').style.color='var(--ok)';document.getElementById('lerr').textContent='Se o e-mail estiver cadastrado, você receberá um link para criar uma nova senha.';});};
+  });
+}
+
+/* ---------- LOGIN DEMONSTRAÇÃO (?demo=1) ---------- */
+function loginDemo(){
   root.innerHTML='<div class="login"><form class="box" id="lf"><a class="logo" href="/"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a><h1>Painel da equipe</h1>'+
   '<label>E-mail<input id="le" type="email" required value="paulo@nexioic.com.br" autocomplete="username"></label>'+
   '<label>Senha<input id="lp" type="password" required value="demo" autocomplete="current-password"></label>'+
@@ -47,7 +77,7 @@ function shell(active,html){
   nav.map(function(n){return '<a class="nav" href="#/'+n[0]+'"'+(active===n[0]?' aria-current="page"':'')+'>'+n[1]+(n[2]?'<span class="cnt">'+n[2]+'</span>':'')+'</a>';}).join('')+
   '<div class="foot"><span>'+e(S.user.nome)+'</span><a href="/portal/" target="_blank" rel="noopener">Ver portal do cliente</a><a href="#" id="reset">Restaurar dados de exemplo</a><a href="#" id="logout">Sair</a></div></aside><main class="main">'+html+'</main></div>';
   NX.applySide();
-  document.getElementById('logout').onclick=function(ev){ev.preventDefault();logEq('Saiu do painel');persist();S.user=null;try{sessionStorage.removeItem('nx_staff');}catch(x){}render();};
+  document.getElementById('logout').onclick=function(ev){ev.preventDefault();logEq('Saiu do painel');persist();if(S.user&&S.user.real)NXA.acesso('Saiu do painel');S.user=null;try{sessionStorage.removeItem('nx_staff');}catch(x){}NXA.sair().then(function(){render();});};
   document.getElementById('reset').onclick=function(ev){ev.preventDefault();if(confirm('Apagar tudo e restaurar os dados de exemplo?')){db=NX.seed();persist();render();NX.toast('Dados de exemplo restaurados.');}};
 }
 function head(t,sub,right){return '<div class="page-h"><div><h1>'+t+'</h1>'+(sub?'<p>'+sub+'</p>':'')+'</div><div class="row">'+(right||'')+'<span class="badge-proto">Protótipo</span></div></div>';}
@@ -405,7 +435,7 @@ function lgpd(){db.lgpd=db.lgpd||[];db.incidentes=db.incidentes||[];db.lgpdCfg=d
 }
 /* sessão da equipe expira após 30 min sem uso */
 (function(){var K='nx_last_eq',LIM=30*60*1000,tk=function(){try{sessionStorage.setItem(K,Date.now());}catch(x){}};['click','keydown','scroll'].forEach(function(ev){document.addEventListener(ev,tk,{passive:true});});tk();
-  setInterval(function(){if(S.user&&Date.now()-(+(sessionStorage.getItem(K)||0))>LIM){logEq('Sessão encerrada por inatividade');persist();S.user=null;try{sessionStorage.removeItem('nx_staff');}catch(x){}render();NX.toast('Sessão expirada por inatividade.');}},30000);})();
+  setInterval(function(){if(S.user&&Date.now()-(+(sessionStorage.getItem(K)||0))>LIM){logEq('Sessão encerrada por inatividade');persist();S.user=null;try{sessionStorage.removeItem('nx_staff');}catch(x){}NXA.sair().then(function(){render();});NX.toast('Sessão expirada por inatividade.');}},30000);})();
 var TERMOS_V='1.0';
 /* ---------- MENSAGENS (caixa geral) ---------- */
 function mensagens(){
