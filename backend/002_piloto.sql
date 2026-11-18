@@ -48,13 +48,4 @@ alter table lgpd_solicitacoes alter column usuario_id set default auth.uid();
 -- equipe pode atualizar perfil de clientes (nome) e vincular usuários
 -- (perfis_admin e eu_eq já cobrem admin/gestor)
 
--- Cliente piloto: AUTO PARK VIEIRALVES LTDA
-insert into empresas (razao_social, fantasia, documento, municipio_ibge, trib, inscricoes, licencas, socios)
-values ('AUTO PARK VIEIRALVES LTDA','AUTO PARK VIEIRALVES','64367361000153','1302603',
- '{"regime":"SN","anexo":"III","cnae":"5223-1/00","porte":"ME","natureza":"206-2 Sociedade Empresária Limitada","abertura":"2026-01-08","mun":"Manaus/AM","obs":"Regime a confirmar"}',
- '{"im":"704927001","nire":"13201271851","cadastro_imobiliario":"18220","email":"contato@parkvieiralves.com.br","telefone":"(92) 9277-7585","endereco":"Rua Rio Içá, 16 - Nossa Senhora das Graças, Manaus/AM, 69053-100"}',
- '[{"tipo":"Alvará de funcionamento","numero":"AMB2500194344","orgao":"Prefeitura de Manaus (SEMEF)","emissao":"2026-01-09","validade":"","obs":"Validade indeterminada"}]',
- '[{"nome":"Adria Yared Sadala","part":"25","adm":true},{"nome":"Vinicius de Alencar Araujo Motta","part":"25","adm":false},{"nome":"Angelica Martins dos Santos","part":"25","adm":false},{"nome":"Francilourdes Morais Lourenco","part":"25","adm":false}]')
-on conflict (documento) do nothing;
-
-select razao_social, documento from empresas;
+-- (cadastro dos clientes é feito pelo painel; dados de clientes não ficam no repositório)
