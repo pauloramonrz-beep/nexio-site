@@ -35,7 +35,7 @@ function route(){return (location.hash.replace('#/','')||'painel').split('/');}
 /* ---------- LOGIN (real, Supabase) ---------- */
 var DEMO=/[?&]demo=1/.test(location.search);
 function loginBox(inner){root.innerHTML='<div class="login"><div class="box" style="max-width:440px"><a class="logo" href="/"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a>'+inner+'</div></div>';}
-function entrarComPerfil(p){if(!p||p.tipo!=='equipe'||!p.ativo){NXA.sair();loginBox('<h1>Acesso não liberado</h1><p class="help" style="font-size:15px;color:var(--ink)">Seu usuário ainda não tem acesso ao Painel da Equipe. Fale com o Administrador.</p><button class="btn b-blue" onclick="location.href=\'/admin/\'">Voltar</button>');return;}
+function entrarComPerfil(p){if(p&&p.tipo==='cliente'){location.replace('/portal/');return;}if(!p||p.tipo!=='equipe'||!p.ativo){NXA.sair();loginBox('<h1>Acesso não liberado</h1><p class="help" style="font-size:15px;color:var(--ink)">Seu usuário ainda não tem acesso ao Painel da Equipe. Fale com o Administrador.</p><button class="btn b-blue" onclick="location.href=\'/admin/\'">Voltar</button>');return;}
   NX.ensureUsers(db);var st=db.staff.filter(function(s){return String(s.email).toLowerCase()===String(p.email).toLowerCase();})[0];
   if(!st){st={id:'eq_'+p.id.slice(0,8),nome:p.nome,email:p.email,nivel:p.nivel_eq||'analista',setor:p.setor_eq||'',diretor:p.nivel_eq==='admin'};db.staff.push(st);}else{st.nivel=p.nivel_eq||st.nivel;st.nome=p.nome||st.nome;}
   S.user={id:st.id,nome:st.nome,email:st.email,real:true};NX.log(db,{tipo:'equipe',quem:st.nome,nivel:NX.NIV_EQ[st.nivel].nome,acao:'Entrou no painel (login real)'});persist();NXA.acesso('Entrou no painel');

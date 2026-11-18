@@ -54,6 +54,7 @@ function iniciar(){
     NXA.perfil().then(function(p){if(!p){NXA.sair().then(telaLogin);return;}S.perfil=p;
       if(NXA.tipoLink==='recovery'){telaPrimeiroAcesso(true);return;}
       if(NXA.tipoLink==='invite'||NXA.tipoLink==='magiclink'||NXA.tipoLink==='signup'||!p.aceite_versao||p.aceite_versao!==TERMOS_V){telaPrimeiroAcesso(false);return;}
+      if(p.tipo==='equipe'){location.replace('/admin/');return;}
       sb.from('empresa_usuarios').select('nivel, empresas(id,razao_social,fantasia,documento)').eq('usuario_id',p.id).then(function(q){if(erro(q))return;
         S.emps=(q.data||[]).filter(function(x){return x.empresas;}).map(function(x){return Object.assign({nivel:x.nivel},x.empresas);});
         if(!S.emps.length){box('<h1>Acesso em liberação</h1><p class="help" style="font-size:15px;color:var(--ink)">Seu usuário foi criado, mas ainda não está ligado a nenhuma empresa. A NEXIO vai liberar em breve.</p><button class="btn b-line" id="sx">Sair</button>');document.getElementById('sx').onclick=sair;return;}
