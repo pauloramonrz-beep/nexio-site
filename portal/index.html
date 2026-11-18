@@ -177,7 +177,7 @@ function notas(){
   '<label style="flex-direction:row;align-items:center;gap:8px;align-self:end;min-height:44px"><input type="checkbox" name="ret" id="nret" '+((me().trib||{}).issRet?'checked':'')+' style="width:auto;min-height:auto"> ISS retido pelo tomador</label>'+
   '<label id="lal" style="display:none">Alíquota ISS (%)<input name="aliq" id="nal" inputmode="decimal" value="'+String((me().trib||{}).iss||2).replace('.',',')+'"></label>'+
   '</div><div class="row between" style="margin-top:16px;align-items:center"><p class="help" id="nliq">Valor líquido: R$ 0,00</p><button class="btn b-blue" type="submit">Emitir nota fiscal</button></div>'+
-  '<p class="help" style="margin-top:8px"><b>Protótipo:</b> a emissão é simulada — nenhuma nota é enviada à Prefeitura ou ao Emissor Nacional.</p></form></section>'+
+  '<p class="help" style="margin-top:8px"><b>Protótipo:</b> a nota é montada no padrão do Emissor Nacional (DPS v1.00 e DANFSe), mas não é assinada nem enviada à Sefin Nacional.</p></form></section>'+
   '<section class="card"><h2>Notas emitidas</h2><div class="tbl"><table><thead><tr><th>Nº</th><th>Emissão</th><th>Tomador</th><th>Serviço</th><th>Valor</th><th>Situação</th><th><span class="sr">Ações</span></th></tr></thead><tbody>'+
   (ns.length?ns.map(function(n){return '<tr><td><b>'+n.num+'</b></td><td>'+NX.fdate(n.emissao)+'</td><td>'+e(n.tom.nome)+'<small style="display:block;color:var(--muted)">'+e(fmtDoc(n.tom.doc))+'</small></td><td>'+e(n.serv)+'</td><td>'+NX.brl(n.valor)+'</td><td><span class="tag '+(n.status==='autorizada'?'ok':'bad')+'">'+(n.status==='autorizada'?'Autorizada (simulação)':'Cancelada')+'</span></td><td style="white-space:nowrap"><button class="btn b-text" data-pdf="'+n.id+'">PDF</button><button class="btn b-text" data-xml="'+n.id+'">XML</button>'+(n.status==='autorizada'?'<button class="btn b-danger" data-cancel="'+n.id+'">Cancelar</button>':'')+'</td></tr>';}).join(''):'<tr><td colspan="7" class="empty">Nenhuma nota emitida ainda.</td></tr>')+'</tbody></table></div></section>');
   var f=document.getElementById('nf');
@@ -189,10 +189,16 @@ function notas(){
     var v=num(fd.get('valor'));if(!(v>0)){NX.toast('Informe o valor do serviço.');return;}
     var sv=SERV.filter(function(s){return s[0]===fd.get('serv');})[0],ret=!!fd.get('ret'),al=ret?num(fd.get('aliq')):0;
     if(!confirm('Emitir nota de '+NX.brl(v)+' para '+fd.get('nome')+'?'))return;
-    var c=me(),seq=(db.notas||[]).filter(function(n){return n.cliente===S.cid;}).length+1;
-    var n={id:NX.uid(),cliente:S.cid,num:String(seq).padStart(6,'0'),emissao:NX.today(),comp:fd.get('comp'),status:'autorizada',
+    var c=me(),Tr=c.trib||{},seq=(db.notas||[]).filter(function(n){return n.cliente===S.cid;}).length+1,cfg=c.nfCfg||(c.nfCfg={serie:'1',proximo:seq,desc:'',copia:'',enviarTomador:true});
+    var cM=codMun(Tr,c),dP=onlyDig(c.doc),nD=+cfg.proximo||seq,sr=String(cfg.serie||'1'),now=new Date(),off=-now.getTimezoneOffset(),dh=new Date(now.getTime()+off*6e4).toISOString().slice(0,19)+(off<0?'-':'+')+String(Math.floor(Math.abs(off)/60)).padStart(2,'0')+':'+String(Math.abs(off)%60).padStart(2,'0');
+    var base=cM+'2'+(dP.length===11?'1':'2')+dP.padStart(14,'0')+String(seq).padStart(13,'0')+fd.get('comp').slice(2,4)+fd.get('comp').slice(5,7)+String(Math.floor(Math.random()*1e9)).padStart(9,'0');
+    var sn=Tr.regime==='SN'?NX.calcSimples(Tr):null,aISS=num(fd.get('aliq'))||Tr.iss||0;
+    var n={id:NX.uid(),cliente:S.cid,num:String(seq).padStart(6,'0'),emissao:NX.today(),dhEmi:dh,comp:fd.get('comp'),status:'autorizada',serie:sr,nDPS:nD,
+      idDPS:'DPS'+cM+(dP.length===11?'1':'2')+dP.padStart(14,'0')+sr.padStart(5,'0')+String(nD).padStart(15,'0'),chave:base+dv11(base),cMun:cM,munNome:Tr.mun||c.cidade||'Manaus/AM',
+      regime:Tr.regime||'SN',uniprof:!!Tr.uniprof,pSN:sn?sn.aliq:0,aliqISS:aISS,cTrib:cTribNac(sv[0]==='outro'?Tr.lc116:sv[0]),cTribMun:Tr.codmun||'',
       tom:{doc:d,nome:fd.get('nome'),email:fd.get('email'),mun:fd.get('mun')},serv:(sv[0]==='outro'?'':sv[0]+' – ')+sv[1],desc:fd.get('desc'),valor:v,ret:ret,aliq:al,iss:ret?v*al/100:0,
-      chave:'SIMULACAO'+Date.now()+Math.floor(Math.random()*1e6),prest:{nome:c.nome,doc:c.doc}};
+      prest:{nome:c.nome,doc:c.doc,im:(c.insc||{}).im,email:c.email,tel:c.tel}};
+    cfg.proximo=nD+1;
     db.notas.push(n);
     var xml=notaXML(n);db.files.push({id:NX.uid(),cliente:S.cid,tipo:'Nota fiscal',titulo:'NFS-e nº '+n.num+' — '+n.tom.nome,comp:n.comp.slice(0,7),venc:'',valor:v,status:'emitida',de:'cliente',nome:'NFSe_'+n.num+'.xml',data:'data:application/xml;base64,'+btoa(unescape(encodeURIComponent(xml))),size:xml.length,criado:NX.today(),visto:false});
     logCli('Emitiu nota fiscal (simulação)','NFS-e nº '+n.num+' — '+NX.brl(v));NX.notify(db,S.cid,'nota','Nota fiscal nº '+n.num+' emitida',n.tom.nome+' — '+NX.brl(v),'#/notas');if(persist()===false)return;notas();NX.toast('Nota nº '+n.num+' emitida (simulação).');};
@@ -206,16 +212,46 @@ function notas(){
 }
 function num(v){v=String(v||'').trim();if(/,\d{1,2}$/.test(v))v=v.replace(/\./g,'').replace(',','.');else v=v.replace(/,/g,'');var n=parseFloat(v);return isNaN(n)?0:n;}
 function xe(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-function notaXML(n){return '<?xml version="1.0" encoding="UTF-8"?>\n<!-- PROTÓTIPO NEXIO: documento simulado, sem validade fiscal -->\n<NFSe><infNFSe><nNFSe>'+n.num+'</nNFSe><chave>'+n.chave+'</chave><dhEmi>'+n.emissao+'</dhEmi><situacao>'+n.status+'</situacao>'+
-  '<prest><CNPJ>'+onlyDig(n.prest.doc)+'</CNPJ><xNome>'+xe(n.prest.nome)+'</xNome></prest><toma><doc>'+n.tom.doc+'</doc><xNome>'+xe(n.tom.nome)+'</xNome><email>'+xe(n.tom.email)+'</email><mun>'+xe(n.tom.mun)+'</mun></toma>'+
-  '<serv><item>'+xe(n.serv)+'</item><xDescServ>'+xe(n.desc)+'</xDescServ><dCompet>'+n.comp+'</dCompet></serv><valores><vServ>'+n.valor.toFixed(2)+'</vServ><ISSRetido>'+(n.ret?1:2)+'</ISSRetido><pAliq>'+n.aliq.toFixed(2)+'</pAliq><vISSRet>'+n.iss.toFixed(2)+'</vISSRet><vLiq>'+(n.valor-n.iss).toFixed(2)+'</vLiq></valores></infNFSe></NFSe>\n';}
-function printNota(n){var p=document.getElementById('printArea');
-  p.innerHTML='<div style="border:2px solid #2344AC;padding:18px;font:11pt Arial,sans-serif;color:#000">'+(n.status!=='autorizada'?'<p style="color:#B42318;font-weight:700;font-size:16pt;text-align:center">NOTA CANCELADA</p>':'')+
-  '<p style="text-align:center;color:#B42318;font-weight:700">DOCUMENTO DE SIMULAÇÃO — SEM VALOR FISCAL</p><h1 style="font-size:16pt;color:#2344AC;margin:0 0 6px">DANFSe — Nota Fiscal de Serviço Eletrônica</h1>'+
-  '<p>Número: <b>'+n.num+'</b> · Emissão: <b>'+NX.fdate(n.emissao)+'</b> · Competência: <b>'+NX.fdate(n.comp)+'</b><br>Chave: '+n.chave+'</p><hr>'+
-  '<p><b>PRESTADOR</b><br>'+e(n.prest.nome)+'<br>'+e(n.prest.doc)+'</p><p><b>TOMADOR</b><br>'+e(n.tom.nome)+'<br>'+e(fmtDoc(n.tom.doc))+(n.tom.mun?'<br>'+e(n.tom.mun):'')+(n.tom.email?'<br>'+e(n.tom.email):'')+'</p><hr>'+
-  '<p><b>SERVIÇO</b><br>'+e(n.serv)+'<br>'+e(n.desc)+'</p><hr><table style="width:100%;font-size:11pt"><tr><td>Valor do serviço</td><td style="text-align:right">'+NX.brl(n.valor)+'</td></tr><tr><td>ISS retido ('+n.aliq.toFixed(2)+'%)</td><td style="text-align:right">'+NX.brl(n.iss)+'</td></tr><tr><td><b>Valor líquido</b></td><td style="text-align:right"><b>'+NX.brl(n.valor-n.iss)+'</b></td></tr></table>'+
-  (n.motivo?'<p><b>Motivo do cancelamento:</b> '+e(n.motivo)+'</p>':'')+'</div>';
+var IBGE={'manaus/am':'1302603','são paulo/sp':'3550308','sao paulo/sp':'3550308','rio de janeiro/rj':'3304557','belém/pa':'1501402','boa vista/rr':'1400100','porto velho/ro':'1100205','brasília/df':'5300108'};
+function codMun(t,c){var m=String((t&&t.mun)||c.cidade||'').trim().toLowerCase().replace(/\s*-\s*/,'/');return (t&&t.ibge)||IBGE[m]||'1302603';}
+function cTribNac(item){var d=onlyDig(item);return d.length===4?d+'01':(d||'170101').slice(0,6);}
+function dv11(s){var p=2,t=0;for(var i=s.length-1;i>=0;i--){t+=(+s[i])*p;p=p===9?2:p+1;}var r=t%11;return (r<2?0:11-r);}
+function fixN(n){var c=me(),Tr=c.trib||{};n.cMun=n.cMun||codMun(Tr,c);n.munNome=n.munNome||Tr.mun||c.cidade||'Manaus/AM';n.dhEmi=n.dhEmi||n.emissao+'T09:00:00-04:00';n.serie=n.serie||'1';n.nDPS=n.nDPS||+n.num;n.regime=n.regime||Tr.regime||'SN';n.aliqISS=n.aliqISS||n.aliq||Tr.iss||0;n.cTrib=n.cTrib||cTribNac(String(n.serv).slice(0,5));n.chave=/^\d{50}$/.test(n.chave)?n.chave:(function(){var b=n.cMun+'22'+onlyDig(n.prest.doc).padStart(14,'0')+String(+n.num).padStart(13,'0')+n.comp.slice(2,4)+n.comp.slice(5,7)+'000000001';return b+dv11(b);})();n.idDPS=n.idDPS||'DPS'+n.cMun+'2'+onlyDig(n.prest.doc).padStart(14,'0')+'00001'+String(n.nDPS).padStart(15,'0');n.pSN=n.pSN||0;return n;}
+function opSN(reg){return reg==='MEI'?2:reg==='SN'?3:1;}
+function notaXML(n){n=fixN(n);var P=n.prest,T=n.tom,docP=onlyDig(P.doc),tpP=docP.length===11?'CPF':'CNPJ',docT=onlyDig(T.doc),tpT=docT.length===11?'CPF':'CNPJ';
+  var dps='<?xml version="1.0" encoding="UTF-8"?>\n<!-- PROTÓTIPO NEXIO: DPS no leiaute do Sistema Nacional NFS-e (v1.00), ambiente de homologação, SEM assinatura e SEM validade fiscal -->\n'+
+  '<NFSe xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.00"><infNFSe Id="NFS'+n.chave+'">'+
+  '<xLocEmi>'+xe(n.munNome)+'</xLocEmi><xLocPrestacao>'+xe(n.munNome)+'</xLocPrestacao><nNFSe>'+(+n.num)+'</nNFSe><cLocIncid>'+n.cMun+'</cLocIncid><xLocIncid>'+xe(n.munNome)+'</xLocIncid>'+
+  '<xTribNac>'+xe(n.serv)+'</xTribNac><verAplic>NEXIO-PROTO-1.0</verAplic><ambGer>2</ambGer><tpEmis>1</tpEmis><procEmi>1</procEmi><cStat>100</cStat><dhProc>'+n.dhEmi+'</dhProc><nDFSe>'+(+n.num)+'</nDFSe>'+
+  '<emit><'+tpP+'>'+docP+'</'+tpP+'>'+(P.im?'<IM>'+xe(P.im)+'</IM>':'')+'<xNome>'+xe(P.nome)+'</xNome>'+(P.email?'<email>'+xe(P.email)+'</email>':'')+'</emit>'+
+  '<valores><vBC>'+n.valor.toFixed(2)+'</vBC>'+(n.aliqISS?'<pAliqAplic>'+n.aliqISS.toFixed(2)+'</pAliqAplic><vISSQN>'+(n.valor*n.aliqISS/100).toFixed(2)+'</vISSQN>':'')+'<vTotalRet>'+n.iss.toFixed(2)+'</vTotalRet><vLiq>'+(n.valor-n.iss).toFixed(2)+'</vLiq></valores>'+
+  '<DPS versao="1.00"><infDPS Id="'+n.idDPS+'">'+
+  '<tpAmb>2</tpAmb><dhEmi>'+n.dhEmi+'</dhEmi><verAplic>NEXIO-PROTO-1.0</verAplic><serie>'+xe(n.serie)+'</serie><nDPS>'+n.nDPS+'</nDPS><dCompet>'+n.comp+'</dCompet><tpEmit>1</tpEmit><cLocEmi>'+n.cMun+'</cLocEmi>'+
+  '<prest><'+tpP+'>'+docP+'</'+tpP+'>'+(P.im?'<IM>'+xe(P.im)+'</IM>':'')+(P.email?'<email>'+xe(P.email)+'</email>':'')+'<regTrib><opSimpNac>'+opSN(n.regime)+'</opSimpNac>'+(n.regime==='SN'?'<regApTribSN>1</regApTribSN>':'')+'<regEspTrib>'+(n.uniprof?'4':'0')+'</regEspTrib></regTrib></prest>'+
+  '<toma><'+tpT+'>'+docT+'</'+tpT+'><xNome>'+xe(T.nome)+'</xNome>'+(T.email?'<email>'+xe(T.email)+'</email>':'')+'</toma>'+
+  '<serv><locPrest><cLocPrestacao>'+n.cMun+'</cLocPrestacao></locPrest><cServ><cTribNac>'+n.cTrib+'</cTribNac>'+(n.cTribMun?'<cTribMun>'+xe(n.cTribMun)+'</cTribMun>':'')+'<xDescServ>'+xe(n.desc)+'</xDescServ></cServ></serv>'+
+  '<valores><vServPrest><vServ>'+n.valor.toFixed(2)+'</vServ></vServPrest><trib><tribMun><tribISSQN>1</tribISSQN><tpRetISSQN>'+(n.ret?2:1)+'</tpRetISSQN>'+(n.ret||n.regime!=='SN'?'<pAliq>'+n.aliqISS.toFixed(2)+'</pAliq>':'')+'</tribMun>'+
+  (n.regime==='SN'&&n.pSN?'<totTrib><pTotTribSN>'+n.pSN.toFixed(2)+'</pTotTribSN></totTrib>':'<totTrib><indTotTrib>0</indTotTrib></totTrib>')+'</trib></valores>'+
+  '</infDPS><!-- Na versão real: <Signature> XMLDSig com o certificado A1 do prestador --></DPS></infNFSe></NFSe>\n';return dps;}
+function printNota(n){n=fixN(n);var p=document.getElementById('printArea'),P=n.prest,T=n.tom,cx=function(l,v){return '<div style="padding:3px 6px"><div style="font-size:7pt;color:#444;text-transform:uppercase">'+l+'</div><div style="font-size:9pt;font-weight:600">'+(v||'-')+'</div></div>';},
+  bl=function(t,h,cols){return '<div style="border-top:1px solid #000;padding:4px 0"><div style="font-size:8pt;font-weight:700;padding:0 6px">'+t+'</div><div style="display:grid;grid-template-columns:repeat('+(cols||4)+',1fr)">'+h+'</div></div>';};
+  var ch=n.chave.replace(/(\d{4})/g,'$1 ').trim();
+  p.innerHTML='<div style="border:1px solid #000;font-family:Arial,sans-serif;color:#000;position:relative">'+
+  '<div style="position:absolute;top:40%;left:0;right:0;text-align:center;font-size:40pt;color:rgba(180,35,24,.15);font-weight:700;transform:rotate(-20deg);pointer-events:none">'+(n.status!=='autorizada'?'CANCELADA':'SEM VALOR FISCAL')+'</div>'+
+  '<div style="display:grid;grid-template-columns:1.2fr 2fr 1fr;align-items:center;padding:8px;gap:8px"><div style="font-weight:700;color:#2344AC">NFS-e<br><span style="font-size:8pt;color:#000">Nota Fiscal de<br>Serviço eletrônica</span></div>'+
+  '<div style="text-align:center"><div style="font-weight:700;font-size:12pt">DANFSe v1.0</div><div style="font-size:9pt">Documento Auxiliar da NFS-e</div><div style="font-size:8pt;color:#B42318;font-weight:700">PROTÓTIPO · HOMOLOGAÇÃO · SEM VALIDADE JURÍDICA</div></div>'+
+  '<div style="border:1px dashed #888;height:70px;display:flex;align-items:center;justify-content:center;font-size:7pt;text-align:center;color:#666">QR Code de consulta<br>(gerado na versão real)</div></div>'+
+  bl('',cx('Chave de acesso da NFS-e','<span style="font-family:monospace">'+ch+'</span>'),1)+
+  bl('',cx('Número da NFS-e',+n.num)+cx('Competência',NX.fdate(n.comp))+cx('Data e hora da emissão',NX.ftime(n.dhEmi))+cx('Número / série da DPS',n.nDPS+' / '+e(n.serie))+cx('Situação',n.status==='autorizada'?'Autorizada (simulação)':'Cancelada'),5)+
+  bl('EMITENTE DA NFS-e — Prestador do serviço',cx('CNPJ / CPF',e(fmtDoc(P.doc)))+cx('Inscrição municipal',e(P.im))+cx('Telefone',e(P.tel))+cx('E-mail',e(P.email))+'<div style="grid-column:span 2">'+cx('Nome / razão social',e(P.nome))+'</div>'+cx('Município',e(n.munNome))+cx('Simples Nacional',{1:'Não optante',2:'Optante — MEI',3:'Optante — ME/EPP'}[opSN(n.regime)]))+
+  bl('TOMADOR DO SERVIÇO',cx('CNPJ / CPF',e(fmtDoc(T.doc)))+'<div style="grid-column:span 2">'+cx('Nome / razão social',e(T.nome))+'</div>'+cx('E-mail',e(T.email))+cx('Município',e(T.mun)))+
+  bl('INTERMEDIÁRIO DO SERVIÇO',cx('','Não identificado na NFS-e'),1)+
+  bl('SERVIÇO PRESTADO',cx('Código de tributação nacional',n.cTrib.replace(/(\d{2})(\d{2})(\d{2})/,'$1.$2.$3'))+cx('Código de tributação municipal',e(n.cTribMun))+cx('Local da prestação',e(n.munNome))+cx('País da prestação','Brasil')+'<div style="grid-column:1/-1">'+cx('Descrição do serviço',e(n.serv)+'<br><span style="font-weight:400">'+e(n.desc)+'</span>')+'</div>')+
+  bl('TRIBUTAÇÃO MUNICIPAL',cx('Tributação do ISSQN','Operação tributável')+cx('Município de incidência',e(n.munNome))+cx('Regime especial',n.uniprof?'Sociedade profissional':'Nenhum')+cx('Valor do serviço',NX.brl(n.valor))+cx('BC ISSQN',NX.brl(n.valor))+cx('Alíquota aplicada',n.aliqISS?n.aliqISS.toFixed(2).replace('.',',')+'%':'-')+cx('Retenção do ISSQN',n.ret?'Retido pelo tomador':'Não retido')+cx('ISSQN retido',NX.brl(n.iss)))+
+  bl('TRIBUTAÇÃO FEDERAL',cx('IRRF','-')+cx('Contribuição previdenciária','-')+cx('PIS / COFINS','-')+cx('CSLL','-'))+
+  bl('VALOR TOTAL DA NFS-e',cx('Valor do serviço',NX.brl(n.valor))+cx('Desconto','R$ 0,00')+cx('Total de retenções',NX.brl(n.iss))+cx('<b>Valor líquido</b>','<span style="font-size:11pt">'+NX.brl(n.valor-n.iss)+'</span>'))+
+  bl('TOTAIS APROXIMADOS DOS TRIBUTOS',cx(n.regime==='SN'?'Alíquota do Simples Nacional':'Tributos',n.regime==='SN'&&n.pSN?n.pSN.toFixed(2).replace('.',',')+'%':'-'),1)+
+  bl('INFORMAÇÕES COMPLEMENTARES',cx('','Documento gerado no protótipo do Portal NEXIO. Não foi transmitido à Sefin Nacional.'+(n.motivo?' Cancelada. Motivo: '+e(n.motivo):'')),1)+'</div>';
   window.print();}
 
 function financeiro(){
