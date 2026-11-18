@@ -187,3 +187,11 @@
     }
     return ch;};
 })();
+/* cadastro de vários usuários de uma vez (painel e portal) */
+NX.multiUserForm=function(){var row=function(i){return '<div class="mu-row" style="display:grid;grid-template-columns:1.2fr 1.4fr .8fr 1fr auto;gap:8px;align-items:end"><label>Nome<input name="n'+i+'"></label><label>E-mail<input name="m'+i+'" type="email"></label><label>Senha<input name="s'+i+'" value="1234"></label><label>Nível<select name="l'+i+'">'+Object.keys(NX.NIV_CLI).map(function(k){return '<option value="'+k+'"'+(k==='consulta'?' selected':'')+'>'+NX.NIV_CLI[k].nome+'</option>';}).join('')+'</select></label><button type="button" class="btn b-text mu-rm" aria-label="Remover linha" style="color:var(--bad)">✕</button></div>';};
+  return {html:'<div id="mu" style="display:flex;flex-direction:column;gap:8px">'+row(0)+row(1)+'</div><button type="button" class="btn b-line" id="muAdd" style="align-self:flex-start">+ Adicionar outra pessoa</button>',
+    bind:function(root){var n=2,box=root.querySelector('#mu');root.querySelector('#muAdd').onclick=function(){box.insertAdjacentHTML('beforeend',row(n++));};box.onclick=function(ev){if(ev.target.classList.contains('mu-rm')&&box.children.length>1)ev.target.closest('.mu-row').remove();};},
+    read:function(fd){var out=[];for(var i=0;i<100;i++){var nm=String(fd.get('n'+i)||'').trim(),em=String(fd.get('m'+i)||'').trim();if(!nm&&!em)continue;if(!nm||!/^\S+@\S+\.\S+$/.test(em))return {erro:'Preencha nome e um e-mail válido em todas as linhas usadas.'};out.push({nome:nm,email:em,senha:String(fd.get('s'+i)||'1234'),nivel:fd.get('l'+i)});}return out.length?{lista:out}:{erro:'Informe pelo menos uma pessoa.'};},
+    save:function(db,lista,cid){var novos=0,vinc=0;lista.forEach(function(p){var ex=(db.cusers||[]).filter(function(x){return x.email.toLowerCase()===p.email.toLowerCase();})[0];
+      if(ex){if(ex.empresas.indexOf(cid)<0){ex.empresas.push(cid);vinc++;}}else{db.cusers.push({id:NX.uid(),nome:p.nome,email:p.email,senha:p.senha,nivel:p.nivel,empresas:[cid]});novos++;}});return {novos:novos,vinc:vinc};}};
+};
