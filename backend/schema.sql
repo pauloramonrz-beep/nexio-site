@@ -227,8 +227,13 @@ alter table acessos           enable row level security;
 
 -- perfis: cada um vê o próprio; equipe vê todos; só admin altera
 create policy perfis_sel on perfis for select using (id = auth.uid() or eh_equipe());
+create or replace function meu_tipo() returns text
+language sql stable security definer set search_path = public as $$
+  select tipo from perfis where id = auth.uid()
+$$;
 create policy perfis_upd_self on perfis for update using (id = auth.uid())
-  with check (id = auth.uid() and tipo = (select tipo from perfis where id = auth.uid()));
+  with check (id = auth.uid() and tipo = meu_tipo()
+              and nivel_eq is not distinct from nivel_eq() );
 create policy perfis_admin on perfis for all using (nivel_eq() = 'admin');
 
 -- empresas
@@ -283,6 +288,29 @@ returns void language sql security definer set search_path = public as $$
           nullif(current_setting('request.headers', true)::json->>'x-forwarded-for','')::inet,
           current_setting('request.headers', true)::json->>'user-agent')
 $$;
+
+-- =====================================================================
+-- Novo usuário (convite ou cadastro) -> cria o perfil automaticamente
+-- Por padrão entra como 'cliente' sem empresa (não vê nada até ser vinculado)
+-- =====================================================================
+create or replace function novo_usuario() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  insert into perfis (id, nome, email, tipo)
+  values (new.id, coalesce(new.raw_user_meta_data->>'nome', split_part(new.email,'@',1)), new.email, 'cliente')
+  on conflict (id) do nothing;
+  return new;
+end $$;
+drop trigger if exists ao_criar_usuario on auth.users;
+create trigger ao_criar_usuario after insert on auth.users
+  for each row execute function novo_usuario();
+
+-- Permissões de API: só usuários logados; o que cada um vê é decidido pela RLS
+revoke all on all tables in schema public from anon;
+grant select, insert, update, delete on all tables in schema public to authenticated;
+grant usage, select on all sequences in schema public to authenticated;
+grant execute on function registrar_acesso(uuid,text,text) to authenticated;
+revoke update, delete on acessos from authenticated;  -- registro de acessos imutável
 
 -- =====================================================================
 -- Storage: bucket PRIVADO "documentos"
