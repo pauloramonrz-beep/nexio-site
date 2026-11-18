@@ -114,7 +114,7 @@
     el.innerHTML = '<div class="xp">' +
       '<aside class="xp-tree" aria-label="Pastas"><div class="xp-node' + (!L.setor && !L.fid ? ' sel' : '') + '" style="padding-left:4px"><span class="xp-tg"></span><button class="xp-nm" data-nav="root"><b>' + e(o.rootLabel || 'Documentos') + '</b></button></div><ul>' + tree({}, 1) + '</ul></aside>' +
       '<section class="xp-main"><div class="xp-bar"><div class="row" style="align-items:center;gap:8px">' +
-      '<button class="btn b-line" id="xpNew">+ Nova pasta</button><button class="btn b-blue" id="xpUp">Upload</button>' + (o.onMass ? '<button class="btn b-line" id="xpMass">Upload em massa</button>' : '') +
+      (o.readonly ? '<span class="help">Somente consulta</span>' : '<button class="btn b-line" id="xpNew">+ Nova pasta</button><button class="btn b-blue" id="xpUp">Upload</button>') + (o.onMass ? '<button class="btn b-line" id="xpMass">Upload em massa</button>' : '') +
       '</div><div class="row" style="align-items:center;gap:8px">' + seg('vis', [['todos', 'Todos'], ['nao', 'Não visualizados'], ['sim', 'Visualizados']], st.vis) +
       '<label class="sr" for="xpq">Pesquisar</label><input id="xpq" class="xp-q" placeholder="Pesquisar…" value="' + e(st.q) + '">' + seg('view', [['tabela', '☰'], ['icones', '▦']], st.view) + '</div></div>' +
       '<div class="xp-crumbs">' + crumbs + '</div><div class="xp-body" id="xpBody">' + body + '</div>' + foot + '</section></div>';
@@ -135,12 +135,11 @@
     };
     el.querySelectorAll('tr[data-nav]').forEach(function (r) { r.onkeydown = function (ev) { if (ev.key === 'Enter') r.click(); }; });
     var q = el.querySelector('#xpq'); q.oninput = function () { st.q = q.value; st.page = 1; clearTimeout(q._t); q._t = setTimeout(function () { re(); var y = el.querySelector('#xpq'); y.focus(); y.setSelectionRange(y.value.length, y.value.length); }, 350); };
-    el.querySelector('#xpNew').onclick = function () { o.onNewFolder(st.L, re); };
-    el.querySelector('#xpUp').onclick = function () { o.onUpload(st.L, re); };
+    if (!o.readonly) { el.querySelector('#xpNew').onclick = function () { o.onNewFolder(st.L, re); }; el.querySelector('#xpUp').onclick = function () { o.onUpload(st.L, re); }; }
     if (o.onMass) el.querySelector('#xpMass').onclick = function () { o.onMass(st.L, re); };
     var bd = el.querySelector('.xp-main');
     bd.ondragover = function (ev) { ev.preventDefault(); bd.classList.add('over'); }; bd.ondragleave = function (ev) { if (!bd.contains(ev.relatedTarget)) bd.classList.remove('over'); };
-    bd.ondrop = function (ev) { ev.preventDefault(); bd.classList.remove('over'); if (ev.dataTransfer.files.length && o.onDropFiles) o.onDropFiles([].slice.call(ev.dataTransfer.files), st.L, re); };
+    bd.ondrop = function (ev) { ev.preventDefault(); bd.classList.remove('over'); if (ev.dataTransfer.files.length && o.onDropFiles && !o.readonly) o.onDropFiles([].slice.call(ev.dataTransfer.files), st.L, re); };
   };
   NX.newFolder = function (db, cliente, L, por) {
     var n = prompt('Nome da nova pasta:'); if (!n || !n.trim()) return null; db.folders = db.folders || [];

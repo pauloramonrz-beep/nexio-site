@@ -30,16 +30,17 @@ function unread(){return db.messages.filter(function(m){return m.cliente===S.cid
 function novos(){return myFiles().filter(function(f){return f.de==='equipe'&&!f.visto&&visivel(f);}).length;}
 function route(){return location.hash.replace('#/','')||'inicio';}
 
-function login(){
+function login(){NX.ensureUsers(db);persist();
   root.innerHTML='<div class="login"><form class="box" id="lf"><a class="logo" href="/"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a><h1>Portal do Cliente</h1>'+
   '<label>E-mail<input id="le" type="email" required autocomplete="username"></label><label>Senha<input id="lp" type="password" required autocomplete="current-password"></label>'+
   '<button class="btn b-blue">Entrar</button><p class="help" id="err" role="alert"></p>'+
-  '<p class="help"><b>Protótipo:</b> entre com um cliente de exemplo:</p><div class="row">'+db.clients.slice(0,3).map(function(c){return '<button type="button" class="btn b-line" data-q="'+c.id+'" style="min-height:36px;font-size:13px">'+e(c.nome)+'</button>';}).join('')+'</div>'+
+  '<p class="help"><b>Protótipo:</b> entre como um usuário de exemplo:</p><div class="row">'+(db.cusers||[]).slice(0,7).map(function(u){return '<button type="button" class="btn b-line" data-q="'+u.id+'" style="min-height:34px;font-size:12px">'+e(u.nome)+' · '+NX.NIV_CLI[u.nivel].nome+'</button>';}).join('')+'</div>'+
   '<p class="help">Esqueceu a senha? Fale com a NEXIO pelo <a href="https://wa.me/5511939565190">WhatsApp</a>.</p></form></div>';
+  function go(u){S.uid=u.id;try{sessionStorage.setItem('nx_cuser',u.id);sessionStorage.removeItem('nx_client');}catch(x){}S.cid=u.empresas.length===1?u.empresas[0]:null;if(S.cid){try{sessionStorage.setItem('nx_client',S.cid);}catch(x){}}
+    NX.log(db,{tipo:'cliente',quem:u.nome,nivel:NX.NIV_CLI[u.nivel].nome,acao:'Entrou no portal',cliente:S.cid||u.empresas[0]});persist();location.hash='#/inicio';render();}
   document.getElementById('lf').onsubmit=function(ev){ev.preventDefault();var em=document.getElementById('le').value.trim().toLowerCase(),pw=document.getElementById('lp').value;
-    var c=db.clients.filter(function(x){return (x.email||'').toLowerCase()===em&&x.senha===pw;})[0];
-    if(!c){document.getElementById('err').textContent='E-mail ou senha incorretos.';return;}enter(c.id);};
-  root.querySelectorAll('[data-q]').forEach(function(b){b.onclick=function(){enter(b.getAttribute('data-q'));};});
+    var u=(db.cusers||[]).filter(function(x){return x.email.toLowerCase()===em&&x.senha===pw;})[0];if(!u){document.getElementById('err').textContent='E-mail ou senha incorretos.';return;}go(u);};
+  root.querySelectorAll('[data-q]').forEach(function(b){b.onclick=function(){go(db.cusers.filter(function(x){return x.id===b.getAttribute('data-q');})[0]);};});
 }
 function enter(id){S.cid=id;try{sessionStorage.setItem('nx_client',id);}catch(x){}location.hash='#/inicio';render();}
 
@@ -50,7 +51,7 @@ function shell(active,html){
   
   '<div class="foot"><span>'+e(c.nome)+'</span><a href="https://wa.me/5511939565190">Falar no WhatsApp</a><a href="#" id="logout">Sair</a></div></aside><main class="main">'+html+'</main></div>';
   NX.applySide();
-  document.getElementById('logout').onclick=function(ev){ev.preventDefault();S.cid=null;try{sessionStorage.removeItem('nx_client');}catch(x){}location.hash='';render();};
+  document.getElementById('logout').onclick=function(ev){ev.preventDefault();logCli('Saiu do portal');persist();S.cid=null;S.uid=null;try{sessionStorage.removeItem('nx_client');sessionStorage.removeItem('nx_cuser');}catch(x){}location.hash='';render();};
 }
 function head(t,sub){return '<div class="page-h"><div><h1>'+t+'</h1>'+(sub?'<p>'+sub+'</p>':'')+'</div><span class="badge-proto">Protótipo</span></div>';}
 function guiaRow(f){var s=NX.statusOf(f);return '<div class="list-item"><div><b>'+e(f.titulo)+(!f.visto&&f.de==='equipe'?'<span class="dot" aria-label="novo"></span>':'')+'</b><small>'+(f.venc?'Vence em '+NX.fdate(f.venc)+' · ':'')+'Competência '+NX.fcomp(f.comp)+'</small></div><div class="row" style="align-items:center"><strong>'+(f.valor?NX.brl(f.valor):'')+'</strong><span class="tag '+s.c+'">'+s.t+'</span><button class="btn b-line" data-dl="'+f.id+'" style="min-height:38px">Ver</button></div></div>';}
@@ -62,7 +63,7 @@ function eventosMes(m){var ev=NX.obligationsFor(db,S.cid,m).map(function(o){retu
   return ev.filter(function(x){if(/^(Guia|Vence): /.test(x.titulo))return true;var k=norm(x.titulo);return !guias.some(function(g){return g.data===x.data&&(norm(g.titulo).indexOf(k)>-1||k.indexOf(norm(g.titulo))>-1);});});}
 function inicio(){
   var c=me(),t=NX.today(),fs=myFiles();
-  var pagar=fs.filter(function(f){return visivel(f)&&f.tipo==='Guia'&&f.status!=='pago';}).sort(function(a,b){return a.venc<b.venc?-1:1;});
+  var pagar=fs.filter(function(f){return visivel(f)&&f.tipo==='Guia'&&f.status!=='pago'&&nivel()!=='notas';}).sort(function(a,b){return a.venc<b.venc?-1:1;});
   var total=pagar.reduce(function(s,f){return s+(f.valor||0);},0);
   var prox=NX.obligationsFor(db,S.cid,NX.ym()).concat(NX.obligationsFor(db,S.cid,NX.shiftMonth(NX.ym(),1))).filter(function(o){return o.data>=t;}).slice(0,5);
   shell('inicio',head('Olá, '+e(function(n){var p=n.split(' ');return /^dra?\.$/i.test(p[0])?p.slice(0,2).join(' '):p[0];}(c.resp||c.nome)),'Tudo o que você precisa da sua contabilidade, em um só lugar.')+
@@ -79,7 +80,7 @@ function setorOf(f){if(f.setor)return f.setor;if(f.tipo==='Nota fiscal')return '
   if(/cnd|certid/i.test(f.titulo))return 'Certidões';if(f.tipo==='Contrato')return 'Societário';if(f.tipo==='Relatório')return 'Contábil';if(f.tipo==='Guia')return 'Fiscal';return 'Contábil';}
 function compOf(f){return f.comp||(f.criado||NX.today()).slice(0,7);}
 function visivel(f){return !f.deleted&&(f.de==='cliente'||(f.shared!=null?f.shared:RESTRITOS.indexOf(setorOf(f))<0));}
-function hist(f,ev){f.hist=f.hist||[];f.hist.push({em:new Date().toISOString(),ev:ev+(/visualiz|baixad/i.test(ev)?' pelo cliente':''),por:me().resp||me().nome});}
+function hist(f,ev){f.hist=f.hist||[];f.hist.push({em:new Date().toISOString(),ev:ev+(/visualiz|baixad/i.test(ev)?' pelo cliente':''),por:meU().nome});}
 var MESES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 var FICO='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
 function folderLevel(files,F,setores){ // devolve {items:[{key,label,n,extra}], level} ou null quando já está no mês
@@ -108,29 +109,29 @@ function inside(f,L){ // arquivo está dentro da localização L (recursivo)?
 S.xp=S.xp||{};
 function arquivos(){
   shell('arquivos',head('Documentos','Suas guias, relatórios e documentos. Clique em um documento para visualizar.')+'<div id="xpRoot"></div>');
-  var who=me().resp||me().nome;
+  var who=meU().nome;
   function send(files,L,re){var n=0,tot=files.length;files.forEach(function(file){NX.readFile(file,function(r){var pl=NX.placeFor(db,L,'Enviados pelo cliente');
     var f={id:NX.uid(),cliente:S.cid,setor:pl.setor,folder:pl.folder,tipo:'Documento',titulo:r.nome.replace(/\.[^.]+$/,''),comp:pl.comp,venc:'',valor:0,status:'recebido',de:'cliente',por:who,nome:r.nome,data:r.data,size:r.size,criado:NX.today(),visto:false};
-    hist(f,'Enviado pelo cliente');db.files.push(f);
+    hist(f,'Enviado pelo cliente');db.files.push(f);logCli('Enviou documento',f.titulo);
     if(++n===tot&&persist()!==false){if(!L.fid&&!L.comp){S.xp.L={setor:'Enviados pelo cliente',ano:NX.ym().slice(0,4),comp:NX.ym()};}re();NX.toast(tot+' documento(s) enviado(s) para a NEXIO.');}});});}
   NX.explorer(document.getElementById('xpRoot'),{db:db,cliente:S.cid,role:'cliente',st:S.xp,rootLabel:'Meus documentos',
-    setores:['Fiscal','Departamento Pessoal','Contábil','Financeiro','Societário','Certidões','Notas fiscais','Enviados pelo cliente'],
+    setores:['Fiscal','Departamento Pessoal','Contábil','Financeiro','Societário','Certidões','Notas fiscais','Enviados pelo cliente'].filter(function(s){var v=setoresNivel();return !v||v.indexOf(s)>-1;}),readonly:nivel()==='consulta',
     setorOf:setorOf,visible:visivel,
     onOpen:function(f){openDoc(f);},
     onNewFolder:function(L,re){if(NX.newFolder(db,S.cid,L,who)){persist();re();NX.toast('Pasta criada.');}},
     onUpload:function(L,re){var inp=document.createElement('input');inp.type='file';inp.multiple=true;inp.onchange=function(){if(inp.files.length)send([].slice.call(inp.files),L,re);};inp.click();},
     onDropFiles:send});
 }
-function openDoc(f){var who=me().resp||me().nome;
-  if(f.de==='equipe'&&!f.visto)f.visto=true;hist(f,'Visualizado');persist();
-  var acts=[{label:'Baixar',cls:'b-blue',close:false,fn:function(x){hist(x,'Baixado');persist();NX.download(x);}}];
-  if(f.tipo==='Guia'&&f.status!=='pago')acts.push({label:'Já paguei',fn:function(x){x.status='pago';hist(x,'Pagamento informado');db.messages.push({id:NX.uid(),cliente:S.cid,de:'cliente',autor:who,texto:'Informei o pagamento da guia: '+x.titulo+'.',em:new Date().toISOString(),lida:false});persist();NX.toast('Pagamento informado. Obrigado!');}});
+function openDoc(f){var who=meU().nome;
+  if(f.de==='equipe'&&!f.visto)f.visto=true;hist(f,'Visualizado');logCli('Visualizou documento',f.titulo);persist();
+  var acts=[{label:'Baixar',cls:'b-blue',close:false,fn:function(x){hist(x,'Baixado');logCli('Baixou documento',x.titulo);persist();NX.download(x);}}];
+  if(f.tipo==='Guia'&&f.status!=='pago'&&(nivel()==='titular'||nivel()==='financeiro'))acts.push({label:'Já paguei',fn:function(x){x.status='pago';hist(x,'Pagamento informado');db.messages.push({id:NX.uid(),cliente:S.cid,de:'cliente',autor:who,texto:'Informei o pagamento da guia: '+x.titulo+'.',em:new Date().toISOString(),lida:false});logCli('Informou pagamento',x.titulo);persist();NX.toast('Pagamento informado. Obrigado!');}});
   NX.viewer(f,{db:db,me:'cliente',path:NX.xpPath?NX.xpPath(f):pathOf(f),actions:acts,onClose:function(){var r=route();if(r==='arquivos')arquivos();else if(r==='inicio')inicio();},
-    onComment:function(x,t){x.coments=x.coments||[];x.coments.push({em:new Date().toISOString(),de:'cliente',autor:who,texto:t});hist(x,'Comentário');db.messages.push({id:NX.uid(),cliente:S.cid,de:'cliente',autor:who,texto:'Comentou no documento "'+x.titulo+'": '+t,em:new Date().toISOString(),lida:false});persist();}});}
+    onComment:nivel()==='consulta'?null:function(x,t){logCli('Comentou documento',x.titulo);x.coments=x.coments||[];x.coments.push({em:new Date().toISOString(),de:'cliente',autor:who,texto:t});hist(x,'Comentário');db.messages.push({id:NX.uid(),cliente:S.cid,de:'cliente',autor:who,texto:'Comentou no documento "'+x.titulo+'": '+t,em:new Date().toISOString(),lida:false});persist();}});}
 function pComment(f){var d=document.getElementById('pdlg');
   d.innerHTML='<form method="dialog" style="padding:24px;display:flex;flex-direction:column;gap:14px"><h2 style="color:var(--blue2);font-size:20px">Comentários</h2><p class="help">'+e(f.titulo)+'</p><div class="chat" style="max-height:260px">'+((f.coments||[]).length?f.coments.map(function(m){return '<div class="msg '+(m.de==='cliente'?'me':'them')+'">'+e(m.texto)+'<small>'+(m.de==='equipe'?e(m.autor)+' · NEXIO':'Você')+' · '+NX.ftime(m.em)+'</small></div>';}).join(''):'<p class="empty">Nenhum comentário ainda.</p>')+'</div><label>Escreva para a equipe<input name="t" placeholder="Ex.: Esse valor está correto?"></label><div class="row between"><button type="button" class="btn b-line" id="pdc">Fechar</button><button class="btn b-blue" type="submit">Enviar</button></div></form>';
   d.querySelector('#pdc').onclick=function(){d.close();};
-  d.querySelector('form').onsubmit=function(ev){ev.preventDefault();var t=String(new FormData(ev.target).get('t')||'').trim();if(t){f.coments=f.coments||[];f.coments.push({em:new Date().toISOString(),de:'cliente',autor:me().resp||me().nome,texto:t});hist(f,'Comentário do cliente');db.messages.push({id:NX.uid(),cliente:S.cid,de:'cliente',autor:me().resp||me().nome,texto:'Comentou no documento "'+f.titulo+'": '+t,em:new Date().toISOString(),lida:false});persist();}d.close();arquivos();};
+  d.querySelector('form').onsubmit=function(ev){ev.preventDefault();var t=String(new FormData(ev.target).get('t')||'').trim();if(t){f.coments=f.coments||[];f.coments.push({em:new Date().toISOString(),de:'cliente',autor:meU().nome,texto:t});hist(f,'Comentário do cliente');db.messages.push({id:NX.uid(),cliente:S.cid,de:'cliente',autor:meU().nome,texto:'Comentou no documento "'+f.titulo+'": '+t,em:new Date().toISOString(),lida:false});persist();}d.close();arquivos();};
   d.showModal();}
 function avisosAtivos(){var t=NX.today();return (db.avisos||[]).filter(function(a){return (a.clientes[0]==='*'||a.clientes.indexOf(S.cid)>-1)&&(!a.expira||a.expira>=t)&&!(a.lidos&&a.lidos[S.cid]);});}
 function bindDl(){root.querySelectorAll('[data-dl]').forEach(function(b){b.onclick=function(){var id=b.getAttribute('data-dl');var f=db.files.filter(function(x){return x.id===id;})[0];openDoc(f);return;if(f.de==='equipe'&&!f.visto){f.visto=true;persist();}NX.download(f);var r=route();if(r==='arquivos')arquivos();else if(r==='inicio')inicio();};});}
@@ -150,7 +151,7 @@ function mensagens(){
   (ms.length?ms.map(function(m){return '<div class="msg '+(m.de==='cliente'?'me':'them')+'">'+e(m.texto)+'<small>'+(m.de==='equipe'?e(m.autor)+' · NEXIO':'Você')+' · '+NX.ftime(m.em)+'</small></div>';}).join(''):'<p class="empty">Envie sua primeira mensagem.</p>')+
   '</div><form class="chat-form" id="cf"><label class="sr" for="ct">Mensagem</label><input id="ct" placeholder="Escreva sua mensagem…" required><button class="btn b-blue">Enviar</button></form></section>');
   var ch=document.getElementById('chat');ch.scrollTop=ch.scrollHeight;
-  document.getElementById('cf').onsubmit=function(ev){ev.preventDefault();var t=document.getElementById('ct').value.trim();if(!t)return;db.messages.push({id:NX.uid(),cliente:S.cid,de:'cliente',autor:me().resp||me().nome,texto:t,em:new Date().toISOString(),lida:false});persist();mensagens();};
+  document.getElementById('cf').onsubmit=function(ev){ev.preventDefault();var t=document.getElementById('ct').value.trim();if(!t)return;db.messages.push({id:NX.uid(),cliente:S.cid,de:'cliente',autor:meU().nome,texto:t,em:new Date().toISOString(),lida:false});persist();mensagens();};
 }
 /* ---------- NOTAS FISCAIS (simulação) ---------- */
 var SERV=[['04.01','Medicina e biomedicina'],['04.12','Odontologia'],['04.08','Fisioterapia, terapia ocupacional e fonoaudiologia'],['04.16','Psicologia'],['04.09','Terapias de qualquer espécie'],['04.03','Hospitais, clínicas, laboratórios e congêneres'],['17.01','Assessoria ou consultoria'],['17.19','Contabilidade'],['01.07','Suporte técnico em informática'],['outro','Outro serviço']];
@@ -194,14 +195,14 @@ function notas(){
       chave:'SIMULACAO'+Date.now()+Math.floor(Math.random()*1e6),prest:{nome:c.nome,doc:c.doc}};
     db.notas.push(n);
     var xml=notaXML(n);db.files.push({id:NX.uid(),cliente:S.cid,tipo:'Nota fiscal',titulo:'NFS-e nº '+n.num+' — '+n.tom.nome,comp:n.comp.slice(0,7),venc:'',valor:v,status:'emitida',de:'cliente',nome:'NFSe_'+n.num+'.xml',data:'data:application/xml;base64,'+btoa(unescape(encodeURIComponent(xml))),size:xml.length,criado:NX.today(),visto:false});
-    if(persist()===false)return;notas();NX.toast('Nota nº '+n.num+' emitida (simulação).');};
+    logCli('Emitiu nota fiscal (simulação)','NFS-e nº '+n.num+' — '+NX.brl(v));if(persist()===false)return;notas();NX.toast('Nota nº '+n.num+' emitida (simulação).');};
   root.querySelector('.main').addEventListener('click',function(ev){var t=ev.target,id,n;
     if(id=t.getAttribute('data-pdf')){n=db.notas.filter(function(x){return x.id===id;})[0];printNota(n);}
     if(id=t.getAttribute('data-xml')){n=db.notas.filter(function(x){return x.id===id;})[0];var x=notaXML(n),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([x],{type:'application/xml'}));a.download='NFSe_'+n.num+'.xml';document.body.appendChild(a);a.click();a.remove();}
     if(id=t.getAttribute('data-cancel')){var m=prompt('Motivo do cancelamento (obrigatório):');if(!m||m.trim().length<15){if(m!==null)NX.toast('Descreva o motivo com pelo menos 15 caracteres.');return;}
       db.notas.forEach(function(x){if(x.id===id){x.status='cancelada';x.motivo=m.trim();}});
-      db.messages.push({id:NX.uid(),cliente:S.cid,de:'cliente',autor:me().resp||me().nome,texto:'Cancelei a NFS-e nº '+db.notas.filter(function(x){return x.id===id;})[0].num+'. Motivo: '+m.trim(),em:new Date().toISOString(),lida:false});
-      persist();notas();NX.toast('Nota cancelada (simulação).');}});
+      db.messages.push({id:NX.uid(),cliente:S.cid,de:'cliente',autor:meU().nome,texto:'Cancelei a NFS-e nº '+db.notas.filter(function(x){return x.id===id;})[0].num+'. Motivo: '+m.trim(),em:new Date().toISOString(),lida:false});
+      logCli('Cancelou nota fiscal','NFS-e');persist();notas();NX.toast('Nota cancelada (simulação).');}});
 }
 function num(v){v=String(v||'').trim();if(/,\d{1,2}$/.test(v))v=v.replace(/\./g,'').replace(',','.');else v=v.replace(/,/g,'');var n=parseFloat(v);return isNaN(n)?0:n;}
 function xe(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -221,7 +222,42 @@ function financeiro(){
   shell('financeiro',head('Controle financeiro','Lance entradas e saídas, importe o extrato do banco e exporte para a contabilidade.')+
   '<iframe src="/financeiro/" title="Controle financeiro" style="width:100%;height:calc(100vh - 150px);min-height:720px;border:0;border-radius:16px;background:transparent"></iframe>');
 }
-function render(){db=NX.load();if(!S.cid||!me()){login();return;}var r=route();
+/* ---------- NÍVEIS DO CLIENTE + MULTIEMPRESAS + REGISTRO DE ACESSOS ---------- */
+try{S.uid=sessionStorage.getItem('nx_cuser');}catch(x){}
+function meU(){return (db.cusers||[]).filter(function(u){return u.id===S.uid;})[0];}
+function nivel(){var u=meU();return u?u.nivel:'titular';}
+var ROTAS={titular:['inicio','arquivos','calendario','notas','financeiro','mensagens','usuarios'],financeiro:['inicio','arquivos','calendario','notas','financeiro','mensagens'],rh:['inicio','arquivos','calendario','mensagens'],notas:['inicio','notas','mensagens'],consulta:['inicio','arquivos','calendario']};
+function pode(r){return (ROTAS[nivel()]||[]).indexOf(r)>-1;}
+function setoresNivel(){var n=nivel();if(n==='rh')return ['Departamento Pessoal','Enviados pelo cliente'];if(n==='notas')return ['Notas fiscais'];if(n==='financeiro')return ['Fiscal','Contábil','Financeiro','Societário','Certidões','Notas fiscais','Enviados pelo cliente'];return null;}
+function logCli(acao,alvo){var u=meU();NX.log(db,{tipo:'cliente',quem:u?u.nome:'—',nivel:u?NX.NIV_CLI[u.nivel].nome:'',acao:acao,alvo:alvo||'',cliente:S.cid});}
+var _visivel=visivel;visivel=function(f){if(!_visivel(f))return false;var s=setoresNivel();return !s||s.indexOf(setorOf(f))>-1;};
+/* menu conforme nível + seletor de empresa */
+var _shellP=shell;shell=function(active,html){_shellP(active,html);var u=meU();
+  root.querySelectorAll('.side a.nav').forEach(function(a){var r=(a.getAttribute('href')||'').replace('#/','').replace('/financeiro/','financeiro');if(r&&!pode(r))a.remove();});
+  var last=[].slice.call(root.querySelectorAll('.side a.nav')).pop();
+  if(pode('usuarios')&&last){var a=document.createElement('a');a.className='nav';a.href='#/usuarios';a.textContent='Usuários';if(active==='usuarios')a.setAttribute('aria-current','page');last.parentNode.insertBefore(a,last.nextSibling);}
+  if(u&&u.empresas.length>1){var role=root.querySelector('.side .role');var w=document.createElement('label');w.style.cssText='color:#fff;margin:0 8px 12px;font-size:12px;gap:4px';w.innerHTML='Empresa<select id="emp" style="min-height:38px;font-size:13px;padding:6px 8px;color:var(--ink)">'+u.empresas.map(function(id){var c=db.clients.filter(function(x){return x.id===id;})[0];return c?'<option value="'+id+'"'+(id===S.cid?' selected':'')+'>'+e(c.nome)+'</option>':'';}).join('')+'</select>';role.parentNode.insertBefore(w,role.nextSibling);
+    w.querySelector('select').onchange=function(ev){S.cid=ev.target.value;try{sessionStorage.setItem('nx_client',S.cid);}catch(x){}S.xp={};logCli('Trocou de empresa');persist();location.hash='#/inicio';render();};}
+  var ft=root.querySelector('.side .foot span');if(ft&&u)ft.textContent=u.nome+' · '+NX.NIV_CLI[u.nivel].nome;
+  NX.applySide();};
+/* usuários da empresa (titular) */
+function usuariosEmp(){var c=me(),l=(db.cusers||[]).filter(function(u){return u.empresas.indexOf(S.cid)>-1;});
+  shell('usuarios',head('Usuários da empresa','Quem da '+e(c.nome)+' acessa o portal e o que cada um pode fazer.')+'<section class="card"><div class="row between" style="margin-bottom:12px"><h2 style="margin:0">Usuários</h2><button class="btn b-blue" id="nu">+ Convidar usuário</button></div>'+
+  l.map(function(u){return '<div class="list-item"><div><b>'+e(u.nome)+(u.id===S.uid?' (você)':'')+'</b><small>'+e(u.email)+' · '+NX.NIV_CLI[u.nivel].nome+' — '+NX.NIV_CLI[u.nivel].desc+(u.empresas.length>1?' · acessa '+u.empresas.length+' empresas':'')+'</small></div>'+(u.id===S.uid?'':'<div class="row"><select data-nv="'+u.id+'" aria-label="Nível de '+e(u.nome)+'" style="width:auto;min-height:36px">'+Object.keys(NX.NIV_CLI).map(function(k){return '<option value="'+k+'"'+(u.nivel===k?' selected':'')+'>'+NX.NIV_CLI[k].nome+'</option>';}).join('')+'</select><button class="btn b-text" data-rmu="'+u.id+'" style="color:var(--bad)">Remover acesso</button></div>')+'</div>';}).join('')+'</section>'+
+  '<section class="card"><h2>Níveis de acesso</h2>'+Object.keys(NX.NIV_CLI).map(function(k){return '<div class="list-item"><div><b>'+NX.NIV_CLI[k].nome+'</b><small>'+NX.NIV_CLI[k].desc+'</small></div></div>';}).join('')+'</section>');
+  root.querySelectorAll('[data-nv]').forEach(function(s){s.onchange=function(){var u=db.cusers.filter(function(x){return x.id===s.getAttribute('data-nv');})[0];u.nivel=s.value;logCli('Alterou nível de usuário',u.nome+' → '+NX.NIV_CLI[u.nivel].nome);persist();NX.toast('Nível atualizado.');};});
+  root.querySelectorAll('[data-rmu]').forEach(function(b){b.onclick=function(){var u=db.cusers.filter(function(x){return x.id===b.getAttribute('data-rmu');})[0];if(!confirm('Remover o acesso de '+u.nome+' a esta empresa?'))return;u.empresas=u.empresas.filter(function(id){return id!==S.cid;});if(!u.empresas.length)db.cusers=db.cusers.filter(function(x){return x.id!==u.id;});logCli('Removeu acesso de usuário',u.nome);persist();usuariosEmp();};});
+  document.getElementById('nu').onclick=function(){var d=document.getElementById('pdlg');
+    d.innerHTML='<form style="padding:24px;display:flex;flex-direction:column;gap:14px"><h2 style="color:var(--blue2);font-size:20px">Convidar usuário</h2><label>Nome<input name="nome" required></label><label>E-mail<input name="email" type="email" required></label><label>Senha inicial (protótipo)<input name="senha" value="1234" required></label><label>Nível<select name="nivel">'+Object.keys(NX.NIV_CLI).map(function(k){return '<option value="'+k+'"'+(k==='consulta'?' selected':'')+'>'+NX.NIV_CLI[k].nome+' — '+NX.NIV_CLI[k].desc+'</option>';}).join('')+'</select></label><div class="row between"><button type="button" class="btn b-line" id="pdc">Cancelar</button><button class="btn b-blue">Salvar</button></div></form>';
+    d.querySelector('#pdc').onclick=function(){d.close();};
+    d.querySelector('form').onsubmit=function(ev){ev.preventDefault();var fd=new FormData(ev.target),em=String(fd.get('email')).toLowerCase(),ex=db.cusers.filter(function(x){return x.email.toLowerCase()===em;})[0];
+      if(ex){if(ex.empresas.indexOf(S.cid)<0)ex.empresas.push(S.cid);}else db.cusers.push({id:NX.uid(),nome:fd.get('nome'),email:fd.get('email'),senha:fd.get('senha'),nivel:fd.get('nivel'),empresas:[S.cid]});
+      logCli('Convidou usuário',fd.get('nome')+' ('+NX.NIV_CLI[fd.get('nivel')].nome+')');persist();d.close();usuariosEmp();NX.toast(ex?'Usuário já existia: acesso a esta empresa adicionado.':'Usuário criado.');};d.showModal();};}
+/* escolha de empresa (multiempresas) */
+function escolherEmpresa(u){root.innerHTML='<div class="login"><div class="box"><a class="logo" href="/"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a><h1>Olá, '+e(u.nome.split(' ')[0])+'!</h1><p class="help">Você tem acesso a '+u.empresas.length+' empresas. Escolha qual deseja acessar:</p>'+
+  u.empresas.map(function(id){var c=db.clients.filter(function(x){return x.id===id;})[0];return c?'<button class="btn b-line" data-ce="'+id+'" style="justify-content:flex-start;text-align:left;min-height:56px"><span><b>'+e(c.nome)+'</b><small style="display:block;color:var(--muted);font-weight:400">'+e(c.doc)+' · '+e(c.plano)+'</small></span></button>':'';}).join('')+'</div></div>';
+  root.querySelectorAll('[data-ce]').forEach(function(b){b.onclick=function(){S.cid=b.getAttribute('data-ce');try{sessionStorage.setItem('nx_client',S.cid);}catch(x){}logCli('Entrou no portal (escolheu empresa)');persist();location.hash='#/inicio';render();};});}
+function render(){db=NX.load();if(NX.ensureUsers(db))persist();var u=meU();if(!u){login();return;}if(!S.cid||u.empresas.indexOf(S.cid)<0||!me()){if(u.empresas.length===1){S.cid=u.empresas[0];}else{escolherEmpresa(u);return;}}var r=route();if(!pode(r)){location.hash='#/'+(ROTAS[nivel()][0]);return;}if(r==='usuarios'){usuariosEmp();return;}
   if(r==='arquivos')arquivos();else if(r==='calendario')calendario();else if(r==='mensagens')mensagens();else if(r==='financeiro')financeiro();else if(r==='notas')notas();else inicio();}
 window.addEventListener('hashchange',render);
 window.NX_onSync=function(){if(route()==='financeiro'||route()==='notas')return;if(document.activeElement.tagName!=='INPUT')render();};

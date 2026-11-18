@@ -161,3 +161,29 @@
     if(!dlg.open)dlg.showModal();
   };
 })();
+/* ---- níveis de usuário + registro de acessos ---- */
+(function(){
+  NX.NIV_EQ={admin:{nome:'Administrador',desc:'Acesso total, usuários, indicadores de toda a equipe, catálogo'},
+    gestor:{nome:'Gestor de setor',desc:'Tudo do seu setor: demandas, responsáveis, indicadores e documentos do setor'},
+    analista:{nome:'Analista',desc:'Clientes da sua carteira, envia documentos, atualiza as próprias demandas'},
+    atendimento:{nome:'Atendimento / Comercial',desc:'Cadastra clientes, mensagens e comunicações; sem documentos restritos'},
+    assistente:{nome:'Assistente / Estagiário',desc:'Consulta e envia documentos; não dá baixa, não exclui, não muda status'}};
+  NX.NIV_CLI={titular:{nome:'Titular',desc:'Acesso total ao portal e gestão dos usuários da empresa'},
+    financeiro:{nome:'Financeiro',desc:'Guias, pagamentos, controle financeiro, notas e documentos fiscais/contábeis (sem DP)'},
+    rh:{nome:'RH / Pessoal',desc:'Somente documentos do Departamento Pessoal e mensagens'},
+    notas:{nome:'Emissor de notas',desc:'Somente emissão e consulta de notas fiscais'},
+    consulta:{nome:'Consulta',desc:'Somente visualizar e baixar'}};
+  NX.log=function(db,o){db.acessos=db.acessos||[];o.em=new Date().toISOString();db.acessos.push(o);if(db.acessos.length>3000)db.acessos.splice(0,db.acessos.length-3000);};
+  NX.ensureUsers=function(db){var ch=false;
+    (db.staff||[]).forEach(function(s,i){if(!s.nivel){s.nivel=i===0?'admin':(s.id==='eq2'?'analista':(s.id==='eq3'?'gestor':'analista'));if(s.id==='eq2')s.setor='Fiscal';if(s.id==='eq3')s.setor='Contábil';s.carteira=s.carteira||[];ch=true;}});
+    if(!db.usersV){db.usersV=1;ch=true;
+      if(!db.staff.some(function(s){return s.id==='eq4';}))db.staff.push({id:'eq4',nome:'Atendimento',email:'atendimento@nexioic.com.br',cargo:'Atendimento',nivel:'atendimento',cor:'#0E7490',carteira:[],diretor:false,gcal:''});
+      if(!db.staff.some(function(s){return s.id==='eq5';}))db.staff.push({id:'eq5',nome:'Estagiário DP',email:'estagio@nexioic.com.br',cargo:'Estagiário',nivel:'assistente',setor:'Departamento Pessoal',cor:'#B45309',carteira:[],diretor:false,gcal:''});
+      db.cusers=db.cusers||[];var cs=db.clients||[];
+      cs.forEach(function(c){if(c.email&&!db.cusers.some(function(u){return u.email===c.email;}))db.cusers.push({id:NX.uid(),nome:c.resp||c.nome,email:c.email,senha:c.senha||'1234',nivel:'titular',empresas:[c.id]});});
+      if(cs[0]){db.cusers.push({id:NX.uid(),nome:'Financeiro da Clínica',email:'fin@clinicaexemplo.com.br',senha:'1234',nivel:'financeiro',empresas:[cs[0].id]});
+        db.cusers.push({id:NX.uid(),nome:'RH da Clínica',email:'rh@clinicaexemplo.com.br',senha:'1234',nivel:'rh',empresas:[cs[0].id]});}
+      if(cs[0]&&cs[2])db.cusers.push({id:NX.uid(),nome:'Grupo Saúde (multiempresas)',email:'grupo@exemplo.com',senha:'1234',nivel:'titular',empresas:[cs[0].id,cs[2].id]});
+    }
+    return ch;};
+})();
