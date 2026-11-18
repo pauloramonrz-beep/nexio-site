@@ -72,15 +72,15 @@ function loginDemo(){
 
 /* ---------- LAYOUT ---------- */
 function shell(active,html){
-  var nav=(S.user&&S.user.real?[['reais','Clientes (sistema real)',0]]:[]).concat([['painel','Painel',0],['clientes','Clientes',newDocs()],['processos','Processos',0],['contabil','Controle contábil',0],['documentos','Documentos',0],['mensagens','Mensagens',unread()],['comunicacoes','Comunicações',0],['lote','Guias em lote',0],['notificacoes','Notificações',0],['lgpd','Privacidade (LGPD)',(db.lgpd||[]).filter(function(r){return r.status!=='concluida';}).length],['agenda','Agenda da equipe',0],['obrigacoes','Obrigações',0]]);
+  var nav=(S.user&&S.user.real)?[['reais','Clientes',0]]:([['painel','Painel',0],['clientes','Clientes',newDocs()],['processos','Processos',0],['contabil','Controle contábil',0],['documentos','Documentos',0],['mensagens','Mensagens',unread()],['comunicacoes','Comunicações',0],['lote','Guias em lote',0],['notificacoes','Notificações',0],['lgpd','Privacidade (LGPD)',(db.lgpd||[]).filter(function(r){return r.status!=='concluida';}).length],['agenda','Agenda da equipe',0],['obrigacoes','Obrigações',0]]);
   root.innerHTML='<div class="app"><aside class="side"><a class="logo" href="#/painel"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a><div class="role">Painel da equipe</div>'+NX.sideToggleHTML()+
   nav.map(function(n){return '<a class="nav" href="#/'+n[0]+'"'+(active===n[0]?' aria-current="page"':'')+'>'+n[1]+(n[2]?'<span class="cnt">'+n[2]+'</span>':'')+'</a>';}).join('')+
-  '<div class="foot"><span>'+e(S.user.nome)+'</span><a href="/portal/demo/" target="_blank" rel="noopener">Ver portal do cliente (demo)</a><a href="#" id="reset">Restaurar dados de exemplo</a><a href="#" id="logout">Sair</a></div></aside><main class="main">'+html+'</main></div>';
+  '<div class="foot"><span>'+e(S.user.nome)+'</span>'+(S.user.real?'<a href="/portal/" target="_blank" rel="noopener">Abrir portal do cliente</a>':'<a href="/portal/demo/" target="_blank" rel="noopener">Ver portal do cliente (demo)</a><a href="#" id="reset">Restaurar dados de exemplo</a>')+'<a href="#" id="logout">Sair</a></div></aside><main class="main">'+html+'</main></div>';
   NX.applySide();
   document.getElementById('logout').onclick=function(ev){ev.preventDefault();logEq('Saiu do painel');persist();if(S.user&&S.user.real)NXA.acesso('Saiu do painel');S.user=null;try{sessionStorage.removeItem('nx_staff');}catch(x){}NXA.sair().then(function(){render();});};
-  document.getElementById('reset').onclick=function(ev){ev.preventDefault();if(confirm('Apagar tudo e restaurar os dados de exemplo?')){db=NX.seed();persist();render();NX.toast('Dados de exemplo restaurados.');}};
+  var rs=document.getElementById('reset');if(rs)rs.onclick=function(ev){ev.preventDefault();if(confirm('Apagar tudo e restaurar os dados de exemplo?')){db=NX.seed();persist();render();NX.toast('Dados de exemplo restaurados.');}};
 }
-function head(t,sub,right){return '<div class="page-h"><div><h1>'+t+'</h1>'+(sub?'<p>'+sub+'</p>':'')+'</div><div class="row">'+(right||'')+'<span class="badge-proto">Protótipo</span></div></div>';}
+function head(t,sub,right){return '<div class="page-h"><div><h1>'+t+'</h1>'+(sub?'<p>'+sub+'</p>':'')+'</div><div class="row">'+(right||'')+(S.user&&S.user.real?'':'<span class="badge-proto">Protótipo</span>')+'</div></div>';}
 
 /* ---------- PAINEL ---------- */
 function painel(){
@@ -868,7 +868,7 @@ function seedFicha(){if(db.fichaV)return;db.fichaV=1;var c=db.clients[0],d=funct
   var c2=db.clients[1];if(c2)c2.trib=c2.trib||{regime:'MEI',anexo:'III',fatorR:false,rbt12:0,folha12:0,iss:0,issRet:false,lc116:'',mun:'Manaus/AM'};
   var c3=db.clients[2];if(c3)c3.trib=c3.trib||{regime:'PF',anexo:'III',fatorR:false,rbt12:0,folha12:0,iss:0,lc116:'04.01',mun:'Manaus/AM'};persist();}
 document.addEventListener('click',function(ev){if(ev.target.closest&&ev.target.closest('[data-fic]'))S.tab='dados';},true);
-function render(){db=NX.load();if(NX.ensureUsers(db))persist();if(purgeLixeira())persist();seedFicha();if(!S.user){login();return;}if(!staffBy(S.user.id)){S.user=null;login();return;}var r=route();if(!navAllowed(r[0]||'painel')&&r[0]){location.hash='#/painel';return;}
+function render(){db=NX.load();if(NX.ensureUsers(db))persist();if(purgeLixeira())persist();seedFicha();if(!S.user){login();return;}if(!staffBy(S.user.id)){S.user=null;login();return;}var r=route();if(S.user.real&&r[0]!=='reais'){location.hash='#/reais';return;}if(!navAllowed(r[0]||'painel')&&r[0]){location.hash='#/painel';return;}
   if(r[0]==='usuarios'){usuarios();return;}if(r[0]==='contabil'){contabil();return;}if(r[0]==='lote'){lote();return;}if(r[0]==='lgpd'){lgpd();return;}if(r[0]==='reais'){reais(r[1]);return;}if(r[0]==='notificacoes'){notificacoes();return;}if(r[0]==='acessos'){acessos();return;}
   if(r[0]==='clientes')clientes(r[1]);else if(r[0]==='mensagens')mensagens();else if(r[0]==='obrigacoes')obrigacoes();else if(r[0]==='agenda')agenda();else if(r[0]==='documentos')documentos();else if(r[0]==='processos')processos();else if(r[0]==='comunicacoes')comunicacoes();else painel();}
 window.addEventListener('hashchange',render);
@@ -879,7 +879,7 @@ function sbErr(r){if(r&&r.error){NX.toast('Erro: '+r.error.message);return true;
 function fmtCnpj(d){d=String(d||'').replace(/\D/g,'');return d.length===14?d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5'):d.length===11?d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/,'$1.$2.$3-$4'):d;}
 function reais(id){if(!S.user||!S.user.real){shell('reais',head('Clientes (sistema real)','Entre com seu login real para usar este módulo.'));return;}
   if(id)return realCliente(id);
-  shell('reais',head('Clientes (sistema real)','Clientes gravados no banco de dados. É aqui que o piloto acontece.','<button class="btn b-blue" id="novo">+ Cadastrar cliente</button>')+'<section class="card" id="lst"><p class="help">Carregando…</p></section>');
+  shell('reais',head('Clientes','Cadastro, documentos, usuários do portal e mensagens.','<button class="btn b-blue" id="novo">+ Cadastrar cliente</button>')+'<section class="card" id="lst"><p class="help">Carregando…</p></section>');
   document.getElementById('novo').onclick=function(){openDlg('<h2>Cadastrar cliente</h2><label>Razão social<input name="rs" required></label><label>Nome fantasia<input name="nf"></label><label>CNPJ / CPF<input name="doc" required></label><label>Código IBGE do município<input name="ibge" value="1302603"></label>',
     function(fd){NXA.sb.from('empresas').insert({razao_social:fd.get('rs'),fantasia:fd.get('nf')||null,documento:String(fd.get('doc')).replace(/\D/g,''),municipio_ibge:fd.get('ibge')||null}).select().single().then(function(r){if(sbErr(r))return;NXA.acesso('Cadastrou cliente',r.data.razao_social,r.data.id);location.hash='#/reais/'+r.data.id;});});};
   NXA.sb.from('empresas').select('id,razao_social,fantasia,documento,empresa_usuarios(count),documentos(count)').order('razao_social').then(function(r){if(sbErr(r))return;var l=r.data||[];
