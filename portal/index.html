@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Portal do Cliente | NEXIO</title>
 <meta name="robots" content="noindex">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="theme-color" content="#0740EF">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
@@ -13,348 +14,133 @@
 <body>
 <div id="root"></div>
 <div class="toast" role="status" id="toast"></div>
-<div id="printArea"></div>
-<dialog id="pdlg" style="border:0;border-radius:18px;padding:0;max-width:560px;width:calc(100% - 32px)"></dialog>
-<style>#printArea{display:none}@media print{body>*:not(#printArea){display:none!important}#printArea{display:block;padding:10mm}}</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="/assets/store.js"></script>
-<script src="/assets/explorer.js"></script>
+<script src="/assets/auth.js"></script>
 <script>
 (function(){
-var db=NX.load(), e=NX.esc, S={cid:null,month:NX.ym(),filtro:'todos'};
-try{S.cid=sessionStorage.getItem('nx_client');}catch(x){}
-var root=document.getElementById('root');
-function me(){return db.clients.filter(function(c){return c.id===S.cid;})[0];}
-function persist(){NX.save(db);}
-function myFiles(){return db.files.filter(function(f){return f.cliente===S.cid;}).sort(function(a,b){return a.criado<b.criado?1:-1;});}
-function unread(){return db.messages.filter(function(m){return m.cliente===S.cid&&m.de==='equipe'&&!m.lida;}).length;}
-function novos(){return myFiles().filter(function(f){return f.de==='equipe'&&!f.visto&&visivel(f);}).length;}
-function route(){return location.hash.replace('#/','')||'inicio';}
+var e=NX.esc,root=document.getElementById('root'),sb=NXA.sb,TERMOS_V='1.0';
+var S={perfil:null,emp:null,emps:[],docs:[],msgs:[],notifs:[],filtro:{setor:'',ano:''}};
 
-function login(){NX.ensureUsers(db);persist();
-  root.innerHTML='<div class="login"><form class="box" id="lf"><a class="logo" href="/"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a><h1>Portal do Cliente</h1>'+
-  '<label>E-mail<input id="le" type="email" required autocomplete="username"></label><label>Senha<input id="lp" type="password" required autocomplete="current-password"></label>'+
-  '<button class="btn b-blue">Entrar</button><p class="help" id="err" role="alert"></p>'+
-  '<p class="help"><b>Protótipo:</b> entre como um usuário de exemplo:</p><div class="row">'+(db.cusers||[]).slice(0,7).map(function(u){return '<button type="button" class="btn b-line" data-q="'+u.id+'" style="min-height:34px;font-size:12px">'+e(u.nome)+' · '+NX.NIV_CLI[u.nivel].nome+'</button>';}).join('')+'</div>'+
-  '<p class="help">Esqueceu a senha? Fale com a NEXIO pelo <a href="https://wa.me/5511939565190">WhatsApp</a>.</p><p class="help" style="color:var(--warn)"><b>Ambiente de demonstração:</b> não insira dados reais de clientes, funcionários ou pacientes.</p><p class="help" style="font-size:12px"><a href="/privacidade/">Política de Privacidade</a> · <a href="/termos/">Termos de Uso</a></p></form></div>';
-  function go(u){S.uid=u.id;try{sessionStorage.setItem('nx_cuser',u.id);sessionStorage.removeItem('nx_client');}catch(x){}S.cid=u.empresas.length===1?u.empresas[0]:null;if(S.cid){try{sessionStorage.setItem('nx_client',S.cid);}catch(x){}}
-    NX.log(db,{tipo:'cliente',quem:u.nome,nivel:NX.NIV_CLI[u.nivel].nome,acao:'Entrou no portal',cliente:S.cid||u.empresas[0]});persist();location.hash='#/inicio';render();}
-  document.getElementById('lf').onsubmit=function(ev){ev.preventDefault();var em=document.getElementById('le').value.trim().toLowerCase(),pw=document.getElementById('lp').value;
-    var u=(db.cusers||[]).filter(function(x){return x.email.toLowerCase()===em&&x.senha===pw;})[0];if(!u){document.getElementById('err').textContent='E-mail ou senha incorretos.';return;}go(u);};
-  root.querySelectorAll('[data-q]').forEach(function(b){b.onclick=function(){go(db.cusers.filter(function(x){return x.id===b.getAttribute('data-q');})[0]);};});
+function box(inner){root.innerHTML='<div class="login"><div class="box" style="max-width:460px"><a class="logo" href="/"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a>'+inner+'</div></div>';}
+function toast(t){NX.toast(t);}
+function erro(r){if(r&&r.error){toast('Erro: '+r.error.message);return true;}return false;}
+function acesso(a,alvo){NXA.acesso(a,alvo,S.emp&&S.emp.id);}
+
+/* ---------- entrada ---------- */
+function telaLogin(){
+  box('<h1>Portal do Cliente</h1><form id="lf"><label>E-mail<input id="le" type="email" required autocomplete="username"></label><label>Senha<input id="lp" type="password" required autocomplete="current-password"></label><button class="btn b-blue">Entrar</button><p class="help" id="lerr" role="alert" style="color:var(--bad)"></p></form>'+
+  '<p class="help"><a href="#" id="esq">Esqueci minha senha</a></p><p class="help">Primeiro acesso? Use o link do convite que chegou no seu e-mail.</p><p class="help" style="font-size:12px"><a href="/privacidade/">Política de Privacidade</a> · <a href="/termos/">Termos de Uso</a></p>');
+  document.getElementById('lf').onsubmit=function(ev){ev.preventDefault();var er=document.getElementById('lerr');er.textContent='Entrando…';
+    sb.auth.signInWithPassword({email:document.getElementById('le').value.trim(),password:document.getElementById('lp').value}).then(function(r){if(r.error){er.textContent=/invalid/i.test(r.error.message)?'E-mail ou senha incorretos.':'Não foi possível entrar: '+r.error.message;return;}iniciar();});};
+  document.getElementById('esq').onclick=function(ev){ev.preventDefault();var em=document.getElementById('le').value.trim(),er=document.getElementById('lerr');if(!em){er.textContent='Digite seu e-mail acima e clique de novo em "Esqueci minha senha".';return;}
+    sb.auth.resetPasswordForEmail(em,{redirectTo:'https://nexioic.com.br/portal/'}).then(function(){er.style.color='var(--ok)';er.textContent='Se o e-mail estiver cadastrado, você receberá um link para criar uma nova senha.';});};
 }
-function enter(id){S.cid=id;try{sessionStorage.setItem('nx_client',id);}catch(x){}location.hash='#/inicio';render();}
+function telaPrimeiroAcesso(recuperacao){
+  var precisaAceite=!S.perfil.aceite_versao||S.perfil.aceite_versao!==TERMOS_V;
+  box('<h1>'+(recuperacao?'Nova senha':'Bem-vindo(a) ao Portal NEXIO')+'</h1>'+(precisaAceite?'<p class="help" style="font-size:15px;color:var(--ink)">Leia e aceite os documentos abaixo. Eles explicam como protegemos os seus dados e os da sua empresa.</p><p><a href="/termos/" target="_blank" rel="noopener">Termos de Uso (versão '+TERMOS_V+')</a><br><a href="/privacidade/" target="_blank" rel="noopener">Política de Privacidade (versão '+TERMOS_V+')</a></p>':'')+
+  '<form id="pf">'+(precisaAceite?'<label style="flex-direction:row;align-items:flex-start;gap:10px;color:var(--ink);font-weight:500"><input type="checkbox" id="pac" required style="width:auto;min-height:auto;margin-top:5px">Li e aceito os Termos de Uso e estou ciente da Política de Privacidade.</label>':'')+
+  '<p class="help" style="color:var(--ink)">Crie sua senha: pelo menos 10 caracteres, com letras, números e símbolos.</p><label>Senha<input type="password" id="ps1" minlength="10" required autocomplete="new-password"></label><label>Repita a senha<input type="password" id="ps2" minlength="10" required autocomplete="new-password"></label><button class="btn b-blue">Salvar e entrar</button><p class="help" id="perr" role="alert" style="color:var(--bad)"></p></form>');
+  document.getElementById('pf').onsubmit=function(ev){ev.preventDefault();var a=document.getElementById('ps1').value,b=document.getElementById('ps2').value,er=document.getElementById('perr');if(a!==b){er.textContent='As senhas não conferem.';return;}if(a.length<10){er.textContent='Use pelo menos 10 caracteres.';return;}er.textContent='Salvando…';
+    sb.auth.updateUser({password:a}).then(function(r){if(r.error){er.textContent='Não foi possível salvar: '+r.error.message;return;}
+      var fim=function(){NXA.tipoLink=null;history.replaceState(null,'','/portal/');acesso(recuperacao?'Redefiniu a senha':'Primeiro acesso: criou a senha');iniciar();};
+      if(precisaAceite)sb.from('perfis').update({aceite_versao:TERMOS_V,aceite_em:new Date().toISOString()}).eq('id',S.perfil.id).then(function(u){if(u.error){er.textContent='Erro ao registrar o aceite: '+u.error.message;return;}acesso('Aceitou Termos de Uso e Política de Privacidade','versão '+TERMOS_V);fim();});else fim();});};
+}
+function iniciar(){
+  if(!NXA.ok){box('<h1>Portal do Cliente</h1><p class="help" style="font-size:15px;color:var(--ink)">Não foi possível carregar o serviço de login. Verifique sua internet e recarregue a página.</p>');return;}
+  if(NXA.erroLink){box('<h1>Link inválido ou expirado</h1><p class="help" style="font-size:15px;color:var(--ink)">'+e(NXA.erroLink)+'. Peça um novo convite à NEXIO ou use "Esqueci minha senha".</p><button class="btn b-blue" id="vb">Ir para o login</button>');NXA.erroLink=null;history.replaceState(null,'','/portal/');document.getElementById('vb').onclick=iniciar;return;}
+  box('<h1>Portal do Cliente</h1><p class="help">Carregando…</p>');
+  sb.auth.getSession().then(function(r){var s=r.data&&r.data.session;if(!s){telaLogin();return;}
+    NXA.perfil().then(function(p){if(!p){NXA.sair().then(telaLogin);return;}S.perfil=p;
+      if(NXA.tipoLink==='recovery'){telaPrimeiroAcesso(true);return;}
+      if(NXA.tipoLink==='invite'||NXA.tipoLink==='magiclink'||NXA.tipoLink==='signup'||!p.aceite_versao||p.aceite_versao!==TERMOS_V){telaPrimeiroAcesso(false);return;}
+      sb.from('empresa_usuarios').select('nivel, empresas(id,razao_social,fantasia,documento)').eq('usuario_id',p.id).then(function(q){if(erro(q))return;
+        S.emps=(q.data||[]).filter(function(x){return x.empresas;}).map(function(x){return Object.assign({nivel:x.nivel},x.empresas);});
+        if(!S.emps.length){box('<h1>Acesso em liberação</h1><p class="help" style="font-size:15px;color:var(--ink)">Seu usuário foi criado, mas ainda não está ligado a nenhuma empresa. A NEXIO vai liberar em breve.</p><button class="btn b-line" id="sx">Sair</button>');document.getElementById('sx').onclick=sair;return;}
+        var salvo=null;try{salvo=sessionStorage.getItem('nx_emp');}catch(x){}
+        S.emp=S.emps.filter(function(x){return x.id===salvo;})[0]||(S.emps.length===1?S.emps[0]:null);
+        if(!S.emp){escolher();return;}
+        entrar();});});});
+}
+function escolher(){box('<h1>Olá, '+e(S.perfil.nome.split(' ')[0])+'</h1><p class="help">Escolha a empresa:</p>'+S.emps.map(function(x){return '<button class="btn b-line" data-ce="'+x.id+'" style="justify-content:flex-start;text-align:left">'+e(x.fantasia||x.razao_social)+'<small style="display:block;color:var(--muted);font-weight:400">'+NXA.NIVEIS[x.nivel]+'</small></button>';}).join(''));
+  root.querySelectorAll('[data-ce]').forEach(function(b){b.onclick=function(){S.emp=S.emps.filter(function(x){return x.id===b.getAttribute('data-ce');})[0];entrar();};});}
+function entrar(){try{sessionStorage.setItem('nx_emp',S.emp.id);}catch(x){}acesso('Entrou no portal');carregar().then(function(){if(!location.hash||location.hash.indexOf('access_token')>-1)location.hash='#/inicio';render();});}
+function sair(){acesso('Saiu do portal');try{sessionStorage.removeItem('nx_emp');}catch(x){}NXA.sair().then(function(){S={perfil:null,emp:null,emps:[],docs:[],msgs:[],notifs:[],filtro:{setor:'',ano:''}};location.hash='';telaLogin();});}
 
-function shell(active,html){
-  var c=me(),nav=[['inicio','Início',0],['arquivos','Documentos',novos()],['calendario','Obrigações',0],['notas','Notas fiscais',0],['financeiro','Controle financeiro',0],['mensagens','Mensagens',unread()]];
+/* ---------- dados ---------- */
+function carregar(){var id=S.emp.id;return Promise.all([
+  sb.from('documentos').select('*').eq('empresa_id',id).is('excluido_em',null).order('enviado_em',{ascending:false}),
+  sb.from('mensagens').select('*').eq('empresa_id',id).order('em',{ascending:true}),
+  sb.from('notificacoes').select('*').eq('empresa_id',id).order('em',{ascending:false}).limit(30)
+]).then(function(r){S.docs=r[0].data||[];S.msgs=r[1].data||[];S.notifs=r[2].data||[];});}
+function pode(acao){var n=S.emp.nivel;if(acao==='enviar')return ['titular','financeiro','rh'].indexOf(n)>-1;if(acao==='msg')return n!=='consulta';return true;}
+
+/* ---------- layout ---------- */
+function route(){return (location.hash.replace('#/','')||'inicio').split('/')[0];}
+function head(t,sub){return '<div class="page-h"><div><h1>'+t+'</h1>'+(sub?'<p>'+sub+'</p>':'')+'</div></div>';}
+function shell(active,html){var naoLidas=S.msgs.filter(function(m){return m.de==='equipe'&&!m.lida;}).length,novos=S.docs.filter(function(d){return d.setor!=='Enviados pelo cliente'&&!d.visto_em;}).length;
+  var nav=[['inicio','Início',0],['documentos','Documentos',novos]].concat(pode('enviar')?[['enviar','Enviar documentos',0]]:[]).concat(pode('msg')?[['mensagens','Mensagens',naoLidas]]:[]).concat([['privacidade','Privacidade e meus dados',0]]);
   root.innerHTML='<div class="app"><aside class="side"><a class="logo" href="#/inicio"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a><div class="role">Portal do cliente</div>'+NX.sideToggleHTML()+
   nav.map(function(n){return '<a class="nav" href="#/'+n[0]+'"'+(active===n[0]?' aria-current="page"':'')+'>'+n[1]+(n[2]?'<span class="cnt">'+n[2]+'</span>':'')+'</a>';}).join('')+
-  
-  '<div class="foot"><span>'+e(c.nome)+'</span><a href="https://wa.me/5511939565190">Falar no WhatsApp</a><a href="#" id="logout">Sair</a></div></aside><main class="main">'+html+'</main></div>';
-  NX.applySide();
-  document.getElementById('logout').onclick=function(ev){ev.preventDefault();logCli('Saiu do portal');persist();S.cid=null;S.uid=null;try{sessionStorage.removeItem('nx_client');sessionStorage.removeItem('nx_cuser');}catch(x){}location.hash='';render();};
-}
-function head(t,sub){return '<div class="page-h"><div><h1>'+t+'</h1>'+(sub?'<p>'+sub+'</p>':'')+'</div><span class="badge-proto">Protótipo</span></div>';}
-function guiaRow(f){var s=NX.statusOf(f);return '<div class="list-item"><div><b>'+e(f.titulo)+(!f.visto&&f.de==='equipe'?'<span class="dot" aria-label="novo"></span>':'')+'</b><small>'+(f.venc?'Vence em '+NX.fdate(f.venc)+' · ':'')+'Competência '+NX.fcomp(f.comp)+'</small></div><div class="row" style="align-items:center"><strong>'+(f.valor?NX.brl(f.valor):'')+'</strong><span class="tag '+s.c+'">'+s.t+'</span><button class="btn b-line" data-dl="'+f.id+'" style="min-height:38px">Ver</button></div></div>';}
+  '<div class="foot"><span>'+e(S.perfil.nome)+'<br><small style="opacity:.8">'+e(S.emp.fantasia||S.emp.razao_social)+' · '+NXA.NIVEIS[S.emp.nivel]+'</small></span>'+(S.emps.length>1?'<a href="#" id="troca">Trocar de empresa</a>':'')+'<a href="#" id="logout">Sair</a></div></aside><main class="main">'+html+'</main></div>';
+  NX.applySide();document.getElementById('logout').onclick=function(ev){ev.preventDefault();sair();};
+  var t=document.getElementById('troca');if(t)t.onclick=function(ev){ev.preventDefault();try{sessionStorage.removeItem('nx_emp');}catch(x){}S.emp=null;escolher();};}
+function render(){if(!S.emp){iniciar();return;}var r=route();({inicio:inicio,documentos:documentos,enviar:enviar,mensagens:mensagens,privacidade:privacidade}[r]||inicio)();}
+window.addEventListener('hashchange',function(){if(S.emp)render();});
 
-function eventosMes(m){var ev=NX.obligationsFor(db,S.cid,m).map(function(o){return {data:o.data,titulo:o.titulo};});
-  myFiles().filter(visivel).forEach(function(f){if(f.venc&&f.venc.slice(0,7)===m){var s=NX.statusOf(f);ev.push({data:f.venc,titulo:(f.tipo==='Guia'?'Guia: ':'Vence: ')+f.titulo,cls:s.c==='ok'?'ok':s.c==='bad'?'bad':''});}});
-  var norm=function(s){return s.toLowerCase().replace(/^(guia|vence): /,'').replace(/[^a-z0-9]/g,'');};
-  var guias=ev.filter(function(x){return /^(Guia|Vence): /.test(x.titulo);});
-  return ev.filter(function(x){if(/^(Guia|Vence): /.test(x.titulo))return true;var k=norm(x.titulo);return !guias.some(function(g){return g.data===x.data&&(norm(g.titulo).indexOf(k)>-1||k.indexOf(norm(g.titulo))>-1);});});}
-function inicio(){
-  var c=me(),t=NX.today(),fs=myFiles();
-  var pagar=fs.filter(function(f){return visivel(f)&&f.tipo==='Guia'&&f.status!=='pago'&&nivel()!=='notas';}).sort(function(a,b){return a.venc<b.venc?-1:1;});
-  var total=pagar.reduce(function(s,f){return s+(f.valor||0);},0);
-  var prox=NX.obligationsFor(db,S.cid,NX.ym()).concat(NX.obligationsFor(db,S.cid,NX.shiftMonth(NX.ym(),1))).filter(function(o){return o.data>=t;}).slice(0,5);
-  shell('inicio',head('Olá, '+e(function(n){var p=n.split(' ');return /^dra?\.$/i.test(p[0])?p.slice(0,2).join(' '):p[0];}(c.resp||c.nome)),'Tudo o que você precisa da sua contabilidade, em um só lugar.')+
-  avisosAtivos().map(function(a){return '<section class="card" style="border:2px solid var(--blue);margin-bottom:18px"><div class="row between" style="align-items:flex-start"><div><span class="tag info">Comunicado da NEXIO</span><h2 style="margin:8px 0 6px">'+e(a.titulo)+'</h2><p style="margin:0;white-space:pre-line">'+e(a.texto)+'</p></div><button class="btn b-line" data-lido="'+a.id+'">Marcar como lido</button></div></section>';}).join('')+'<div class="kpis"><a class="kpi main" href="#/arquivos"><span>Guias a pagar</span><strong>'+NX.brl(total)+'</strong></a><a class="kpi" href="#/arquivos"><span>Arquivos novos</span><strong>'+novos()+'</strong></a><a class="kpi" href="#/mensagens"><span>Mensagens novas</span><strong>'+unread()+'</strong></a><div class="kpi"><span>Seu plano</span><strong style="font-size:20px">'+e(c.plano)+'</strong></div></div>'+
-  '<section class="card" style="margin-bottom:18px"><div class="row between" style="align-items:center;margin-bottom:6px"><h2 style="margin:0">Calendário de vencimentos e obrigações</h2><div class="cal-nav" style="margin:0"><button class="btn b-line" id="ipm" aria-label="Mês anterior">‹</button><strong>'+NX.monthLabel(S.month)+'</strong><button class="btn b-line" id="inm" aria-label="Próximo mês">›</button></div></div>'+NX.calendarHTML(S.month,eventosMes(S.month))+'<p class="help" style="margin-top:10px"><span class="tag info">Obrigação / a pagar</span> <span class="tag bad">Vencida</span> <span class="tag ok">Paga</span></p></section>'+'<div class="cols"><section class="card"><h2>Guias para pagar</h2>'+(pagar.length?pagar.map(guiaRow).join(''):'<p class="empty">Nenhuma guia pendente. Tudo em dia!</p>')+'</section>'+
-  '<section class="card"><h2>Próximas obrigações</h2>'+(prox.length?prox.map(function(o){return '<div class="list-item"><div><b>'+e(o.titulo)+'</b><small>'+e(o.desc||'')+'</small></div><span class="tag info">'+NX.fdate(o.data)+'</span></div>';}).join(''):'<p class="empty">Nenhuma obrigação nos próximos dias.</p>')+'<a class="btn b-text" href="#/calendario" style="margin-top:8px">Ver calendário completo</a></section></div>');
-  bindDl();
-  document.getElementById('ipm').onclick=function(){S.month=NX.shiftMonth(S.month,-1);inicio();};document.getElementById('inm').onclick=function(){S.month=NX.shiftMonth(S.month,1);inicio();};
-  root.querySelectorAll('[data-lido]').forEach(function(b){b.onclick=function(){var a=db.avisos.filter(function(x){return x.id===b.getAttribute('data-lido');})[0];a.lidos=a.lidos||{};a.lidos[S.cid]=new Date().toISOString();persist();inicio();};});
-}
-var RESTRITOS=['Administrativo (interno)'];
-function setorOf(f){if(f.setor)return f.setor;if(f.tipo==='Nota fiscal')return 'Notas fiscais';if(f.de==='cliente')return 'Enviados pelo cliente';
-  if(f.tipo==='Folha de pagamento'||/fgts|inss|folha|e-?social|dctfweb|f[ée]rias|rescis|pr[óo]-?labore/i.test(f.titulo))return 'Departamento Pessoal';
-  if(/cnd|certid/i.test(f.titulo))return 'Certidões';if(f.tipo==='Contrato')return 'Societário';if(f.tipo==='Relatório')return 'Contábil';if(f.tipo==='Guia')return 'Fiscal';return 'Contábil';}
-function compOf(f){return f.comp||(f.criado||NX.today()).slice(0,7);}
-function visivel(f){return !f.deleted&&(f.de==='cliente'||(f.shared!=null?f.shared:RESTRITOS.indexOf(setorOf(f))<0));}
-function hist(f,ev){f.hist=f.hist||[];f.hist.push({em:new Date().toISOString(),ev:ev+(/visualiz|baixad/i.test(ev)?' pelo cliente':''),por:meU().nome});}
-var MESES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-var FICO='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
-function folderLevel(files,F,setores){ // devolve {items:[{key,label,n,extra}], level} ou null quando já está no mês
-  function pend(l){var p=l.filter(function(f){return f.tipo==='Guia'&&f.status!=='pago';}).length;return p?p+' a pagar':'';}
-  if(!F.setor)return setores.map(function(s){var l=files.filter(function(f){return setorOf(f)===s;});return {key:s,label:s,n:l.length,extra:pend(l)};});
-  var ls=files.filter(function(f){return setorOf(f)===F.setor;});
-  if(!F.ano){var an={};ls.forEach(function(f){an[compOf(f).slice(0,4)]=1;});return Object.keys(an).sort().reverse().map(function(a){var l=ls.filter(function(f){return compOf(f).slice(0,4)===a;});return {key:a,label:a,n:l.length,extra:pend(l)};});}
-  if(!F.comp){var out=[];for(var i=12;i>=1;i--){var k=F.ano+'-'+String(i).padStart(2,'0'),l=ls.filter(function(f){return compOf(f)===k;});if(l.length)out.push({key:k,label:MESES[i-1],n:l.length,extra:pend(l)});}return out;}
-  return null;}
-function folderCards(items){return items.length?'<div class="folders">'+items.map(function(it){return '<button class="fold" data-go="'+e(it.key)+'"><span class="fi">'+FICO+'</span><span><b>'+e(it.label)+'</b><small>'+it.n+' documento(s)'+(it.extra?' · '+it.extra:'')+'</small></span></button>';}).join('')+'</div>':'<p class="empty">Pasta vazia.</p>';}
-function crumbsHTML(root,F){var c=[['root',root]];if(F.setor)c.push(['setor',F.setor]);if(F.ano)c.push(['ano',F.ano]);if(F.comp)c.push(['comp',MESES[+F.comp.slice(5)-1]]);
-  return '<nav class="crumbs" aria-label="Caminho">'+c.map(function(k,i){return i===c.length-1?'<b>'+e(k[1])+'</b>':'<button data-cr="'+k[0]+'">'+e(k[1])+'</button><span aria-hidden="true">›</span>';}).join('')+'</nav>';}
-function folderClick(t,F){if(t.hasAttribute('data-go')){var v=t.getAttribute('data-go');if(!F.setor)F.setor=v;else if(!F.ano)F.ano=v;else F.comp=v;return true;}
-  if(t.hasAttribute('data-cr')){var lv=t.getAttribute('data-cr');if(lv==='root')F.setor=F.ano=F.comp=null;else if(lv==='setor')F.ano=F.comp=null;else if(lv==='ano')F.comp=null;return true;}return false;}
-S.pf=S.pf||{setor:null,ano:null,comp:null,fid:null,vis:'todos',q:''};
-try{S.pf.view=localStorage.getItem('nx_docview')||'pastas';}catch(x){S.pf.view='pastas';}
-function locKey(L){return [L.setor||'',L.ano||'',L.comp||'',L.fid||''].join('|');}
-function myFolders(){db.folders=db.folders||[];return db.folders.filter(function(x){return x.cliente===S.cid;});}
-function folderById(id){return (db.folders||[]).filter(function(x){return x.id===id;})[0];}
-function folderChain(fid){var out=[],f=folderById(fid);while(f){out.unshift(f);f=folderById(f.parent.fid);}return out;}
-function pathOf(f){var p=[setorOf(f)==='__custom'?'':setorOf(f),compOf(f).slice(0,4),MESES[+compOf(f).slice(5)-1]];if(f.folder)folderChain(f.folder).forEach(function(x){p.push(x.nome);});return p.filter(Boolean).join(' › ');}
-function inside(f,L){ // arquivo está dentro da localização L (recursivo)?
-  if(L.fid){var ch=f.folder?folderChain(f.folder).map(function(x){return x.id;}):[];return ch.indexOf(L.fid)>-1;}
-  if(setorOf(f)==='__custom')return !L.setor&&!!f.folder;
-  return (!L.setor||setorOf(f)===L.setor)&&(!L.ano||compOf(f).slice(0,4)===L.ano)&&(!L.comp||compOf(f)===L.comp);}
-S.xp=S.xp||{};
-function arquivos(){
-  shell('arquivos',head('Documentos','Suas guias, relatórios e documentos. Clique em um documento para visualizar.')+'<div id="xpRoot"></div>');
-  var who=meU().nome;
-  function send(files,L,re){var n=0,tot=files.length;files.forEach(function(file){NX.readFile(file,function(r){var pl=NX.placeFor(db,L,'Enviados pelo cliente');
-    var f={id:NX.uid(),cliente:S.cid,setor:pl.setor,folder:pl.folder,tipo:'Documento',titulo:r.nome.replace(/\.[^.]+$/,''),comp:pl.comp,venc:'',valor:0,status:'recebido',de:'cliente',por:who,nome:r.nome,data:r.data,size:r.size,criado:NX.today(),visto:false};
-    hist(f,'Enviado pelo cliente');db.files.push(f);logCli('Enviou documento',f.titulo);
-    if(++n===tot&&persist()!==false){if(!L.fid&&!L.comp){S.xp.L={setor:'Enviados pelo cliente',ano:NX.ym().slice(0,4),comp:NX.ym()};}re();NX.toast(tot+' documento(s) enviado(s) para a NEXIO.');}});});}
-  NX.explorer(document.getElementById('xpRoot'),{db:db,cliente:S.cid,role:'cliente',st:S.xp,rootLabel:'Meus documentos',
-    setores:['Fiscal','Departamento Pessoal','Contábil','Financeiro','Societário','Certidões','Notas fiscais','Enviados pelo cliente'].filter(function(s){var v=setoresNivel();return !v||v.indexOf(s)>-1;}),readonly:nivel()==='consulta',
-    setorOf:setorOf,visible:visivel,
-    onOpen:function(f){openDoc(f);},
-    onNewFolder:function(L,re){if(NX.newFolder(db,S.cid,L,who)){persist();re();NX.toast('Pasta criada.');}},
-    onUpload:function(L,re){var inp=document.createElement('input');inp.type='file';inp.multiple=true;inp.onchange=function(){if(inp.files.length)send([].slice.call(inp.files),L,re);};inp.click();},
-    onDropFiles:send});
-}
-function openDoc(f){var who=meU().nome;
-  if(f.de==='equipe'&&!f.visto)f.visto=true;hist(f,'Visualizado');logCli('Visualizou documento',f.titulo);persist();
-  var acts=[{label:'Baixar',cls:'b-blue',close:false,fn:function(x){hist(x,'Baixado');logCli('Baixou documento',x.titulo);persist();NX.download(x);}}];
-  if(f.tipo==='Guia'&&f.status!=='pago'&&(nivel()==='titular'||nivel()==='financeiro'))acts.push({label:'Já paguei',fn:function(x){x.status='pago';hist(x,'Pagamento informado');db.messages.push({id:NX.uid(),cliente:S.cid,de:'cliente',autor:who,texto:'Informei o pagamento da guia: '+x.titulo+'.',em:new Date().toISOString(),lida:false});logCli('Informou pagamento',x.titulo);persist();NX.toast('Pagamento informado. Obrigado!');}});
-  NX.viewer(f,{db:db,me:'cliente',path:NX.xpPath?NX.xpPath(f):pathOf(f),actions:acts,onClose:function(){var r=route();if(r==='arquivos')arquivos();else if(r==='inicio')inicio();},
-    onComment:nivel()==='consulta'?null:function(x,t){logCli('Comentou documento',x.titulo);x.coments=x.coments||[];x.coments.push({em:new Date().toISOString(),de:'cliente',autor:who,texto:t});hist(x,'Comentário');db.messages.push({id:NX.uid(),cliente:S.cid,de:'cliente',autor:who,texto:'Comentou no documento "'+x.titulo+'": '+t,em:new Date().toISOString(),lida:false});persist();}});}
-function pComment(f){var d=document.getElementById('pdlg');
-  d.innerHTML='<form method="dialog" style="padding:24px;display:flex;flex-direction:column;gap:14px"><h2 style="color:var(--blue2);font-size:20px">Comentários</h2><p class="help">'+e(f.titulo)+'</p><div class="chat" style="max-height:260px">'+((f.coments||[]).length?f.coments.map(function(m){return '<div class="msg '+(m.de==='cliente'?'me':'them')+'">'+e(m.texto)+'<small>'+(m.de==='equipe'?e(m.autor)+' · NEXIO':'Você')+' · '+NX.ftime(m.em)+'</small></div>';}).join(''):'<p class="empty">Nenhum comentário ainda.</p>')+'</div><label>Escreva para a equipe<input name="t" placeholder="Ex.: Esse valor está correto?"></label><div class="row between"><button type="button" class="btn b-line" id="pdc">Fechar</button><button class="btn b-blue" type="submit">Enviar</button></div></form>';
-  d.querySelector('#pdc').onclick=function(){d.close();};
-  d.querySelector('form').onsubmit=function(ev){ev.preventDefault();var t=String(new FormData(ev.target).get('t')||'').trim();if(t){f.coments=f.coments||[];f.coments.push({em:new Date().toISOString(),de:'cliente',autor:meU().nome,texto:t});hist(f,'Comentário do cliente');db.messages.push({id:NX.uid(),cliente:S.cid,de:'cliente',autor:meU().nome,texto:'Comentou no documento "'+f.titulo+'": '+t,em:new Date().toISOString(),lida:false});persist();}d.close();arquivos();};
-  d.showModal();}
-function avisosAtivos(){var t=NX.today();return (db.avisos||[]).filter(function(a){return (a.clientes[0]==='*'||a.clientes.indexOf(S.cid)>-1)&&(!a.expira||a.expira>=t)&&!(a.lidos&&a.lidos[S.cid]);});}
-function bindDl(){root.querySelectorAll('[data-dl]').forEach(function(b){b.onclick=function(){var id=b.getAttribute('data-dl');var f=db.files.filter(function(x){return x.id===id;})[0];openDoc(f);return;if(f.de==='equipe'&&!f.visto){f.visto=true;persist();}NX.download(f);var r=route();if(r==='arquivos')arquivos();else if(r==='inicio')inicio();};});}
-function calendario(){
-  var ev=eventosMes(S.month);
-  var lista=ev.slice().sort(function(a,b){return a.data<b.data?-1:1;});
-  shell('calendario',head('Calendário de obrigações','Prazos de impostos, guias e envio de documentos.')+
-  '<section class="card"><div class="cal-nav"><button class="btn b-line" id="pm" aria-label="Mês anterior">‹</button><strong>'+NX.monthLabel(S.month)+'</strong><button class="btn b-line" id="nm" aria-label="Próximo mês">›</button></div>'+NX.calendarHTML(S.month,ev)+'</section>'+
-  '<section class="card"><h2>No mês</h2>'+(lista.length?lista.map(function(o){return '<div class="list-item"><b>'+e(o.titulo)+'</b><span class="tag '+(o.cls==='bad'?'bad':o.cls==='ok'?'ok':'info')+'">'+NX.fdate(o.data)+'</span></div>';}).join(''):'<p class="empty">Nada neste mês.</p>')+'</section>');
-  document.getElementById('pm').onclick=function(){S.month=NX.shiftMonth(S.month,-1);calendario();};
-  document.getElementById('nm').onclick=function(){S.month=NX.shiftMonth(S.month,1);calendario();};
-}
-function mensagens(){
-  db.messages.forEach(function(m){if(m.cliente===S.cid&&m.de==='equipe')m.lida=true;});persist();
-  var ms=db.messages.filter(function(m){return m.cliente===S.cid;}).sort(function(a,b){return a.em<b.em?-1:1;});
-  shell('mensagens',head('Mensagens','Fale com a equipe da NEXIO. Respondemos em horário comercial.')+'<section class="card"><div class="chat" id="chat">'+
-  (ms.length?ms.map(function(m){return '<div class="msg '+(m.de==='cliente'?'me':'them')+'">'+e(m.texto)+'<small>'+(m.de==='equipe'?e(m.autor)+' · NEXIO':'Você')+' · '+NX.ftime(m.em)+'</small></div>';}).join(''):'<p class="empty">Envie sua primeira mensagem.</p>')+
-  '</div><form class="chat-form" id="cf"><label class="sr" for="ct">Mensagem</label><input id="ct" placeholder="Escreva sua mensagem…" required><button class="btn b-blue">Enviar</button></form></section>');
-  var ch=document.getElementById('chat');ch.scrollTop=ch.scrollHeight;
-  document.getElementById('cf').onsubmit=function(ev){ev.preventDefault();var t=document.getElementById('ct').value.trim();if(!t)return;db.messages.push({id:NX.uid(),cliente:S.cid,de:'cliente',autor:meU().nome,texto:t,em:new Date().toISOString(),lida:false});persist();mensagens();};
-}
-/* ---------- NOTAS FISCAIS (simulação) ---------- */
-var SERV=[['04.01','Medicina e biomedicina'],['04.12','Odontologia'],['04.08','Fisioterapia, terapia ocupacional e fonoaudiologia'],['04.16','Psicologia'],['04.09','Terapias de qualquer espécie'],['04.03','Hospitais, clínicas, laboratórios e congêneres'],['17.01','Assessoria ou consultoria'],['17.19','Contabilidade'],['01.07','Suporte técnico em informática'],['outro','Outro serviço']];
-function onlyDig(s){return String(s||'').replace(/\D/g,'');}
-function fmtDoc(d){d=onlyDig(d);return d.length===14?d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5'):d.length===11?d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/,'$1.$2.$3-$4'):d;}
-function myNotas(){db.notas=db.notas||[];return db.notas.filter(function(n){return n.cliente===S.cid;}).sort(function(a,b){return a.num<b.num?1:-1;});}
-function tomadores(){var seen={},out=[];myNotas().forEach(function(n){var k=onlyDig(n.tom.doc);if(k&&!seen[k]){seen[k]=1;out.push(n.tom);}});return out;}
-function notas(){
-  var ns=myNotas(),mes=NX.ym(),tot=ns.filter(function(n){return n.status==='autorizada'&&n.emissao.slice(0,7)===mes;}).reduce(function(s,n){return s+n.valor;},0);
-  var toms=tomadores();
-  shell('notas',head('Notas fiscais','Emita notas fiscais de serviço (NFS-e) e acompanhe as notas emitidas.')+
-  '<div class="kpis"><div class="kpi main"><span>Faturado no mês</span><strong>'+NX.brl(tot)+'</strong></div><div class="kpi"><span>Notas emitidas no mês</span><strong>'+ns.filter(function(n){return n.emissao.slice(0,7)===mes&&n.status==='autorizada';}).length+'</strong></div><div class="kpi"><span>Total de notas</span><strong>'+ns.length+'</strong></div></div>'+
-  (me().cert?'':'<section class="card" style="border-left:5px solid var(--warn)"><b>Certificado digital não enviado.</b> <span class="help">Na versão real, a emissão exige o certificado A1. '+(nivel()==='titular'?'<a href="#/config">Enviar agora em Configurações</a>.':'Peça ao Titular para enviar em Configurações.')+'</span></section>')+'<section class="card"><h2>Emitir nova nota</h2><form id="nf"><div class="grid">'+
-  '<label style="grid-column:1/-1">Tomador já cadastrado<select id="ntom"><option value="">— novo tomador —</option>'+toms.map(function(t,i){return '<option value="'+i+'">'+e(t.nome)+' · '+e(fmtDoc(t.doc))+'</option>';}).join('')+'</select></label>'+
-  '<label>CPF ou CNPJ do tomador<input name="doc" id="tdoc" required inputmode="numeric" placeholder="Somente números"></label>'+
-  '<label>Nome / razão social<input name="nome" id="tnome" required></label>'+
-  '<label>E-mail do tomador<input name="email" id="temail" type="email" placeholder="Para enviar a nota"></label>'+
-  '<label>Município do tomador<input name="mun" id="tmun" placeholder="Ex.: São Paulo/SP"></label>'+
-  '<label style="grid-column:1/-1">Serviço (item da LC 116)<select name="serv">'+SERV.map(function(s){return '<option value="'+s[0]+'"'+((me().trib||{}).lc116===s[0]?' selected':'')+'>'+(s[0]==='outro'?'':s[0]+' – ')+s[1]+'</option>';}).join('')+'</select></label>'+
-  '<label style="grid-column:1/-1">Descrição do serviço<textarea name="desc" required placeholder="Ex.: Consulta médica realizada em 10/11/2026">'+e((me().nfCfg||{}).desc||'')+'</textarea></label>'+
-  '<label>Valor do serviço (R$)<input name="valor" id="nval" required inputmode="decimal" placeholder="0,00"></label>'+
-  '<label>Competência<input name="comp" type="date" value="'+NX.today()+'" required></label>'+
-  '<label style="flex-direction:row;align-items:center;gap:8px;align-self:end;min-height:44px"><input type="checkbox" name="ret" id="nret" '+((me().trib||{}).issRet?'checked':'')+' style="width:auto;min-height:auto"> ISS retido pelo tomador</label>'+
-  '<label id="lal" style="display:none">Alíquota ISS (%)<input name="aliq" id="nal" inputmode="decimal" value="'+String((me().trib||{}).iss||2).replace('.',',')+'"></label>'+
-  '</div><div class="row between" style="margin-top:16px;align-items:center"><p class="help" id="nliq">Valor líquido: R$ 0,00</p><button class="btn b-blue" type="submit">Emitir nota fiscal</button></div>'+
-  '<p class="help" style="margin-top:8px"><b>Protótipo:</b> a nota é montada no padrão do Emissor Nacional (DPS v1.00 e DANFSe), mas não é assinada nem enviada à Sefin Nacional.</p></form></section>'+
-  '<section class="card"><h2>Notas emitidas</h2><div class="tbl"><table><thead><tr><th>Nº</th><th>Emissão</th><th>Tomador</th><th>Serviço</th><th>Valor</th><th>Situação</th><th><span class="sr">Ações</span></th></tr></thead><tbody>'+
-  (ns.length?ns.map(function(n){return '<tr><td><b>'+n.num+'</b></td><td>'+NX.fdate(n.emissao)+'</td><td>'+e(n.tom.nome)+'<small style="display:block;color:var(--muted)">'+e(fmtDoc(n.tom.doc))+'</small></td><td>'+e(n.serv)+'</td><td>'+NX.brl(n.valor)+'</td><td><span class="tag '+(n.status==='autorizada'?'ok':'bad')+'">'+(n.status==='autorizada'?'Autorizada (simulação)':'Cancelada')+'</span></td><td style="white-space:nowrap"><button class="btn b-text" data-pdf="'+n.id+'">PDF</button><button class="btn b-text" data-xml="'+n.id+'">XML</button>'+(n.status==='autorizada'?'<button class="btn b-danger" data-cancel="'+n.id+'">Cancelar</button>':'')+'</td></tr>';}).join(''):'<tr><td colspan="7" class="empty">Nenhuma nota emitida ainda.</td></tr>')+'</tbody></table></div></section>');
-  var f=document.getElementById('nf');
-  function liq(){var v=num(document.getElementById('nval').value),r=document.getElementById('nret').checked,a=num(document.getElementById('nal').value);document.getElementById('lal').style.display=r?'':'none';document.getElementById('nliq').textContent='Valor líquido: '+NX.brl(r?v-v*a/100:v)+(r?' (ISS retido: '+NX.brl(v*a/100)+')':'');}
-  f.oninput=liq;f.onchange=liq;
-  document.getElementById('ntom').onchange=function(ev){var t=toms[ev.target.value];if(!t)return;document.getElementById('tdoc').value=t.doc;document.getElementById('tnome').value=t.nome;document.getElementById('temail').value=t.email||'';document.getElementById('tmun').value=t.mun||'';};
-  f.onsubmit=function(ev){ev.preventDefault();var fd=new FormData(f),d=onlyDig(fd.get('doc'));
-    if(d.length!==11&&d.length!==14){NX.toast('CPF ou CNPJ do tomador inválido.');return;}
-    var v=num(fd.get('valor'));if(!(v>0)){NX.toast('Informe o valor do serviço.');return;}
-    var sv=SERV.filter(function(s){return s[0]===fd.get('serv');})[0],ret=!!fd.get('ret'),al=ret?num(fd.get('aliq')):0;
-    if(!confirm('Emitir nota de '+NX.brl(v)+' para '+fd.get('nome')+'?'))return;
-    var c=me(),Tr=c.trib||{},seq=(db.notas||[]).filter(function(n){return n.cliente===S.cid;}).length+1,cfg=c.nfCfg||(c.nfCfg={serie:'1',proximo:seq,desc:'',copia:'',enviarTomador:true});
-    var cM=codMun(Tr,c),dP=onlyDig(c.doc),nD=+cfg.proximo||seq,sr=String(cfg.serie||'1'),now=new Date(),off=-now.getTimezoneOffset(),dh=new Date(now.getTime()+off*6e4).toISOString().slice(0,19)+(off<0?'-':'+')+String(Math.floor(Math.abs(off)/60)).padStart(2,'0')+':'+String(Math.abs(off)%60).padStart(2,'0');
-    var base=cM+'2'+(dP.length===11?'1':'2')+dP.padStart(14,'0')+String(seq).padStart(13,'0')+fd.get('comp').slice(2,4)+fd.get('comp').slice(5,7)+String(Math.floor(Math.random()*1e9)).padStart(9,'0');
-    var sn=Tr.regime==='SN'?NX.calcSimples(Tr):null,aISS=num(fd.get('aliq'))||Tr.iss||0;
-    var n={id:NX.uid(),cliente:S.cid,num:String(seq).padStart(6,'0'),emissao:NX.today(),dhEmi:dh,comp:fd.get('comp'),status:'autorizada',serie:sr,nDPS:nD,
-      idDPS:'DPS'+cM+(dP.length===11?'1':'2')+dP.padStart(14,'0')+sr.padStart(5,'0')+String(nD).padStart(15,'0'),chave:base+dv11(base),cMun:cM,munNome:Tr.mun||c.cidade||'Manaus/AM',
-      regime:Tr.regime||'SN',uniprof:!!Tr.uniprof,pSN:sn?sn.aliq:0,aliqISS:aISS,cTrib:cTribNac(sv[0]==='outro'?Tr.lc116:sv[0]),cTribMun:Tr.codmun||'',
-      tom:{doc:d,nome:fd.get('nome'),email:fd.get('email'),mun:fd.get('mun')},serv:(sv[0]==='outro'?'':sv[0]+' – ')+sv[1],desc:fd.get('desc'),valor:v,ret:ret,aliq:al,iss:ret?v*al/100:0,
-      prest:{nome:c.nome,doc:c.doc,im:(c.insc||{}).im,email:c.email,tel:c.tel}};
-    cfg.proximo=nD+1;
-    db.notas.push(n);
-    var xml=notaXML(n);db.files.push({id:NX.uid(),cliente:S.cid,tipo:'Nota fiscal',titulo:'NFS-e nº '+n.num+' — '+n.tom.nome,comp:n.comp.slice(0,7),venc:'',valor:v,status:'emitida',de:'cliente',nome:'NFSe_'+n.num+'.xml',data:'data:application/xml;base64,'+btoa(unescape(encodeURIComponent(xml))),size:xml.length,criado:NX.today(),visto:false});
-    logCli('Emitiu nota fiscal (simulação)','NFS-e nº '+n.num+' — '+NX.brl(v));NX.notify(db,S.cid,'nota','Nota fiscal nº '+n.num+' emitida',n.tom.nome+' — '+NX.brl(v),'#/notas');if(persist()===false)return;notas();NX.toast('Nota nº '+n.num+' emitida (simulação).');};
-  root.querySelector('.main').addEventListener('click',function(ev){var t=ev.target,id,n;
-    if(id=t.getAttribute('data-pdf')){n=db.notas.filter(function(x){return x.id===id;})[0];printNota(n);}
-    if(id=t.getAttribute('data-xml')){n=db.notas.filter(function(x){return x.id===id;})[0];var x=notaXML(n),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([x],{type:'application/xml'}));a.download='NFSe_'+n.num+'.xml';document.body.appendChild(a);a.click();a.remove();}
-    if(id=t.getAttribute('data-cancel')){var m=prompt('Motivo do cancelamento (obrigatório):');if(!m||m.trim().length<15){if(m!==null)NX.toast('Descreva o motivo com pelo menos 15 caracteres.');return;}
-      db.notas.forEach(function(x){if(x.id===id){x.status='cancelada';x.motivo=m.trim();}});
-      db.messages.push({id:NX.uid(),cliente:S.cid,de:'cliente',autor:meU().nome,texto:'Cancelei a NFS-e nº '+db.notas.filter(function(x){return x.id===id;})[0].num+'. Motivo: '+m.trim(),em:new Date().toISOString(),lida:false});
-      logCli('Cancelou nota fiscal','NFS-e');persist();notas();NX.toast('Nota cancelada (simulação).');}});
-}
-function num(v){v=String(v||'').trim();if(/,\d{1,2}$/.test(v))v=v.replace(/\./g,'').replace(',','.');else v=v.replace(/,/g,'');var n=parseFloat(v);return isNaN(n)?0:n;}
-function xe(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-var IBGE={'manaus/am':'1302603','são paulo/sp':'3550308','sao paulo/sp':'3550308','rio de janeiro/rj':'3304557','belém/pa':'1501402','boa vista/rr':'1400100','porto velho/ro':'1100205','brasília/df':'5300108'};
-function codMun(t,c){var m=String((t&&t.mun)||c.cidade||'').trim().toLowerCase().replace(/\s*-\s*/,'/');return (t&&t.ibge)||IBGE[m]||'1302603';}
-function cTribNac(item){var d=onlyDig(item);return d.length===4?d+'01':(d||'170101').slice(0,6);}
-function dv11(s){var p=2,t=0;for(var i=s.length-1;i>=0;i--){t+=(+s[i])*p;p=p===9?2:p+1;}var r=t%11;return (r<2?0:11-r);}
-function fixN(n){var c=me(),Tr=c.trib||{};n.cMun=n.cMun||codMun(Tr,c);n.munNome=n.munNome||Tr.mun||c.cidade||'Manaus/AM';n.dhEmi=n.dhEmi||n.emissao+'T09:00:00-04:00';n.serie=n.serie||'1';n.nDPS=n.nDPS||+n.num;n.regime=n.regime||Tr.regime||'SN';n.aliqISS=n.aliqISS||n.aliq||Tr.iss||0;n.cTrib=n.cTrib||cTribNac(String(n.serv).slice(0,5));n.chave=/^\d{50}$/.test(n.chave)?n.chave:(function(){var b=n.cMun+'22'+onlyDig(n.prest.doc).padStart(14,'0')+String(+n.num).padStart(13,'0')+n.comp.slice(2,4)+n.comp.slice(5,7)+'000000001';return b+dv11(b);})();n.idDPS=n.idDPS||'DPS'+n.cMun+'2'+onlyDig(n.prest.doc).padStart(14,'0')+'00001'+String(n.nDPS).padStart(15,'0');n.pSN=n.pSN||0;return n;}
-function opSN(reg){return reg==='MEI'?2:reg==='SN'?3:1;}
-function notaXML(n){n=fixN(n);var P=n.prest,T=n.tom,docP=onlyDig(P.doc),tpP=docP.length===11?'CPF':'CNPJ',docT=onlyDig(T.doc),tpT=docT.length===11?'CPF':'CNPJ';
-  var dps='<?xml version="1.0" encoding="UTF-8"?>\n<!-- PROTÓTIPO NEXIO: DPS no leiaute do Sistema Nacional NFS-e (v1.00), ambiente de homologação, SEM assinatura e SEM validade fiscal -->\n'+
-  '<NFSe xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.00"><infNFSe Id="NFS'+n.chave+'">'+
-  '<xLocEmi>'+xe(n.munNome)+'</xLocEmi><xLocPrestacao>'+xe(n.munNome)+'</xLocPrestacao><nNFSe>'+(+n.num)+'</nNFSe><cLocIncid>'+n.cMun+'</cLocIncid><xLocIncid>'+xe(n.munNome)+'</xLocIncid>'+
-  '<xTribNac>'+xe(n.serv)+'</xTribNac><verAplic>NEXIO-PROTO-1.0</verAplic><ambGer>2</ambGer><tpEmis>1</tpEmis><procEmi>1</procEmi><cStat>100</cStat><dhProc>'+n.dhEmi+'</dhProc><nDFSe>'+(+n.num)+'</nDFSe>'+
-  '<emit><'+tpP+'>'+docP+'</'+tpP+'>'+(P.im?'<IM>'+xe(P.im)+'</IM>':'')+'<xNome>'+xe(P.nome)+'</xNome>'+(P.email?'<email>'+xe(P.email)+'</email>':'')+'</emit>'+
-  '<valores><vBC>'+n.valor.toFixed(2)+'</vBC>'+(n.aliqISS?'<pAliqAplic>'+n.aliqISS.toFixed(2)+'</pAliqAplic><vISSQN>'+(n.valor*n.aliqISS/100).toFixed(2)+'</vISSQN>':'')+'<vTotalRet>'+n.iss.toFixed(2)+'</vTotalRet><vLiq>'+(n.valor-n.iss).toFixed(2)+'</vLiq></valores>'+
-  '<DPS versao="1.00"><infDPS Id="'+n.idDPS+'">'+
-  '<tpAmb>2</tpAmb><dhEmi>'+n.dhEmi+'</dhEmi><verAplic>NEXIO-PROTO-1.0</verAplic><serie>'+xe(n.serie)+'</serie><nDPS>'+n.nDPS+'</nDPS><dCompet>'+n.comp+'</dCompet><tpEmit>1</tpEmit><cLocEmi>'+n.cMun+'</cLocEmi>'+
-  '<prest><'+tpP+'>'+docP+'</'+tpP+'>'+(P.im?'<IM>'+xe(P.im)+'</IM>':'')+(P.email?'<email>'+xe(P.email)+'</email>':'')+'<regTrib><opSimpNac>'+opSN(n.regime)+'</opSimpNac>'+(n.regime==='SN'?'<regApTribSN>1</regApTribSN>':'')+'<regEspTrib>'+(n.uniprof?'4':'0')+'</regEspTrib></regTrib></prest>'+
-  '<toma><'+tpT+'>'+docT+'</'+tpT+'><xNome>'+xe(T.nome)+'</xNome>'+(T.email?'<email>'+xe(T.email)+'</email>':'')+'</toma>'+
-  '<serv><locPrest><cLocPrestacao>'+n.cMun+'</cLocPrestacao></locPrest><cServ><cTribNac>'+n.cTrib+'</cTribNac>'+(n.cTribMun?'<cTribMun>'+xe(n.cTribMun)+'</cTribMun>':'')+'<xDescServ>'+xe(n.desc)+'</xDescServ></cServ></serv>'+
-  '<valores><vServPrest><vServ>'+n.valor.toFixed(2)+'</vServ></vServPrest><trib><tribMun><tribISSQN>1</tribISSQN><tpRetISSQN>'+(n.ret?2:1)+'</tpRetISSQN>'+(n.ret||n.regime!=='SN'?'<pAliq>'+n.aliqISS.toFixed(2)+'</pAliq>':'')+'</tribMun>'+
-  (n.regime==='SN'&&n.pSN?'<totTrib><pTotTribSN>'+n.pSN.toFixed(2)+'</pTotTribSN></totTrib>':'<totTrib><indTotTrib>0</indTotTrib></totTrib>')+'</trib></valores>'+
-  '</infDPS><!-- Na versão real: <Signature> XMLDSig com o certificado A1 do prestador --></DPS></infNFSe></NFSe>\n';return dps;}
-function printNota(n){n=fixN(n);var p=document.getElementById('printArea'),P=n.prest,T=n.tom,cx=function(l,v){return '<div style="padding:3px 6px"><div style="font-size:7pt;color:#444;text-transform:uppercase">'+l+'</div><div style="font-size:9pt;font-weight:600">'+(v||'-')+'</div></div>';},
-  bl=function(t,h,cols){return '<div style="border-top:1px solid #000;padding:4px 0"><div style="font-size:8pt;font-weight:700;padding:0 6px">'+t+'</div><div style="display:grid;grid-template-columns:repeat('+(cols||4)+',1fr)">'+h+'</div></div>';};
-  var ch=n.chave.replace(/(\d{4})/g,'$1 ').trim();
-  p.innerHTML='<div style="border:1px solid #000;font-family:Arial,sans-serif;color:#000;position:relative">'+
-  '<div style="position:absolute;top:40%;left:0;right:0;text-align:center;font-size:40pt;color:rgba(180,35,24,.15);font-weight:700;transform:rotate(-20deg);pointer-events:none">'+(n.status!=='autorizada'?'CANCELADA':'SEM VALOR FISCAL')+'</div>'+
-  '<div style="display:grid;grid-template-columns:1.2fr 2fr 1fr;align-items:center;padding:8px;gap:8px"><div style="font-weight:700;color:#2344AC">NFS-e<br><span style="font-size:8pt;color:#000">Nota Fiscal de<br>Serviço eletrônica</span></div>'+
-  '<div style="text-align:center"><div style="font-weight:700;font-size:12pt">DANFSe v1.0</div><div style="font-size:9pt">Documento Auxiliar da NFS-e</div><div style="font-size:8pt;color:#B42318;font-weight:700">PROTÓTIPO · HOMOLOGAÇÃO · SEM VALIDADE JURÍDICA</div></div>'+
-  '<div style="border:1px dashed #888;height:70px;display:flex;align-items:center;justify-content:center;font-size:7pt;text-align:center;color:#666">QR Code de consulta<br>(gerado na versão real)</div></div>'+
-  bl('',cx('Chave de acesso da NFS-e','<span style="font-family:monospace">'+ch+'</span>'),1)+
-  bl('',cx('Número da NFS-e',+n.num)+cx('Competência',NX.fdate(n.comp))+cx('Data e hora da emissão',NX.ftime(n.dhEmi))+cx('Número / série da DPS',n.nDPS+' / '+e(n.serie))+cx('Situação',n.status==='autorizada'?'Autorizada (simulação)':'Cancelada'),5)+
-  bl('EMITENTE DA NFS-e — Prestador do serviço',cx('CNPJ / CPF',e(fmtDoc(P.doc)))+cx('Inscrição municipal',e(P.im))+cx('Telefone',e(P.tel))+cx('E-mail',e(P.email))+'<div style="grid-column:span 2">'+cx('Nome / razão social',e(P.nome))+'</div>'+cx('Município',e(n.munNome))+cx('Simples Nacional',{1:'Não optante',2:'Optante — MEI',3:'Optante — ME/EPP'}[opSN(n.regime)]))+
-  bl('TOMADOR DO SERVIÇO',cx('CNPJ / CPF',e(fmtDoc(T.doc)))+'<div style="grid-column:span 2">'+cx('Nome / razão social',e(T.nome))+'</div>'+cx('E-mail',e(T.email))+cx('Município',e(T.mun)))+
-  bl('INTERMEDIÁRIO DO SERVIÇO',cx('','Não identificado na NFS-e'),1)+
-  bl('SERVIÇO PRESTADO',cx('Código de tributação nacional',n.cTrib.replace(/(\d{2})(\d{2})(\d{2})/,'$1.$2.$3'))+cx('Código de tributação municipal',e(n.cTribMun))+cx('Local da prestação',e(n.munNome))+cx('País da prestação','Brasil')+'<div style="grid-column:1/-1">'+cx('Descrição do serviço',e(n.serv)+'<br><span style="font-weight:400">'+e(n.desc)+'</span>')+'</div>')+
-  bl('TRIBUTAÇÃO MUNICIPAL',cx('Tributação do ISSQN','Operação tributável')+cx('Município de incidência',e(n.munNome))+cx('Regime especial',n.uniprof?'Sociedade profissional':'Nenhum')+cx('Valor do serviço',NX.brl(n.valor))+cx('BC ISSQN',NX.brl(n.valor))+cx('Alíquota aplicada',n.aliqISS?n.aliqISS.toFixed(2).replace('.',',')+'%':'-')+cx('Retenção do ISSQN',n.ret?'Retido pelo tomador':'Não retido')+cx('ISSQN retido',NX.brl(n.iss)))+
-  bl('TRIBUTAÇÃO FEDERAL',cx('IRRF','-')+cx('Contribuição previdenciária','-')+cx('PIS / COFINS','-')+cx('CSLL','-'))+
-  bl('VALOR TOTAL DA NFS-e',cx('Valor do serviço',NX.brl(n.valor))+cx('Desconto','R$ 0,00')+cx('Total de retenções',NX.brl(n.iss))+cx('<b>Valor líquido</b>','<span style="font-size:11pt">'+NX.brl(n.valor-n.iss)+'</span>'))+
-  bl('TOTAIS APROXIMADOS DOS TRIBUTOS',cx(n.regime==='SN'?'Alíquota do Simples Nacional':'Tributos',n.regime==='SN'&&n.pSN?n.pSN.toFixed(2).replace('.',',')+'%':'-'),1)+
-  bl('INFORMAÇÕES COMPLEMENTARES',cx('','Documento gerado no protótipo do Portal NEXIO. Não foi transmitido à Sefin Nacional.'+(n.motivo?' Cancelada. Motivo: '+e(n.motivo):'')),1)+'</div>';
-  window.print();}
-
-function financeiro(){
-  shell('financeiro',head('Controle financeiro','Lance entradas e saídas, importe o extrato do banco e exporte para a contabilidade.')+
-  '<iframe src="/financeiro/" title="Controle financeiro" style="width:100%;height:calc(100vh - 150px);min-height:720px;border:0;border-radius:16px;background:transparent"></iframe>');
-}
-/* ---------- LGPD: aceite, privacidade, sessão ---------- */
-var TERMOS_V='1.0';
-function aceiteTela(u){root.innerHTML='<div class="login"><form class="box" id="af" style="max-width:520px"><a class="logo" href="/"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a><h1>'+(u.aceite?'Termos atualizados':'Antes de começar')+'</h1>'+
-  '<p class="help" style="font-size:15px;color:var(--ink)">Para usar o Portal do Cliente, leia e aceite os documentos abaixo. Eles explicam como protegemos os seus dados e os da sua empresa.</p>'+
-  '<p><a href="/termos/" target="_blank" rel="noopener">Termos de Uso do Portal (versão '+TERMOS_V+')</a><br><a href="/privacidade/" target="_blank" rel="noopener">Política de Privacidade (versão '+TERMOS_V+')</a></p>'+
-  '<label style="flex-direction:row;align-items:flex-start;gap:10px;color:var(--ink);font-weight:500"><input type="checkbox" id="ac" required style="width:auto;min-height:auto;margin-top:5px">Li e aceito os Termos de Uso e estou ciente da Política de Privacidade.</label>'+
-  '<label style="flex-direction:row;align-items:flex-start;gap:10px;color:var(--ink);font-weight:500"><input type="checkbox" id="amk" style="width:auto;min-height:auto;margin-top:5px">Quero receber conteúdos e novidades da NEXIO por e-mail (opcional).</label>'+
-  '<button class="btn b-blue">Aceitar e continuar</button><button type="button" class="btn b-text" id="asair">Sair</button></form></div>';
-  document.getElementById('af').onsubmit=function(ev){ev.preventDefault();u.aceite={v:TERMOS_V,em:new Date().toISOString(),marketing:document.getElementById('amk').checked};logCli('Aceitou Termos de Uso e Política de Privacidade','versão '+TERMOS_V+(u.aceite.marketing?' · consentiu marketing':''));persist();render();};
-  document.getElementById('asair').onclick=function(){S.uid=null;try{sessionStorage.clear();}catch(x){}render();};}
-function privacidadeHTML(){var u=meU(),R=(db.lgpd||[]).filter(function(r){return r.usuario===u.id;}).slice().reverse(),ac=u.aceite||{};
-  return '<section class="card" id="priv"><h2>Privacidade e meus dados</h2><p class="help">Você aceitou os <a href="/termos/" target="_blank" rel="noopener">Termos de Uso</a> e a <a href="/privacidade/" target="_blank" rel="noopener">Política de Privacidade</a> (versão '+e(ac.v||'—')+') em '+(ac.em?NX.ftime(ac.em):'—')+'.</p>'+
-  '<label style="flex-direction:row;align-items:center;gap:8px;color:var(--ink);font-weight:500;margin:10px 0"><input type="checkbox" id="pmk" '+(ac.marketing?'checked':'')+' style="width:auto;min-height:auto">Receber conteúdos e novidades da NEXIO por e-mail</label>'+
+/* ---------- telas ---------- */
+function docRow(d){var guia=d.tipo==='Guia',venc=d.vencimento,late=guia&&venc&&venc<NX.today();
+  return '<tr><td><b>'+e(d.titulo)+'</b>'+(!d.visto_em&&d.setor!=='Enviados pelo cliente'?' <span class="tag info">Novo</span>':'')+'<small style="display:block;color:var(--muted)">'+e(d.nome_arquivo||'')+'</small></td><td>'+e(d.setor)+'</td><td>'+(d.competencia?NX.fcomp(d.competencia):'—')+'</td><td'+(late?' class="late"':'')+'>'+(venc?NX.fdate(venc):'—')+'</td><td>'+(d.valor?NX.brl(+d.valor):'—')+'</td><td style="white-space:nowrap">'+NX.fdate(d.enviado_em.slice(0,10))+'</td><td><button class="btn b-line" data-ab="'+d.id+'" style="min-height:38px">Abrir</button></td></tr>';}
+function tabelaDocs(l){return l.length?'<div class="tbl"><table><thead><tr><th>Documento</th><th>Setor</th><th>Competência</th><th>Vencimento</th><th>Valor</th><th>Enviado em</th><th><span class="sr">Ações</span></th></tr></thead><tbody>'+l.map(docRow).join('')+'</tbody></table></div>':'<p class="empty">Nenhum documento por aqui ainda.</p>';}
+function bindAbrir(){root.querySelectorAll('[data-ab]').forEach(function(b){b.onclick=function(){var d=S.docs.filter(function(x){return x.id===b.getAttribute('data-ab');})[0];var w=window.open('about:blank','_blank');
+  sb.storage.from('documentos').createSignedUrl(d.storage_path,300).then(function(r){if(r.error){if(w)w.close();toast('Não foi possível abrir: '+r.error.message);return;}if(w)w.location=r.data.signedUrl;else location.href=r.data.signedUrl;
+    if(!d.visto_em&&d.setor!=='Enviados pelo cliente'){sb.rpc('marcar_visto',{p_doc:d.id});d.visto_em=new Date().toISOString();}acesso('Abriu documento',d.titulo);});};});}
+function inicio(){var hoje=NX.today(),guias=S.docs.filter(function(d){return d.tipo==='Guia'&&d.vencimento&&d.vencimento>=hoje;}).sort(function(a,b){return a.vencimento<b.vencimento?-1:1;}),
+  novos=S.docs.filter(function(d){return d.setor!=='Enviados pelo cliente'&&!d.visto_em;}),nl=S.msgs.filter(function(m){return m.de==='equipe'&&!m.lida;}).length,av=S.notifs.filter(function(n){return !n.lida;});
+  shell('inicio',head('Olá, '+e(S.perfil.nome.split(' ')[0]),e(S.emp.razao_social)+' · CNPJ '+e(NX.fmtDoc?NX.fmtDoc(S.emp.documento):S.emp.documento))+
+  '<div class="kpis"><div class="kpi main"><span>Documentos novos</span><strong>'+novos.length+'</strong></div><div class="kpi"><span>Guias a vencer</span><strong>'+guias.length+'</strong></div><div class="kpi"><span>Mensagens não lidas</span><strong>'+nl+'</strong></div></div>'+
+  (av.length?'<section class="card"><h2>Avisos</h2>'+av.map(function(n){return '<div class="list-item"><div><b>'+e(n.titulo)+'</b><small>'+e(n.texto||'')+' · '+NX.ftime(n.em)+'</small></div></div>';}).join('')+'<button class="btn b-text" id="lidos">Marcar avisos como lidos</button></section>':'')+
+  '<section class="card"><h2>Guias a vencer</h2>'+tabelaDocs(guias.slice(0,8))+'</section><section class="card"><h2>Recebidos recentemente</h2>'+tabelaDocs(S.docs.filter(function(d){return d.setor!=='Enviados pelo cliente';}).slice(0,8))+'</section>');
+  bindAbrir();var l=document.getElementById('lidos');if(l)l.onclick=function(){sb.from('notificacoes').update({lida:true}).eq('empresa_id',S.emp.id).eq('lida',false).then(function(){S.notifs.forEach(function(n){n.lida=true;});inicio();});};}
+function documentos(){var f=S.filtro,anos={};S.docs.forEach(function(d){var a=(d.competencia||d.enviado_em).slice(0,4);anos[a]=1;});
+  var l=S.docs.filter(function(d){return (!f.setor||d.setor===f.setor)&&(!f.ano||(d.competencia||d.enviado_em).slice(0,4)===f.ano);});
+  shell('documentos',head('Documentos','Guias, relatórios e documentos enviados pela NEXIO, e o que você nos enviou.')+
+  '<section class="card"><div class="row" style="margin-bottom:12px;flex-wrap:wrap"><label>Setor<select id="fs"><option value="">Todos</option>'+NXA.SETORES.map(function(s){return '<option'+(f.setor===s?' selected':'')+'>'+s+'</option>';}).join('')+'</select></label><label>Ano<select id="fa"><option value="">Todos</option>'+Object.keys(anos).sort().reverse().map(function(a){return '<option'+(f.ano===a?' selected':'')+'>'+a+'</option>';}).join('')+'</select></label></div>'+tabelaDocs(l)+'</section>');
+  document.getElementById('fs').onchange=function(ev){f.setor=ev.target.value;documentos();};document.getElementById('fa').onchange=function(ev){f.ano=ev.target.value;documentos();};bindAbrir();}
+function enviar(){if(!pode('enviar')){location.hash='#/inicio';return;}
+  shell('enviar',head('Enviar documentos','Extratos, notas, comprovantes e documentos para a contabilidade. Não envie prontuários nem dados clínicos de pacientes.')+
+  '<section class="card"><form id="uf" class="grid"><label style="grid-column:1/-1">Arquivos (até 20 MB cada)<input type="file" id="uarq" multiple required></label><label>Do que se trata<select id="utp"><option>Extrato bancário</option><option>Notas fiscais</option><option>Comprovantes de pagamento</option><option>Documentos de funcionário</option><option>Contrato / documento societário</option><option>Outro</option></select></label><label>Competência<input type="month" id="ucp" value="'+NX.shiftMonth(NX.ym(),-1)+'"></label><label style="grid-column:1/-1">Observação (opcional)<input id="uobs"></label><div><button class="btn b-blue">Enviar</button></div><p class="help" id="ust" style="grid-column:1/-1"></p></form></section>'+
+  '<section class="card"><h2>Enviados por você</h2>'+tabelaDocs(S.docs.filter(function(d){return d.setor==='Enviados pelo cliente';}))+'</section>');bindAbrir();
+  document.getElementById('uf').onsubmit=function(ev){ev.preventDefault();var fs=[].slice.call(document.getElementById('uarq').files),st=document.getElementById('ust'),tp=document.getElementById('utp').value,cp=document.getElementById('ucp').value,obs=document.getElementById('uobs').value;
+    if(fs.some(function(x){return x.size>20*1024*1024;})){st.textContent='Algum arquivo passa de 20 MB.';return;}var ok=0;st.textContent='Enviando…';
+    (function prox(i){if(i>=fs.length){st.textContent=ok+' arquivo(s) enviado(s).';acesso('Enviou documentos',ok+' arquivo(s)');carregar().then(enviar);toast(ok+' arquivo(s) enviados para a NEXIO.');return;}
+      var file=fs[i],path=S.emp.id+'/cliente/'+NXA.uuid()+'-'+NXA.nomeSeguro(file.name);st.textContent='Enviando '+(i+1)+' de '+fs.length+': '+file.name;
+      sb.storage.from('documentos').upload(path,file,{contentType:file.type||'application/octet-stream'}).then(function(u){if(u.error){st.textContent='Erro em '+file.name+': '+u.error.message;return;}
+        sb.from('documentos').insert({empresa_id:S.emp.id,setor:'Enviados pelo cliente',tipo:tp,titulo:tp+(obs?' — '+obs:''),competencia:cp||null,storage_path:path,nome_arquivo:file.name,tamanho:file.size}).then(function(r){if(r.error){st.textContent='Erro ao registrar '+file.name+': '+r.error.message;return;}ok++;prox(i+1);});});})(0);};}
+function mensagens(){if(!pode('msg')){location.hash='#/inicio';return;}
+  shell('mensagens',head('Mensagens','Converse com a equipe NEXIO.')+'<section class="card"><div id="thread" style="display:flex;flex-direction:column;gap:10px;max-height:55vh;overflow:auto;padding:4px">'+
+  (S.msgs.length?S.msgs.map(function(m){var eu=m.de==='cliente';return '<div style="align-self:'+(eu?'flex-end':'flex-start')+';max-width:75%;background:'+(eu?'var(--blue)':'var(--soft)')+';color:'+(eu?'#fff':'var(--ink)')+';padding:10px 14px;border-radius:14px"><div style="white-space:pre-wrap">'+e(m.texto)+'</div><small style="opacity:.75;font-size:11px">'+(eu?'Você':'NEXIO')+' · '+NX.ftime(m.em)+'</small></div>';}).join(''):'<p class="empty">Nenhuma mensagem ainda.</p>')+
+  '</div><form id="mf" style="margin-top:12px;display:flex;gap:8px"><label class="sr" for="mt">Mensagem</label><textarea id="mt" required placeholder="Escreva sua mensagem" style="flex:1;min-height:60px"></textarea><button class="btn b-blue">Enviar</button></form></section>');
+  var th=document.getElementById('thread');th.scrollTop=th.scrollHeight;
+  var nl=S.msgs.filter(function(m){return m.de==='equipe'&&!m.lida;});if(nl.length)sb.from('mensagens').update({lida:true}).in('id',nl.map(function(m){return m.id;})).then(function(){nl.forEach(function(m){m.lida=true;});});
+  document.getElementById('mf').onsubmit=function(ev){ev.preventDefault();var t=document.getElementById('mt').value.trim();if(!t)return;sb.from('mensagens').insert({empresa_id:S.emp.id,de:'cliente',texto:t}).then(function(r){if(erro(r))return;acesso('Enviou mensagem');carregar().then(mensagens);});};}
+function privacidade(){var p=S.perfil;
+  sb.from('lgpd_solicitacoes').select('*').eq('usuario_id',p.id).order('em',{ascending:false}).then(function(q){var R=q.data||[];
+  shell('privacidade',head('Privacidade e meus dados','Seus direitos pela LGPD.')+'<section class="card"><p class="help">Você aceitou os <a href="/termos/" target="_blank" rel="noopener">Termos de Uso</a> e a <a href="/privacidade/" target="_blank" rel="noopener">Política de Privacidade</a> (versão '+e(p.aceite_versao||'—')+') em '+(p.aceite_em?NX.ftime(p.aceite_em):'—')+'.</p>'+
+  '<label style="flex-direction:row;align-items:center;gap:8px;color:var(--ink);font-weight:500;margin:10px 0"><input type="checkbox" id="pmk" '+(p.marketing?'checked':'')+' style="width:auto;min-height:auto">Receber conteúdos e novidades da NEXIO por e-mail</label>'+
   '<div class="row" style="margin:6px 0 16px"><button class="btn b-line" id="pexp">Baixar meus dados</button></div>'+
-  '<form id="pf" class="grid"><label>Quero solicitar<select name="tipo"><option>Acesso aos meus dados</option><option>Correção de dados</option><option>Exclusão de dados</option><option>Portabilidade</option><option>Informação sobre compartilhamento</option><option>Outro assunto de privacidade</option></select></label><label style="grid-column:1/-1">Detalhes<textarea name="texto" required placeholder="Descreva o seu pedido"></textarea></label><div><button class="btn b-blue">Enviar solicitação</button></div></form>'+
-  '<p class="help" style="margin-top:6px">Respondemos em até 15 dias. Documentos que a lei manda guardar (fiscais, trabalhistas) são mantidos pelo prazo legal mesmo após pedido de exclusão.</p>'+
-  (R.length?'<div class="tbl" style="margin-top:12px"><table><thead><tr><th>Pedido</th><th>Enviado</th><th>Prazo</th><th>Situação</th></tr></thead><tbody>'+R.map(function(r){return '<tr><td><b>'+e(r.tipo)+'</b><small style="display:block;color:var(--muted)">'+e(r.texto)+(r.resposta?'<br><b>Resposta:</b> '+e(r.resposta):'')+'</small></td><td>'+NX.fdate(r.em.slice(0,10))+'</td><td>'+NX.fdate(r.prazo)+'</td><td><span class="tag '+(r.status==='concluida'?'ok':'info')+'">'+(r.status==='concluida'?'Concluída':'Em análise')+'</span></td></tr>';}).join('')+'</tbody></table></div>':'')+'</section>';}
-function bindPrivacidade(){var u=meU();
-  document.getElementById('pmk').onchange=function(ev){u.aceite=u.aceite||{};u.aceite.marketing=ev.target.checked;logCli(ev.target.checked?'Consentiu receber conteúdos':'Revogou consentimento de conteúdos');persist();NX.toast('Preferência salva.');};
-  document.getElementById('pexp').onclick=function(){var c=me(),out={gerado_em:new Date().toISOString(),usuario:{nome:u.nome,email:u.email,nivel:NX.NIV_CLI[u.nivel].nome,aceite:u.aceite},
-      empresa:{razao_social:c.nome,documento:c.doc,email:c.email,telefone:c.tel,endereco:c.endereco,cidade:c.cidade},
-      documentos:db.files.filter(function(f){return f.cliente===S.cid&&!f.deleted;}).map(function(f){return {titulo:f.titulo,setor:f.setor,competencia:f.comp,enviado_em:f.criado,arquivo:f.nome};}),
-      meus_acessos:(db.logs||[]).filter(function(l){return l.quem===u.nome;}).slice(-500)};
-    var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(out,null,2)],{type:'application/json'}));a.download='meus-dados-nexio.json';document.body.appendChild(a);a.click();a.remove();logCli('Baixou os próprios dados (LGPD)');persist();};
-  document.getElementById('pf').onsubmit=function(ev){ev.preventDefault();var fd=new FormData(ev.target),d=new Date();d.setDate(d.getDate()+15);db.lgpd=db.lgpd||[];
-    db.lgpd.push({id:NX.uid(),cliente:S.cid,usuario:u.id,nome:u.nome,email:u.email,tipo:fd.get('tipo'),texto:fd.get('texto'),em:new Date().toISOString(),prazo:d.toISOString().slice(0,10),status:'aberta'});
-    logCli('Enviou solicitação LGPD',fd.get('tipo'));persist();config();NX.toast('Solicitação enviada. Prazo de resposta: '+NX.fdate(d.toISOString().slice(0,10))+'.');};}
+  '<form id="lf2" class="grid"><label>Quero solicitar<select id="ltp"><option>Acesso aos meus dados</option><option>Correção de dados</option><option>Exclusão de dados</option><option>Portabilidade</option><option>Informação sobre compartilhamento</option><option>Outro assunto de privacidade</option></select></label><label style="grid-column:1/-1">Detalhes<textarea id="ltx" required></textarea></label><div><button class="btn b-blue">Enviar solicitação</button></div></form><p class="help">Respondemos em até 15 dias. Encarregado: Paulo Ramon Zani Batista · contato@nexioic.com.br</p>'+
+  (R.length?'<div class="tbl" style="margin-top:12px"><table><thead><tr><th>Pedido</th><th>Enviado</th><th>Prazo</th><th>Situação</th></tr></thead><tbody>'+R.map(function(r){return '<tr><td><b>'+e(r.tipo)+'</b><small style="display:block;color:var(--muted)">'+e(r.texto)+(r.resposta?'<br><b>Resposta:</b> '+e(r.resposta):'')+'</small></td><td>'+NX.fdate(r.em.slice(0,10))+'</td><td>'+NX.fdate(r.prazo)+'</td><td><span class="tag '+(r.status==='concluida'?'ok':'info')+'">'+(r.status==='concluida'?'Concluída':'Em análise')+'</span></td></tr>';}).join('')+'</tbody></table></div>':'')+'</section>');
+  document.getElementById('pmk').onchange=function(ev){sb.from('perfis').update({marketing:ev.target.checked}).eq('id',p.id).then(function(r){if(erro(r))return;p.marketing=ev.target.checked;acesso(ev.target.checked?'Consentiu receber conteúdos':'Revogou consentimento de conteúdos');toast('Preferência salva.');});};
+  document.getElementById('pexp').onclick=function(){sb.from('acessos').select('em,acao,alvo').eq('usuario_id',p.id).order('em',{ascending:false}).limit(500).then(function(a){var out={gerado_em:new Date().toISOString(),usuario:{nome:p.nome,email:p.email,aceite_versao:p.aceite_versao,aceite_em:p.aceite_em,marketing:p.marketing},empresa:{razao_social:S.emp.razao_social,documento:S.emp.documento,seu_nivel:NXA.NIVEIS[S.emp.nivel]},documentos:S.docs.map(function(d){return {titulo:d.titulo,setor:d.setor,competencia:d.competencia,enviado_em:d.enviado_em,arquivo:d.nome_arquivo};}),meus_acessos:a.data||[]};
+    var l=document.createElement('a');l.href=URL.createObjectURL(new Blob([JSON.stringify(out,null,2)],{type:'application/json'}));l.download='meus-dados-nexio.json';document.body.appendChild(l);l.click();l.remove();acesso('Baixou os próprios dados (LGPD)');});};
+  document.getElementById('lf2').onsubmit=function(ev){ev.preventDefault();sb.from('lgpd_solicitacoes').insert({empresa_id:S.emp.id,tipo:document.getElementById('ltp').value,texto:document.getElementById('ltx').value}).then(function(r){if(erro(r))return;acesso('Enviou solicitação LGPD');toast('Solicitação enviada. Respondemos em até 15 dias.');privacidade();});};});}
+
 /* sessão expira após 30 min sem uso */
-(function(){var K='nx_last',LIM=30*60*1000,t=function(){try{sessionStorage.setItem(K,Date.now());}catch(x){}};['click','keydown','scroll','touchstart'].forEach(function(ev){document.addEventListener(ev,t,{passive:true});});t();
-  setInterval(function(){var l=+(sessionStorage.getItem(K)||0);if(S.uid&&Date.now()-l>LIM){logCli('Sessão encerrada por inatividade');persist();S.uid=null;S.cid=null;try{sessionStorage.removeItem('nx_cuser');sessionStorage.removeItem('nx_client');}catch(x){}render();NX.toast('Sua sessão expirou por inatividade. Entre novamente.');}},30000);})();
-/* ---------- CONFIGURAÇÕES DO CLIENTE ---------- */
-function config(){if(['titular','financeiro'].indexOf(nivel())<0){shell('config',head('Configurações','Privacidade e seus dados.')+privacidadeHTML());bindPrivacidade();return;}var c=me(),T=c.trib||{},r=NX.calcSimples(T),tit=nivel()==='titular',cert=c.cert,np=c.notifPref||{portal:true,email:true,whats:false},nf=c.nfCfg||{serie:'1',proximo:(db.notas||[]).filter(function(n){return n.cliente===S.cid;}).length+1,desc:'',copia:'',enviarTomador:true};
-  var kv=function(k,v){return '<dt>'+k+'</dt><dd>'+(v||'—')+'</dd>';};
-  shell('config',head('Configurações','Dados da empresa, tributação, certificado digital, notas fiscais e avisos.')+
-  '<div class="cols"><section class="card"><h2>Dados da empresa</h2><dl class="kv">'+kv('Razão social',e(c.nome))+kv('Nome fantasia',e(c.fantasia))+kv('CNPJ / CPF',e(c.doc))+kv('CNAE principal',e(c.cnae))+kv('Município',e(c.cidade))+kv('Inscrição municipal',e((c.insc||{}).im))+kv('Inscrição estadual',e((c.insc||{}).ie))+kv('Plano NEXIO',e(c.plano))+'</dl><p class="help" style="margin-top:10px">Algum dado errado? <a href="#/mensagens">Avise a NEXIO</a>.</p></section>'+
-  '<section class="card"><h2>Tributação</h2><dl class="kv">'+kv('Regime',e(NX.REGIMES[T.regime]||'—'))+(T.regime==='SN'?kv('Anexo',r?r.anexo+(r.fatorR!=null?' (Fator R '+(r.fatorR*100).toFixed(1).replace('.',',')+'%)':''):e(T.anexo))+kv('Alíquota efetiva estimada',r?'<b>'+r.aliq.toFixed(2).replace('.',',')+'%</b>':'—'):'')+kv('ISS',T.uniprof?'Fixo (uniprofissional)':(T.iss?String(T.iss).replace('.',',')+'%':'—')+(T.issRet?' · normalmente retido':''))+kv('Serviço padrão (LC 116)',e(T.lc116))+kv('Município do ISS',e(T.mun))+'</dl><p class="help" style="margin-top:10px">Parametrizado pela equipe NEXIO e usado automaticamente na emissão de notas e no cálculo dos impostos.</p></section></div>'+
-  '<section class="card"><h2>Certificado digital (e-CNPJ / e-CPF A1)</h2>'+(cert?'<div class="list-item"><div><b>'+e(cert.nome)+'</b><small>Válido até '+NX.fdate(cert.validade)+' · enviado por '+e(cert.por)+' em '+NX.fdate(cert.em.slice(0,10))+(cert.autoriza?' · uso autorizado para emissão de notas':'')+'</small></div><span class="tag '+NX.licStatus(cert.validade).c+'">'+NX.licStatus(cert.validade).t+'</span></div>':'<p class="help">Nenhum certificado enviado. Ele é necessário para emitir notas fiscais pelo portal.</p>')+
-    (tit?'<form id="cf" class="grid" style="margin-top:14px"><label>Arquivo do certificado (.pfx / .p12)<input type="file" name="arq" accept=".pfx,.p12" required></label><label>Senha do certificado<input type="password" name="senha" required autocomplete="new-password"></label><label>Validade (consta no certificado)<input type="date" name="validade" required></label><label style="grid-column:1/-1;flex-direction:row;align-items:center;gap:8px;color:var(--ink)"><input type="checkbox" name="autoriza" required style="width:auto;min-height:auto">Autorizo a NEXIO a usar este certificado exclusivamente para emitir notas fiscais e obrigações em nome da empresa.</label><div style="grid-column:1/-1" class="row between"><button class="btn b-blue">'+(cert?'Substituir certificado':'Enviar certificado')+'</button>'+(cert?'<button type="button" class="btn b-danger" id="rmcert">Remover certificado</button>':'')+'</div></form><p class="help" style="margin-top:8px;color:var(--warn)"><b>Protótipo:</b> por segurança, o arquivo e a senha NÃO são guardados aqui — só nome e validade. Na versão real ficam em cofre criptografado (AES-256), usados só pelo serviço de emissão, sem possibilidade de download por ninguém.</p>':'<p class="help">Somente o usuário Titular pode enviar ou trocar o certificado.</p>')+'</section>'+
-  '<div class="cols"><section class="card"><h2>Notas fiscais</h2><form id="nfc" class="grid"><label>Série do RPS/DPS<input name="serie" value="'+e(nf.serie)+'"></label><label>Próximo número<input name="proximo" type="number" min="1" value="'+e(nf.proximo)+'"></label><label style="grid-column:1/-1">Descrição padrão do serviço<textarea name="desc" placeholder="Ex.: Consulta médica">'+e(nf.desc)+'</textarea></label><label style="grid-column:1/-1">Enviar cópia das notas para (e-mail)<input name="copia" type="email" value="'+e(nf.copia)+'"></label><label style="grid-column:1/-1;flex-direction:row;align-items:center;gap:8px;color:var(--ink)"><input type="checkbox" name="enviarTomador" '+(nf.enviarTomador?'checked':'')+' style="width:auto;min-height:auto">Enviar a nota automaticamente ao e-mail do tomador</label><div><button class="btn b-blue">Salvar</button></div></form></section>'+
-  '<section class="card"><h2>Como quero receber avisos</h2><form id="ntc" style="display:flex;flex-direction:column;gap:10px">'+[['portal','No portal (sino)',true],['email','Por e-mail',false]].map(function(o){return '<label style="flex-direction:row;align-items:center;gap:8px;color:var(--ink);font-weight:500"><input type="checkbox" name="'+o[0]+'" '+(np[o[0]]?'checked':'')+(o[2]?' disabled':'')+' style="width:auto;min-height:auto">'+o[1]+'</label>';}).join('')+
-    '<p class="help">Você recebe: novos documentos e guias, lembretes de vencimento, guias vencidas, comunicados, mensagens e licenças vencendo.</p><div><button class="btn b-blue">Salvar</button></div></form></section></div>'+privacidadeHTML());bindPrivacidade();
-  var cf=document.getElementById('cf');if(cf)cf.onsubmit=function(ev){ev.preventDefault();var fd=new FormData(cf),file=fd.get('arq');if(!file||!/\.(pfx|p12)$/i.test(file.name)){NX.toast('Envie um arquivo .pfx ou .p12.');return;}
-    c.cert={nome:file.name,size:file.size,validade:fd.get('validade'),autoriza:!!fd.get('autoriza'),por:meU().nome,em:new Date().toISOString()};logCli('Enviou certificado digital',file.name+' (válido até '+NX.fdate(c.cert.validade)+')');persist();config();NX.toast('Certificado registrado.');};
-  var rc=document.getElementById('rmcert');if(rc)rc.onclick=function(){if(confirm('Remover o certificado? A emissão de notas ficará bloqueada.')){delete c.cert;logCli('Removeu certificado digital');persist();config();}};
-  document.getElementById('nfc').onsubmit=function(ev){ev.preventDefault();var fd=new FormData(ev.target);c.nfCfg={serie:fd.get('serie'),proximo:+fd.get('proximo')||1,desc:fd.get('desc'),copia:fd.get('copia'),enviarTomador:!!fd.get('enviarTomador')};logCli('Alterou configurações de notas');persist();NX.toast('Configurações de notas salvas.');};
-  document.getElementById('ntc').onsubmit=function(ev){ev.preventDefault();var fd=new FormData(ev.target);c.notifPref={portal:true,email:!!fd.get('email')};logCli('Alterou preferências de aviso');persist();NX.toast('Preferências salvas.');};
-}
-/* sino de notificações */
-function myNotifs(){return (db.notifs||[]).filter(function(n){return n.cliente===S.cid;}).sort(function(a,b){return a.em<b.em?1:-1;});}
-function bellHTML(){var n=myNotifs().filter(function(x){return !x.lida;}).length;return '<button class="btn b-line" id="bell" aria-label="Notificações'+(n?' ('+n+' novas)':'')+'" style="position:relative;min-height:40px;padding:0 12px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>'+(n?'<span style="position:absolute;top:-6px;right:-6px;background:var(--bad);color:#fff;border-radius:999px;font:700 11px Inter;padding:1px 6px">'+n+'</span>':'')+'</button>';}
-function bindBell(){var b=document.getElementById('bell');if(!b)return;b.onclick=function(ev){ev.stopPropagation();var old=document.getElementById('bellp');if(old){old.remove();return;}var l=myNotifs().slice(0,15),p=document.createElement('div');p.id='bellp';
-  p.style.cssText='position:absolute;right:0;top:46px;z-index:60;width:min(380px,90vw);background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 20px 50px rgba(14,26,69,.2);padding:10px;max-height:70vh;overflow:auto';
-  p.innerHTML='<div class="row between" style="padding:4px 6px 8px"><b>Notificações</b>'+(l.some(function(x){return !x.lida;})?'<button class="btn b-text" id="lerTudo" style="min-height:30px">Marcar todas como lidas</button>':'')+'</div>'+(l.length?l.map(function(n){return '<a href="'+(n.link||'#/inicio')+'" style="display:block;text-decoration:none;color:var(--ink);padding:10px;border-radius:10px;'+(n.lida?'':'background:var(--infob)')+'"><b style="font-size:14px">'+e(n.titulo)+'</b><small style="display:block;color:var(--muted)">'+e(n.texto)+'</small><small style="display:block;color:var(--muted);font-size:11px;margin-top:2px">'+NX.ftime(n.em)+'</small></a>';}).join(''):'<p class="empty">Nenhuma notificação.</p>');
-  b.parentNode.style.position='relative';b.parentNode.appendChild(p);
-  var lt=document.getElementById('lerTudo');if(lt)lt.onclick=function(e2){e2.stopPropagation();myNotifs().forEach(function(x){x.lida=true;});persist();render();};
-  p.querySelectorAll('a').forEach(function(a){a.onclick=function(){myNotifs().forEach(function(x){if(!x.lida&&a.getAttribute('href')===(x.link||'#/inicio'))x.lida=true;});persist();};});
-  setTimeout(function(){document.addEventListener('click',function h(e2){if(!p.contains(e2.target)){p.remove();document.removeEventListener('click',h);}});},0);};}
-/* ---------- NÍVEIS DO CLIENTE + MULTIEMPRESAS + REGISTRO DE ACESSOS ---------- */
-try{S.uid=sessionStorage.getItem('nx_cuser');}catch(x){}
-function meU(){return (db.cusers||[]).filter(function(u){return u.id===S.uid;})[0];}
-function nivel(){var u=meU();return u?u.nivel:'titular';}
-var ROTAS={titular:['inicio','arquivos','calendario','notas','financeiro','mensagens','usuarios','config'],financeiro:['inicio','arquivos','calendario','notas','financeiro','mensagens','config'],rh:['inicio','arquivos','calendario','mensagens','config'],notas:['inicio','notas','mensagens','config'],consulta:['inicio','arquivos','calendario','config']};
-function pode(r){return (ROTAS[nivel()]||[]).indexOf(r)>-1;}
-function setoresNivel(){var n=nivel();if(n==='rh')return ['Departamento Pessoal','Enviados pelo cliente'];if(n==='notas')return ['Notas fiscais'];if(n==='financeiro')return ['Fiscal','Contábil','Financeiro','Societário','Certidões','Notas fiscais','Enviados pelo cliente'];return null;}
-function logCli(acao,alvo){var u=meU();NX.log(db,{tipo:'cliente',quem:u?u.nome:'—',nivel:u?NX.NIV_CLI[u.nivel].nome:'',acao:acao,alvo:alvo||'',cliente:S.cid});}
-var _visivel=visivel;visivel=function(f){if(!_visivel(f))return false;var s=setoresNivel();return !s||s.indexOf(setorOf(f))>-1;};
-/* menu conforme nível + seletor de empresa */
-var _shellP=shell;shell=function(active,html){_shellP(active,html);var u=meU();
-  root.querySelectorAll('.side a.nav').forEach(function(a){var r=(a.getAttribute('href')||'').replace('#/','').replace('/financeiro/','financeiro');if(r&&!pode(r))a.remove();});
-  var last=[].slice.call(root.querySelectorAll('.side a.nav')).pop();
-  [['usuarios','Usuários'],['config','Configurações']].forEach(function(x){if(!pode(x[0])||!last)return;var a=document.createElement('a');a.className='nav';a.href='#/'+x[0];a.textContent=x[1];if(active===x[0])a.setAttribute('aria-current','page');last.parentNode.insertBefore(a,last.nextSibling);last=a;});
-  var ph=root.querySelector('.page-h');if(ph){var w=document.createElement('div');w.innerHTML=bellHTML();ph.appendChild(w);bindBell();}
-  if(u&&u.empresas.length>1){var role=root.querySelector('.side .role');var w=document.createElement('label');w.style.cssText='color:#fff;margin:0 8px 12px;font-size:12px;gap:4px';w.innerHTML='Empresa<select id="emp" style="min-height:38px;font-size:13px;padding:6px 8px;color:var(--ink)">'+u.empresas.map(function(id){var c=db.clients.filter(function(x){return x.id===id;})[0];return c?'<option value="'+id+'"'+(id===S.cid?' selected':'')+'>'+e(c.nome)+'</option>':'';}).join('')+'</select>';role.parentNode.insertBefore(w,role.nextSibling);
-    w.querySelector('select').onchange=function(ev){S.cid=ev.target.value;try{sessionStorage.setItem('nx_client',S.cid);}catch(x){}S.xp={};logCli('Trocou de empresa');persist();location.hash='#/inicio';render();};}
-  var ft=root.querySelector('.side .foot span');if(ft&&u)ft.textContent=u.nome+' · '+NX.NIV_CLI[u.nivel].nome;
-  NX.applySide();};
-/* usuários da empresa (titular) */
-function usuariosEmp(){var c=me(),l=(db.cusers||[]).filter(function(u){return u.empresas.indexOf(S.cid)>-1;});
-  shell('usuarios',head('Usuários da empresa','Quem da '+e(c.nome)+' acessa o portal e o que cada um pode fazer.')+'<section class="card"><div class="row between" style="margin-bottom:12px"><h2 style="margin:0">Usuários</h2><button class="btn b-blue" id="nu">+ Convidar usuários</button></div>'+
-  l.map(function(u){return '<div class="list-item"><div><b>'+e(u.nome)+(u.id===S.uid?' (você)':'')+'</b><small>'+e(u.email)+' · '+NX.NIV_CLI[u.nivel].nome+' — '+NX.NIV_CLI[u.nivel].desc+(u.empresas.length>1?' · acessa '+u.empresas.length+' empresas':'')+'</small></div>'+(u.id===S.uid?'':'<div class="row"><select data-nv="'+u.id+'" aria-label="Nível de '+e(u.nome)+'" style="width:auto;min-height:36px">'+Object.keys(NX.NIV_CLI).map(function(k){return '<option value="'+k+'"'+(u.nivel===k?' selected':'')+'>'+NX.NIV_CLI[k].nome+'</option>';}).join('')+'</select><button class="btn b-text" data-rmu="'+u.id+'" style="color:var(--bad)">Remover acesso</button></div>')+'</div>';}).join('')+'</section>'+
-  '<section class="card"><h2>Níveis de acesso</h2>'+Object.keys(NX.NIV_CLI).map(function(k){return '<div class="list-item"><div><b>'+NX.NIV_CLI[k].nome+'</b><small>'+NX.NIV_CLI[k].desc+'</small></div></div>';}).join('')+'</section>');
-  root.querySelectorAll('[data-nv]').forEach(function(s){s.onchange=function(){var u=db.cusers.filter(function(x){return x.id===s.getAttribute('data-nv');})[0];u.nivel=s.value;logCli('Alterou nível de usuário',u.nome+' → '+NX.NIV_CLI[u.nivel].nome);persist();NX.toast('Nível atualizado.');};});
-  root.querySelectorAll('[data-rmu]').forEach(function(b){b.onclick=function(){var u=db.cusers.filter(function(x){return x.id===b.getAttribute('data-rmu');})[0];if(!confirm('Remover o acesso de '+u.nome+' a esta empresa?'))return;u.empresas=u.empresas.filter(function(id){return id!==S.cid;});if(!u.empresas.length)db.cusers=db.cusers.filter(function(x){return x.id!==u.id;});logCli('Removeu acesso de usuário',u.nome);persist();usuariosEmp();};});
-  document.getElementById('nu').onclick=function(){var d=document.getElementById('pdlg'),F=NX.multiUserForm();d.style.maxWidth='860px';
-    d.innerHTML='<form style="padding:24px;display:flex;flex-direction:column;gap:14px"><h2 style="color:var(--blue2);font-size:20px">Convidar usuários</h2><p class="help">Cadastre várias pessoas de uma vez e escolha o nível de cada uma.</p>'+F.html+'<div class="row between"><button type="button" class="btn b-line" id="pdc">Cancelar</button><button class="btn b-blue">Salvar</button></div></form>';
-    F.bind(d);d.querySelector('#pdc').onclick=function(){d.close();};
-    d.querySelector('form').onsubmit=function(ev){ev.preventDefault();var r=F.read(new FormData(ev.target));if(r.erro){NX.toast(r.erro);return;}var s=F.save(db,r.lista,S.cid);
-      logCli('Convidou usuários',r.lista.map(function(x){return x.nome+' ('+NX.NIV_CLI[x.nivel].nome+')';}).join(', '));persist();d.close();d.style.maxWidth='';usuariosEmp();NX.toast(s.novos+' usuário(s) criado(s)'+(s.vinc?' e '+s.vinc+' vinculado(s)':'')+'.');};d.showModal();};}
-/* escolha de empresa (multiempresas) */
-function escolherEmpresa(u){root.innerHTML='<div class="login"><div class="box"><a class="logo" href="/"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a><h1>Olá, '+e(u.nome.split(' ')[0])+'!</h1><p class="help">Você tem acesso a '+u.empresas.length+' empresas. Escolha qual deseja acessar:</p>'+
-  u.empresas.map(function(id){var c=db.clients.filter(function(x){return x.id===id;})[0];return c?'<button class="btn b-line" data-ce="'+id+'" style="justify-content:flex-start;text-align:left;min-height:56px"><span><b>'+e(c.nome)+'</b><small style="display:block;color:var(--muted);font-weight:400">'+e(c.doc)+' · '+e(c.plano)+'</small></span></button>':'';}).join('')+'</div></div>';
-  root.querySelectorAll('[data-ce]').forEach(function(b){b.onclick=function(){S.cid=b.getAttribute('data-ce');try{sessionStorage.setItem('nx_client',S.cid);}catch(x){}logCli('Entrou no portal (escolheu empresa)');persist();location.hash='#/inicio';render();};});}
-function render(){db=NX.load();if(NX.ensureUsers(db))persist();if(NX.runReminders(db))persist();var u=meU();if(!u){login();return;}if(!u.aceite||u.aceite.v!==TERMOS_V){aceiteTela(u);return;}if(!S.cid||u.empresas.indexOf(S.cid)<0||!me()){if(u.empresas.length===1){S.cid=u.empresas[0];}else{escolherEmpresa(u);return;}}var r=route();if(!pode(r)){location.hash='#/'+(ROTAS[nivel()][0]);return;}if(r==='usuarios'){usuariosEmp();return;}if(r==='config'){config();return;}
-  if(r==='arquivos')arquivos();else if(r==='calendario')calendario();else if(r==='mensagens')mensagens();else if(r==='financeiro')financeiro();else if(r==='notas')notas();else inicio();}
-window.addEventListener('hashchange',render);
-window.NX_onSync=function(){if(route()==='financeiro'||route()==='notas')return;if(document.activeElement.tagName!=='INPUT')render();};
-render();
+(function(){var K='nx_last_cli',LIM=30*60*1000,t=function(){try{sessionStorage.setItem(K,Date.now());}catch(x){}};['click','keydown','scroll','touchstart'].forEach(function(ev){document.addEventListener(ev,t,{passive:true});});t();
+  setInterval(function(){if(S.emp&&Date.now()-(+(sessionStorage.getItem(K)||0))>LIM){acesso('Sessão encerrada por inatividade');sair();toast('Sua sessão expirou por inatividade. Entre novamente.');}},30000);})();
+
+iniciar();
 })();
 </script>
 </body>
