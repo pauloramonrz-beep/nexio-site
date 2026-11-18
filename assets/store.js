@@ -212,11 +212,11 @@ NX.multiUserForm=function(){var row=function(i){return '<div class="mu-row" styl
     var ef=((t.rbt12*f[1]/100)-f[2])/t.rbt12*100;return {anexo:anexo,fatorR:fr,aliq:Math.max(ef,0),faixa:i+1,nominal:f[1],deduzir:f[2]};};
   NX.LICENCAS=['Alvará de funcionamento','Alvará sanitário (Vigilância Sanitária)','Registro no conselho de classe (CRM/CRO/CREFITO)','Certificado do Corpo de Bombeiros','Licença ambiental','Certificado digital (e-CNPJ A1)','Outro'];
   NX.licStatus=function(v){if(!v)return {t:'Sem validade',c:'info'};var d=Math.round((new Date(v+'T12:00:00')-new Date())/864e5);if(d<0)return {t:'Vencida há '+(-d)+' dia(s)',c:'bad'};if(d<=30)return {t:'Vence em '+d+' dia(s)',c:'warn'};return {t:'Vigente',c:'ok'};};
-  /* notificações: grava no portal + simula e-mail/WhatsApp conforme preferências do cliente */
+  /* notificações: grava no portal + simula e-mail conforme preferências do cliente */
   NX.EVENTOS={doc:'Novo documento ou guia',venc:'Lembrete de vencimento',vencida:'Guia vencida',comunicado:'Comunicado do escritório',msg:'Nova mensagem',licenca:'Licença ou certificado vencendo',nota:'Nota fiscal emitida'};
   NX.notify=function(db,cid,ev,titulo,texto,link){db.notifs=db.notifs||[];db.notifCfg=db.notifCfg||{regras:{doc:1,venc:1,vencida:1,comunicado:1,msg:1,licenca:1,nota:1},dias:3};
     if(!db.notifCfg.regras[ev])return null;var c=(db.clients||[]).filter(function(x){return x.id===cid;})[0];if(!c)return null;
-    var pref=c.notifPref||{portal:true,email:true,whats:false},canais=['portal'].concat(pref.email?['email']:[]).concat(pref.whats?['whatsapp']:[]);
+    var pref=c.notifPref||{portal:true,email:true,whats:false},canais=['portal'].concat(pref.email?['email']:[]);
     var n={id:NX.uid(),cliente:cid,ev:ev,titulo:titulo,texto:texto||'',link:link||'',em:new Date().toISOString(),lida:false,canais:canais,status:'enviado (simulação)'};
     db.notifs.push(n);if(db.notifs.length>3000)db.notifs.splice(0,db.notifs.length-3000);return n;};
   /* lembretes automáticos de vencimento (rodar ao abrir o painel/portal) */
