@@ -126,7 +126,7 @@
   var IC={'Início':'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z','Painel':'M3 3h8v8H3zM13 3h8v5h-8zM13 10h8v11h-8zM3 13h8v8H3z','Clientes':'M16 20v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 20v-1a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8',
    'Documentos':'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z','Obrigações':'M7 3v3M17 3v3M4 8h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM9 14l2 2 4-4',
    'Notas fiscais':'M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM14 3v5h5M9 13h6M9 17h6','Controle financeiro':'M4 19V5M4 19h16M8 15l4-4 3 3 5-6','Mensagens':'M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z',
-   'Processos':'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2 2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2M9 13l2 2 4-4','Comunicações':'M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1zM16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12','Agenda da equipe':'M7 3v3M17 3v3M4 8h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM8 12h3M8 16h3M13 12h3'};
+   'Processos':'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2 2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2M9 13l2 2 4-4','Configurações':'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z','Usuários':'M16 20v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M19 8v6M22 11h-6','Controle contábil':'M4 4h16v16H4zM4 9h16M9 9v11M14 9v11','Guias em lote':'M4 4h10l6 6v10H4zM14 4v6h6M8 14h8M8 17h5','Notificações':'M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0','Comunicações':'M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1zM16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12','Agenda da equipe':'M7 3v3M17 3v3M4 8h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM8 12h3M8 16h3M13 12h3'};
   function svg(d,sz){return '<svg width="'+(sz||20)+'" height="'+(sz||20)+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+d+'"/></svg>';}
   var TOG='M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM9 5v14';
   NX.sideToggleHTML=function(){return '<button class="side-toggle" id="sideT" title="'+(isMin()?'Expandir menu':'Recolher menu')+'" aria-label="'+(isMin()?'Expandir menu':'Recolher menu')+'" aria-expanded="'+(!isMin())+'">'+svg(TOG,18)+'</button>';};
@@ -195,3 +195,35 @@ NX.multiUserForm=function(){var row=function(i){return '<div class="mu-row" styl
     save:function(db,lista,cid){var novos=0,vinc=0;lista.forEach(function(p){var ex=(db.cusers||[]).filter(function(x){return x.email.toLowerCase()===p.email.toLowerCase();})[0];
       if(ex){if(ex.empresas.indexOf(cid)<0){ex.empresas.push(cid);vinc++;}}else{db.cusers.push({id:NX.uid(),nome:p.nome,email:p.email,senha:p.senha,nivel:p.nivel,empresas:[cid]});novos++;}});return {novos:novos,vinc:vinc};}};
 };
+/* ---- tributação (Simples Nacional: anexos e fator R), licenças e notificações ---- */
+(function(){
+  // [limite superior da faixa RBT12, alíquota nominal %, parcela a deduzir R$] — LC 123/2006
+  NX.ANEXOS={
+    'I':[[180000,4,0],[360000,7.3,5940],[720000,9.5,13860],[1800000,10.7,22500],[3600000,14.3,87300],[4800000,19,378000]],
+    'II':[[180000,4.5,0],[360000,7.8,5940],[720000,10,13860],[1800000,11.2,22500],[3600000,14.7,85500],[4800000,30,720000]],
+    'III':[[180000,6,0],[360000,11.2,9360],[720000,13.5,17640],[1800000,16,35640],[3600000,21,125640],[4800000,33,648000]],
+    'IV':[[180000,4.5,0],[360000,9,8100],[720000,10.2,12420],[1800000,14,39780],[3600000,22,183780],[4800000,33,828000]],
+    'V':[[180000,15.5,0],[360000,18,4500],[720000,19.5,9900],[1800000,20.5,17100],[3600000,23,62100],[4800000,30.5,540000]]};
+  NX.REGIMES={MEI:'MEI',SN:'Simples Nacional',LP:'Lucro Presumido',LR:'Lucro Real',PF:'Pessoa Física (carnê-leão)'};
+  /* t = {regime, anexo, fatorR:bool, rbt12, folha12} -> {anexo, fatorR, aliqEfetiva, faixa} */
+  NX.calcSimples=function(t){if(!t||t.regime!=='SN'||!(t.rbt12>0))return null;var anexo=t.anexo||'III',fr=null;
+    if(t.fatorR){fr=(t.folha12||0)/t.rbt12;anexo=fr>=0.28?'III':'V';}
+    var tab=NX.ANEXOS[anexo];if(!tab)return null;var i=0;while(i<tab.length-1&&t.rbt12>tab[i][0])i++;var f=tab[i];
+    var ef=((t.rbt12*f[1]/100)-f[2])/t.rbt12*100;return {anexo:anexo,fatorR:fr,aliq:Math.max(ef,0),faixa:i+1,nominal:f[1],deduzir:f[2]};};
+  NX.LICENCAS=['Alvará de funcionamento','Alvará sanitário (Vigilância Sanitária)','Registro no conselho de classe (CRM/CRO/CREFITO)','Certificado do Corpo de Bombeiros','Licença ambiental','Certificado digital (e-CNPJ A1)','Outro'];
+  NX.licStatus=function(v){if(!v)return {t:'Sem validade',c:'info'};var d=Math.round((new Date(v+'T12:00:00')-new Date())/864e5);if(d<0)return {t:'Vencida há '+(-d)+' dia(s)',c:'bad'};if(d<=30)return {t:'Vence em '+d+' dia(s)',c:'warn'};return {t:'Vigente',c:'ok'};};
+  /* notificações: grava no portal + simula e-mail/WhatsApp conforme preferências do cliente */
+  NX.EVENTOS={doc:'Novo documento ou guia',venc:'Lembrete de vencimento',vencida:'Guia vencida',comunicado:'Comunicado do escritório',msg:'Nova mensagem',licenca:'Licença ou certificado vencendo',nota:'Nota fiscal emitida'};
+  NX.notify=function(db,cid,ev,titulo,texto,link){db.notifs=db.notifs||[];db.notifCfg=db.notifCfg||{regras:{doc:1,venc:1,vencida:1,comunicado:1,msg:1,licenca:1,nota:1},dias:3};
+    if(!db.notifCfg.regras[ev])return null;var c=(db.clients||[]).filter(function(x){return x.id===cid;})[0];if(!c)return null;
+    var pref=c.notifPref||{portal:true,email:true,whats:false},canais=['portal'].concat(pref.email?['email']:[]).concat(pref.whats?['whatsapp']:[]);
+    var n={id:NX.uid(),cliente:cid,ev:ev,titulo:titulo,texto:texto||'',link:link||'',em:new Date().toISOString(),lida:false,canais:canais,status:'enviado (simulação)'};
+    db.notifs.push(n);if(db.notifs.length>3000)db.notifs.splice(0,db.notifs.length-3000);return n;};
+  /* lembretes automáticos de vencimento (rodar ao abrir o painel/portal) */
+  NX.runReminders=function(db){db.notifCfg=db.notifCfg||{regras:{doc:1,venc:1,vencida:1,comunicado:1,msg:1,licenca:1,nota:1},dias:3};var t=NX.today(),lim=new Date();lim.setDate(lim.getDate()+(db.notifCfg.dias||3));lim=lim.toISOString().slice(0,10);var n=0;
+    (db.files||[]).forEach(function(f){if(f.deleted||f.tipo!=='Guia'||f.status==='pago'||!f.venc)return;f.lemb=f.lemb||{};
+      if(f.venc>=t&&f.venc<=lim&&!f.lemb.venc){if(NX.notify(db,f.cliente,'venc','Guia vence em '+NX.fdate(f.venc),f.titulo+(f.valor?' — '+NX.brl(f.valor):''),'#/arquivos'))n++;f.lemb.venc=1;}
+      if(f.venc<t&&!f.lemb.vencida){if(NX.notify(db,f.cliente,'vencida','Guia vencida',f.titulo+' venceu em '+NX.fdate(f.venc)+'. Fale com a NEXIO para emitir uma nova.','#/arquivos'))n++;f.lemb.vencida=1;}});
+    (db.clients||[]).forEach(function(c){(c.licencas||[]).forEach(function(l){var s=NX.licStatus(l.validade);l.lemb=l.lemb||{};if((s.c==='warn'||s.c==='bad')&&!l.lemb[s.c]){if(NX.notify(db,c.id,'licenca',l.tipo+': '+s.t,'Providencie a renovação. Validade: '+NX.fdate(l.validade),'#/config'))n++;l.lemb[s.c]=1;}});});
+    return n;};
+})();
