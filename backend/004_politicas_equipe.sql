@@ -25,3 +25,6 @@ begin
      and (k = 'pastas' or nivel_cli(p_empresa) in ('titular','financeiro'));
   update empresas set dados = dados || permitido where id = p_empresa;
 end $$;
+
+-- notas: emissor padrão = usuário logado
+alter table nfse alter column emitida_por set default auth.uid();
