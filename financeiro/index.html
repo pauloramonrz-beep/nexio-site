@@ -65,6 +65,8 @@ td select{min-height:36px;padding:6px 8px;font-size:13px}
   #print th{background:#EEF2FF}#print .sum{display:flex;gap:24px;margin:10px 0 16px}
 }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="/assets/auth.js"></script>
 <script>
 (function(){var cid=null;try{cid=sessionStorage.getItem('nx_client');}catch(e){}
 if(!cid){(window.top||window).location.href='/portal/';return;}
@@ -176,7 +178,9 @@ var CATS_OUT=['Fornecedores','Aluguel','Folha e encargos','Pró-labore','Imposto
 var KEY='nexio_fin_v1_'+(window.NX_FIN_CID||'x');
 var st={emp:{},items:[],mes:''};
 function load(){try{var p=JSON.parse(localStorage.getItem('nexio_portal_v1')||'null');if(p){var c=(p.clients||[]).filter(function(x){return x.id===window.NX_FIN_CID;})[0];if(c){st.emp.nome=st.emp.nome||c.nome;st.emp.doc=st.emp.doc||c.doc;}}}catch(e){}try{var d=JSON.parse(localStorage.getItem(KEY)||'null');if(d){st.emp=Object.assign(st.emp,d.emp||{});st.items=d.items||[];}}catch(e){}}
-function save(){try{localStorage.setItem(KEY,JSON.stringify({emp:st.emp,items:st.items}));}catch(e){}}
+var REAL=/^[0-9a-f-]{36}$/i.test(window.NX_FIN_CID||'')&&window.NXA&&NXA.ok,tSave=null;
+function save(){try{localStorage.setItem(KEY,JSON.stringify({emp:st.emp,items:st.items}));}catch(e){}
+  if(REAL){clearTimeout(tSave);tSave=setTimeout(function(){NXA.sb.from('financeiro').upsert({empresa_id:window.NX_FIN_CID,dados:{emp:st.emp,items:st.items},atualizado_em:new Date().toISOString()}).then(function(r){if(r.error)toast('Não foi possível salvar no servidor: '+r.error.message);});},700);}}
 function $(id){return document.getElementById(id);}
 function num(v){if(typeof v==='number')return v;v=String(v||'').trim().replace(/[R$\s]/g,'');if(/,\d{1,2}$/.test(v))v=v.replace(/\./g,'').replace(',','.');else v=v.replace(/,/g,'');var n=parseFloat(v);return isNaN(n)?0:n;}
 function brl(n){return n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
@@ -290,6 +294,7 @@ $('b_demo').addEventListener('click',function(){var m=new Date();var ym=m.getFul
 $('b_clear').addEventListener('click',function(){if(!confirm('Apagar todos os lançamentos?'))return;st={emp:{},items:[],mes:''};save();render();toast('Dados apagados.');});
 
 load();var t=new Date();$('n_data').value=t.toISOString().slice(0,10);st.mes=st.mes||t.toISOString().slice(0,7);fillCats();render();
+if(REAL)NXA.sb.from('financeiro').select('dados').eq('empresa_id',window.NX_FIN_CID).maybeSingle().then(function(r){if(r.error){toast('Sem acesso ao controle financeiro desta empresa.');return;}if(r.data&&r.data.dados){st.emp=Object.assign(st.emp,r.data.dados.emp||{});st.items=r.data.dados.items||[];try{localStorage.setItem(KEY,JSON.stringify({emp:st.emp,items:st.items}));}catch(e){}render();}else if(st.items.length){save();}});
 })();
 </script>
 <style>.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}</style>

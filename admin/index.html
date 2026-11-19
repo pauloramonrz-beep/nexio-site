@@ -19,11 +19,12 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="/assets/store.js"></script>
 <script src="/assets/auth.js"></script>
+<script src="/assets/sync.js"></script>
 <script src="/assets/explorer.js"></script>
 <script>
 (function(){
 var db=NX.load(), e=NX.esc, S={sel:null,tab:'arquivos',month:NX.ym(),user:null};
-try{S.user=JSON.parse(sessionStorage.getItem('nx_staff')||'null');}catch(x){}if(S.user&&!S.user.real&&!/[?&]demo=1/.test(location.search)&&window.NXA&&NXA.ok)S.user=null;
+try{S.user=JSON.parse(sessionStorage.getItem('nx_staff')||'null');}catch(x){}if(S.user&&!S.user.real&&!/[?&]demo=1/.test(location.search)&&window.NXA&&NXA.ok)S.user=null;if(S.user&&S.user.real){NX.realMode=true;NX.useKey('nexio_real_'+S.user.id);}
 if(S.user&&S.user.real&&window.NXA&&NXA.ok)NXA.sb.auth.getSession().then(function(r){if(!(r.data&&r.data.session)){S.user=null;try{sessionStorage.removeItem('nx_staff');}catch(x){}render();}});
 var root=document.getElementById('root');
 function persist(){try{autoNotify();}catch(x){}return NX.save(db);}
@@ -36,10 +37,14 @@ function route(){return (location.hash.replace('#/','')||'painel').split('/');}
 var DEMO=/[?&]demo=1/.test(location.search);
 function loginBox(inner){root.innerHTML='<div class="login"><div class="box" style="max-width:440px"><a class="logo" href="/"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a>'+inner+'</div></div>';}
 function entrarComPerfil(p){if(p&&p.tipo==='cliente'){location.replace('/portal/');return;}if(!p||p.tipo!=='equipe'||!p.ativo){NXA.sair();loginBox('<h1>Acesso não liberado</h1><p class="help" style="font-size:15px;color:var(--ink)">Seu usuário ainda não tem acesso ao Painel da Equipe. Fale com o Administrador.</p><button class="btn b-blue" onclick="location.href=\'/admin/\'">Voltar</button>');return;}
-  NX.ensureUsers(db);var st=db.staff.filter(function(s){return String(s.email).toLowerCase()===String(p.email).toLowerCase();})[0];
-  if(!st){st={id:'eq_'+p.id.slice(0,8),nome:p.nome,email:p.email,nivel:p.nivel_eq||'analista',setor:p.setor_eq||'',diretor:p.nivel_eq==='admin'};db.staff.push(st);}else{st.nivel=p.nivel_eq||st.nivel;st.nome=p.nome||st.nome;}
-  S.user={id:st.id,nome:st.nome,email:st.email,real:true};NX.log(db,{tipo:'equipe',quem:st.nome,nivel:NX.NIV_EQ[st.nivel].nome,acao:'Entrou no painel (login real)'});persist();NXA.acesso('Entrou no painel');
-  try{sessionStorage.setItem('nx_staff',JSON.stringify(S.user));}catch(x){}history.replaceState(null,'','/admin/#/reais');render();}
+  S.user={id:p.id,nome:p.nome,email:p.email,real:true};try{sessionStorage.setItem('nx_staff',JSON.stringify(S.user));}catch(x){}
+  NXA.acesso('Entrou no painel');history.replaceState(null,'','/admin/#/painel');abrirReal();}
+function abrirReal(){loginBox('<h1>Painel da equipe</h1><p class="help">Carregando dados do escritório…</p>');
+  NXS.carregarEquipe().then(function(d){NXS.iniciar('nexio_real_'+S.user.id,d);db=NX.load();
+    if(!staffBy(S.user.id)){loginBox('<h1>Acesso não liberado</h1><p class="help">Seu usuário não está ativo na equipe.</p>');return;}
+    var novo=!db.procT;ensureProc();if(novo)db.tasks=db.tasks.filter(function(t){return t.tipo==='cliente';});persist();render();
+  }).catch(function(err){loginBox('<h1>Erro ao carregar</h1><p class="help" style="font-size:15px;color:var(--ink)">'+e(String(err.message||err))+'</p><button class="btn b-blue" onclick="location.reload()">Tentar de novo</button>');});}
+window.addEventListener('focus',function(){if(S.user&&S.user.real&&NXS.modo&&!document.querySelector('dialog[open]')&&!(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)))NXS.atualizar(function(){render();});});
 function telaSenhaNova(tipo){loginBox('<h1>'+(tipo==='recovery'?'Nova senha':'Crie sua senha')+'</h1><p class="help" style="font-size:15px;color:var(--ink)">Use pelo menos 10 caracteres, misturando letras, números e símbolos. Não reutilize senhas de outros serviços.</p><form id="nsf"><label>Nova senha<input type="password" id="ns1" minlength="10" required autocomplete="new-password"></label><label>Repita a senha<input type="password" id="ns2" minlength="10" required autocomplete="new-password"></label><button class="btn b-blue">Salvar senha e entrar</button><p class="help" id="nserr" role="alert" style="color:var(--bad)"></p></form>');
   document.getElementById('nsf').onsubmit=function(ev){ev.preventDefault();var a=document.getElementById('ns1').value,b=document.getElementById('ns2').value,er=document.getElementById('nserr');if(a!==b){er.textContent='As senhas não conferem.';return;}if(a.length<10){er.textContent='Use pelo menos 10 caracteres.';return;}
     er.textContent='Salvando…';NXA.sb.auth.updateUser({password:a}).then(function(r){if(r.error){er.textContent='Não foi possível salvar: '+r.error.message;return;}NXA.acesso(tipo==='recovery'?'Redefiniu a senha':'Criou a senha (convite)');NXA.tipoLink=null;NXA.perfil().then(entrarComPerfil);});};}
@@ -72,7 +77,7 @@ function loginDemo(){
 
 /* ---------- LAYOUT ---------- */
 function shell(active,html){
-  var nav=(S.user&&S.user.real)?[['reais','Clientes',0],['painel','Painel',0],['processos','Processos',0],['contabil','Controle contábil',0],['agenda','Agenda da equipe',0],['obrigacoes','Obrigações',0]]:([['painel','Painel',0],['clientes','Clientes',newDocs()],['processos','Processos',0],['contabil','Controle contábil',0],['documentos','Documentos',0],['mensagens','Mensagens',unread()],['comunicacoes','Comunicações',0],['lote','Guias em lote',0],['notificacoes','Notificações',0],['lgpd','Privacidade (LGPD)',(db.lgpd||[]).filter(function(r){return r.status!=='concluida';}).length],['agenda','Agenda da equipe',0],['obrigacoes','Obrigações',0]]);
+  var nav=([['painel','Painel',0],['clientes','Clientes',newDocs()],['processos','Processos',0],['contabil','Controle contábil',0],['documentos','Documentos',0],['mensagens','Mensagens',unread()],['comunicacoes','Comunicações',0],['lote','Guias em lote',0],['notificacoes','Notificações',0],['lgpd','Privacidade (LGPD)',(db.lgpd||[]).filter(function(r){return r.status!=='concluida';}).length],['agenda','Agenda da equipe',0],['obrigacoes','Obrigações',0]]);
   root.innerHTML='<div class="app"><aside class="side"><a class="logo" href="#/painel"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a><div class="role">Painel da equipe</div>'+NX.sideToggleHTML()+
   nav.map(function(n){return '<a class="nav" href="#/'+n[0]+'"'+(active===n[0]?' aria-current="page"':'')+'>'+n[1]+(n[2]?'<span class="cnt">'+n[2]+'</span>':'')+'</a>';}).join('')+
   '<div class="foot"><span>'+e(S.user.nome)+'</span>'+(S.user.real?'<a href="/portal/" target="_blank" rel="noopener">Abrir portal do cliente</a>':'<a href="/portal/demo/" target="_blank" rel="noopener">Ver portal do cliente (demo)</a><a href="#" id="reset">Restaurar dados de exemplo</a>')+'<a href="#" id="logout">Sair</a></div></aside><main class="main">'+html+'</main></div>';
@@ -80,7 +85,7 @@ function shell(active,html){
   document.getElementById('logout').onclick=function(ev){ev.preventDefault();logEq('Saiu do painel');persist();if(S.user&&S.user.real)NXA.acesso('Saiu do painel');S.user=null;try{sessionStorage.removeItem('nx_staff');}catch(x){}NXA.sair().then(function(){render();});};
   var rs=document.getElementById('reset');if(rs)rs.onclick=function(ev){ev.preventDefault();if(confirm('Apagar tudo e restaurar os dados de exemplo?')){db=NX.seed();persist();render();NX.toast('Dados de exemplo restaurados.');}};
 }
-function head(t,sub,right){return '<div class="page-h"><div><h1>'+t+'</h1>'+(sub?'<p>'+sub+'</p>':'')+'</div><div class="row">'+(right||'')+(S.user&&S.user.real?(route()[0]==='reais'?'':'<span class="badge-proto" title="Este módulo ainda grava só neste navegador. Em breve no banco de dados.">Salvo neste navegador</span>'):'<span class="badge-proto">Protótipo</span>')+'</div></div>';}
+function head(t,sub,right){return '<div class="page-h"><div><h1>'+t+'</h1>'+(sub?'<p>'+sub+'</p>':'')+'</div><div class="row">'+(right||'')+(S.user&&S.user.real?'':'<span class="badge-proto">Protótipo</span>')+'</div></div>';}
 
 /* ---------- PAINEL ---------- */
 function painel(){
@@ -119,7 +124,7 @@ function clientes(id){
   el.innerHTML='<div class="row between" style="margin-bottom:12px"><div><h2 style="margin:0">'+e(c.nome)+'</h2><p class="help">'+e(c.doc)+' · '+e(c.plano)+' · '+e(c.resp)+'</p></div></div>'+
   '<div class="tabs" role="tablist">'+tabs.map(function(t){return '<button role="tab" data-t="'+t[0]+'" aria-selected="'+(S.tab===t[0])+'">'+t[1]+'</button>';}).join('')+'</div><div id="tabc"></div>';
   el.querySelectorAll('[data-t]').forEach(function(b){b.onclick=function(){S.tab=b.getAttribute('data-t');clientes(S.sel);};});
-  ({arquivos:tabArquivos,obrigacoes:tabObrig,mensagens:tabMsgs,dados:tabFicha,usuarios:tabUsers})[S.tab](c,document.getElementById('tabc'));
+  ({arquivos:tabArquivos,obrigacoes:tabObrig,mensagens:tabMsgs,dados:tabFicha,usuarios:(S.user&&S.user.real)?function(c,el){rUsuarios({id:c.id,razao_social:c.nome},el);}:tabUsers})[S.tab](c,document.getElementById('tabc'));
 }
 /* ---------- DOCUMENTOS (espelhado no Onvio Documentos) ---------- */
 var SETORES=['Fiscal','Departamento Pessoal','Contábil','Financeiro','Societário','Certidões','Notas fiscais','Enviados pelo cliente','Administrativo (interno)'];
@@ -808,7 +813,7 @@ var _shell=shell;shell=function(active,html){
   _shell(active,html);
   root.querySelectorAll('.side a.nav').forEach(function(a){var r=(a.getAttribute('href')||'').replace('#/','');if(!navAllowed(r))a.remove();});
   var last=[].slice.call(root.querySelectorAll('.side a.nav')).pop();
-  [['usuarios','Usuários'],['acessos','Registro de acessos']].forEach(function(x){if(!navAllowed(x[0])||!last||(S.user&&S.user.real))return;var a=document.createElement('a');a.className='nav';a.href='#/'+x[0];a.textContent=x[1];if(active===x[0])a.setAttribute('aria-current','page');last.parentNode.insertBefore(a,last.nextSibling);last=a;});
+  [['usuarios','Usuários'],['acessos','Registro de acessos']].forEach(function(x){if(!navAllowed(x[0])||!last)return;var a=document.createElement('a');a.className='nav';a.href='#/'+x[0];a.textContent=x[1];if(active===x[0])a.setAttribute('aria-current','page');last.parentNode.insertBefore(a,last.nextSibling);last=a;});
   var ft=root.querySelector('.side .foot span');if(ft)ft.textContent=meStaff().nome+' · '+NX.NIV_EQ[lvl()].nome;
   NX.applySide();
 };
@@ -820,7 +825,7 @@ var _setStatusUI=function(t,k){if(!canStatus(t)){NX.toast('Seu nível de acesso 
 
 /* ---- Usuários (admin) ---- */
 S.us=S.us||{tab:'eq'};
-function usuarios(){NX.ensureUsers(db);var U=S.us;
+function usuarios(){if(S.user&&S.user.real){return rEquipe();}NX.ensureUsers(db);var U=S.us;
   shell('usuarios',head('Usuários e níveis de acesso','Equipe do escritório e usuários dos clientes.','<button class="btn b-blue" id="addu">+ Novo usuário</button>')+
   '<section class="card"><div class="tabs" role="tablist"><button role="tab" data-ut="eq" aria-selected="'+(U.tab==='eq')+'">Equipe do escritório</button><button role="tab" data-ut="cli" aria-selected="'+(U.tab==='cli')+'">Usuários dos clientes</button><button role="tab" data-ut="niv" aria-selected="'+(U.tab==='niv')+'">Níveis</button></div><div id="uc"></div></section>');
   root.querySelectorAll('[data-ut]').forEach(function(b){b.onclick=function(){U.tab=b.getAttribute('data-ut');usuarios();};});
@@ -868,7 +873,7 @@ function seedFicha(){if(db.fichaV)return;db.fichaV=1;var c=db.clients[0],d=funct
   var c2=db.clients[1];if(c2)c2.trib=c2.trib||{regime:'MEI',anexo:'III',fatorR:false,rbt12:0,folha12:0,iss:0,issRet:false,lc116:'',mun:'Manaus/AM'};
   var c3=db.clients[2];if(c3)c3.trib=c3.trib||{regime:'PF',anexo:'III',fatorR:false,rbt12:0,folha12:0,iss:0,lc116:'04.01',mun:'Manaus/AM'};persist();}
 document.addEventListener('click',function(ev){if(ev.target.closest&&ev.target.closest('[data-fic]'))S.tab='dados';},true);
-function render(){db=NX.load();if(NX.ensureUsers(db))persist();if(purgeLixeira())persist();seedFicha();if(!S.user){login();return;}if(!staffBy(S.user.id)){S.user=null;login();return;}var r=route();if(S.user.real){prepararReal();if(!R.sync){root.innerHTML='<div class="login"><div class="box"><p class="help">Carregando seus clientes…</p></div></div>';syncClientes(render);return;}if(r[0]==='clientes'){location.hash='#/reais'+(r[1]?'/'+r[1]:'');return;}if(REAL_NAV.indexOf(r[0]||'reais')<0){location.hash='#/reais';return;}}if(!navAllowed(r[0]||'painel')&&r[0]){location.hash='#/painel';return;}
+function render(){if(S.user&&S.user.real&&!NXS.modo){NX.realMode=true;NX.useKey('nexio_real_'+S.user.id);abrirReal();return;}db=NX.load();if(NX.ensureUsers(db))persist();if(purgeLixeira())persist();seedFicha();if(!S.user){login();return;}if(!staffBy(S.user.id)){S.user=null;login();return;}var r=route();if(r[0]==='reais'){location.hash='#/clientes'+(r[1]?'/'+r[1]:'');return;}if(!navAllowed(r[0]||'painel')&&r[0]){location.hash='#/painel';return;}
   if(r[0]==='usuarios'){usuarios();return;}if(r[0]==='contabil'){contabil();return;}if(r[0]==='lote'){lote();return;}if(r[0]==='lgpd'){lgpd();return;}if(r[0]==='reais'){reais(r[1]);return;}if(r[0]==='notificacoes'){notificacoes();return;}if(r[0]==='acessos'){acessos();return;}
   if(r[0]==='clientes')clientes(r[1]);else if(r[0]==='mensagens')mensagens();else if(r[0]==='obrigacoes')obrigacoes();else if(r[0]==='agenda')agenda();else if(r[0]==='documentos')documentos();else if(r[0]==='processos')processos();else if(r[0]==='comunicacoes')comunicacoes();else painel();}
 window.addEventListener('hashchange',render);
@@ -908,11 +913,9 @@ function rUsuarios(c,el){NXA.sb.from('empresa_usuarios').select('nivel, perfis(i
   '<section class="card"><h2>Usuários ('+L.length+')</h2>'+(L.length?'<div class="tbl"><table><thead><tr><th>Nome</th><th>E-mail</th><th>Nível</th><th>Primeiro acesso</th><th><span class="sr">Ações</span></th></tr></thead><tbody>'+L.map(function(x){var p=x.perfis;return '<tr><td><b>'+e(p.nome)+'</b></td><td>'+e(p.email)+'</td><td>'+NXA.NIVEIS[x.nivel]+'</td><td>'+(p.aceite_em?'<span class="tag ok">'+NX.ftime(p.aceite_em)+'</span>':'<span class="tag info">Pendente</span>')+'</td><td style="white-space:nowrap">'+(p.aceite_em?'':'<button class="btn b-line" data-rrc="'+e(p.email)+'" style="min-height:36px">Reenviar convite</button> ')+'<button class="btn b-text" data-rrm="'+p.id+'" style="color:var(--bad);min-height:36px">Remover acesso</button></td></tr>';}).join('')+'</tbody></table></div>':'<p class="empty">Nenhum usuário ainda.</p>')+'</section>';
   function convite(email,nome,cb){NXA.convite(email,nome,'https://nexioic.com.br/portal/').then(function(o){if(o.error){var m=o.error.message;if(/rate|seconds|limit/i.test(m))m='Limite de e-mails atingido. Aguarde alguns minutos e tente de novo. ('+m+')';document.getElementById('rust').textContent='Erro no convite: '+m;return;}cb();});}
   document.getElementById('ruf').onsubmit=function(ev){ev.preventDefault();var nm=document.getElementById('runm').value.trim(),em=document.getElementById('ruem').value.trim().toLowerCase(),nv=document.getElementById('runv').value,st=document.getElementById('rust');st.textContent='Enviando convite…';
-    convite(em,nm,function(){setTimeout(function(){NXA.sb.from('perfis').select('id,tipo').ilike('email',em).maybeSingle().then(function(p){if(sbErr(p))return;if(!p.data){st.textContent='Convite enviado, mas o perfil ainda não apareceu. Recarregue em alguns segundos.';return;}
-      if(p.data.tipo==='equipe'){st.textContent='Este e-mail é de um usuário da equipe.';return;}
-      NXA.sb.from('perfis').update({nome:nm}).eq('id',p.data.id).then(function(){NXA.sb.from('empresa_usuarios').upsert({empresa_id:c.id,usuario_id:p.data.id,nivel:nv}).then(function(u){if(sbErr(u))return;NXA.acesso('Convidou usuário do portal',em+' ('+NXA.NIVEIS[nv]+')',c.id);NX.toast('Convite enviado para '+em+'.');rUsuarios(c,el);});});});},1200);});};
+    convite(em,nm,function(){setTimeout(function(){NXA.sb.rpc('vincular_usuario',{p_empresa:c.id,p_email:em,p_nivel:nv,p_nome:nm}).then(function(u){if(u.error){st.textContent=/equipe/.test(u.error.message)?'Este e-mail é de um usuário da equipe.':'Convite enviado, mas não consegui vincular: '+u.error.message;return;}NXA.acesso('Convidou usuário do portal',em+' ('+NXA.NIVEIS[nv]+')',c.id);NX.toast('Convite enviado para '+em+'.');rUsuarios(c,el);if(window.NXS&&NXS.modo)NXS.atualizar();});},1500);});};
   el.querySelectorAll('[data-rrc]').forEach(function(b){b.onclick=function(){var em=b.getAttribute('data-rrc');convite(em,'',function(){NXA.acesso('Reenviou convite',em,c.id);NX.toast('Convite reenviado para '+em+'.');});};});
-  el.querySelectorAll('[data-rrm]').forEach(function(b){b.onclick=function(){if(!confirm('Remover o acesso deste usuário a '+c.razao_social+'?'))return;NXA.sb.from('empresa_usuarios').delete().eq('empresa_id',c.id).eq('usuario_id',b.getAttribute('data-rrm')).then(function(u){if(sbErr(u))return;NXA.acesso('Removeu acesso de usuário do portal','',c.id);rUsuarios(c,el);});};});});}
+  el.querySelectorAll('[data-rrm]').forEach(function(b){b.onclick=function(){if(!confirm('Remover o acesso deste usuário a '+c.razao_social+'?'))return;NXA.sb.rpc('desvincular_usuario',{p_empresa:c.id,p_usuario:b.getAttribute('data-rrm')}).then(function(u){if(sbErr(u))return;NXA.acesso('Removeu acesso de usuário do portal','',c.id);rUsuarios(c,el);});};});});}
 function rMsgs(c,el){NXA.sb.from('mensagens').select('*').eq('empresa_id',c.id).order('em').then(function(r){if(sbErr(r))return;var L=r.data||[];
   el.innerHTML='<section class="card"><div id="rth" style="display:flex;flex-direction:column;gap:10px;max-height:55vh;overflow:auto;padding:4px">'+(L.length?L.map(function(m){var eq=m.de==='equipe';return '<div style="align-self:'+(eq?'flex-end':'flex-start')+';max-width:75%;background:'+(eq?'var(--blue)':'var(--soft)')+';color:'+(eq?'#fff':'var(--ink)')+';padding:10px 14px;border-radius:14px"><div style="white-space:pre-wrap">'+e(m.texto)+'</div><small style="opacity:.75;font-size:11px">'+(eq?'NEXIO':'Cliente')+' · '+NX.ftime(m.em)+(eq?(m.lida?' · lida':' · não lida'):'')+'</small></div>';}).join(''):'<p class="empty">Nenhuma mensagem.</p>')+
   '</div><form id="rmf" style="margin-top:12px;display:flex;gap:8px"><label class="sr" for="rmt">Mensagem</label><textarea id="rmt" required style="flex:1;min-height:60px" placeholder="Mensagem para o cliente"></textarea><button class="btn b-blue">Enviar</button></form></section>';
@@ -941,6 +944,18 @@ function syncClientes(cb){NXA.sb.from('empresas').select('*').eq('ativo',true).o
   var comp=NX.ym();if(typeof gerarDemandas==='function'){gerarDemandas(NX.shiftMonth(comp,-1),true);gerarDemandas(comp,true);}
   db.tasks.forEach(function(t){if(t.resp&&ids.indexOf(t.resp)<0)t.resp=eu;});
   R.sync=Date.now();persist();cb&&cb();});}
+
+/* ---------- EQUIPE (real) ---------- */
+function rEquipe(){var me=staffBy(S.user.id)||{},adm=me.nivel==='admin';
+  shell('usuarios',head('Equipe','Usuários do escritório, níveis de acesso e setores.')+
+  (adm?'<section class="card"><h2>Convidar pessoa da equipe</h2><form id="eqf" class="grid"><label>Nome<input id="eqn" required></label><label>E-mail<input id="eqe" type="email" required></label><label>Nível<select id="eqv">'+Object.keys(NX.NIV_EQ).map(function(k){return '<option value="'+k+'"'+(k==='analista'?' selected':'')+'>'+NX.NIV_EQ[k].nome+'</option>';}).join('')+'</select></label><label>Setor<select id="eqs"><option value="">Todos</option>'+SETORES.filter(function(s){return s!=='Enviados pelo cliente';}).map(function(s){return '<option>'+s+'</option>';}).join('')+'</select></label><div><button class="btn b-blue">Enviar convite</button></div><p class="help" id="eqst" style="grid-column:1/-1">A pessoa recebe um e-mail de acesso (remetente Supabase). No primeiro acesso aceita os termos, cria a senha e entra no painel.</p></form></section>':'')+
+  '<section class="card"><h2>Equipe ('+db.staff.length+')</h2><div class="tbl"><table><thead><tr><th>Nome</th><th>E-mail</th><th>Nível</th><th>Setor</th>'+(adm?'<th><span class="sr">Ações</span></th>':'')+'</tr></thead><tbody>'+db.staff.map(function(s){return '<tr><td><b>'+e(s.nome)+'</b></td><td>'+e(s.email)+'</td><td>'+(adm&&s.id!==S.user.id?'<select data-nv="'+s.id+'">'+Object.keys(NX.NIV_EQ).map(function(k){return '<option value="'+k+'"'+(s.nivel===k?' selected':'')+'>'+NX.NIV_EQ[k].nome+'</option>';}).join('')+'</select>':NX.NIV_EQ[s.nivel].nome)+'</td><td>'+e(s.setor||'Todos')+'</td>'+(adm?'<td>'+(s.id!==S.user.id?'<button class="btn b-text" data-off="'+s.id+'" style="color:var(--bad)">Desativar</button>':'')+'</td>':'')+'</tr>';}).join('')+'</tbody></table></div></section>');
+  var f=document.getElementById('eqf');if(f)f.onsubmit=function(ev){ev.preventDefault();var nm=document.getElementById('eqn').value.trim(),em=document.getElementById('eqe').value.trim().toLowerCase(),nv=document.getElementById('eqv').value,st=document.getElementById('eqst'),se=document.getElementById('eqs').value;st.textContent='Enviando convite…';
+    NXA.convite(em,nm,'https://nexioic.com.br/portal/').then(function(o){if(o.error){st.textContent='Erro no convite: '+o.error.message;return;}
+      setTimeout(function(){NXA.sb.rpc('promover_equipe',{p_email:em,p_nivel:nv,p_nome:nm,p_extra:{setor:se,cargo:NX.NIV_EQ[nv].nome,cor:'#0E7490',carteira:[]}}).then(function(r){if(r.error){st.textContent='Convite enviado, mas não consegui liberar o acesso: '+r.error.message;return;}
+        NXA.acesso('Convidou pessoa da equipe',em+' ('+NX.NIV_EQ[nv].nome+')');NX.toast('Convite enviado para '+em+'.');NXS.atualizar(function(){render();});});},1500);});};
+  root.querySelectorAll('[data-nv]').forEach(function(sel){sel.onchange=function(){var s=staffBy(sel.getAttribute('data-nv'));s.nivel=sel.value;NXA.sb.from('perfis').update({nivel_eq:sel.value}).eq('id',s.id).then(function(r){if(r.error){NX.toast('Erro: '+r.error.message);return;}persist();NX.toast('Nível atualizado.');});};});
+  root.querySelectorAll('[data-off]').forEach(function(b){b.onclick=function(){var s=staffBy(b.getAttribute('data-off'));if(!confirm('Desativar o acesso de '+s.nome+'?'))return;NXA.sb.from('perfis').update({ativo:false}).eq('id',s.id).then(function(r){if(r.error){NX.toast('Erro: '+r.error.message);return;}NXA.acesso('Desativou pessoa da equipe',s.email);NXS.atualizar(function(){render();});});};});}
 render();
 })();
 </script>

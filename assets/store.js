@@ -2,7 +2,7 @@
 (function () {
   var KEY = 'nexio_portal_v1';
   var MAX_FILE = 1.5 * 1024 * 1024;
-  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+  function uid() { if (window.NX && NX.realMode && window.crypto && crypto.randomUUID) return crypto.randomUUID(); return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
   function today() { return new Date().toISOString().slice(0, 10); }
   function ym(d) { return (d || today()).slice(0, 7); }
   function addDays(n) { var d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
@@ -42,10 +42,12 @@
 
   function load() {
     try { var d = JSON.parse(localStorage.getItem(KEY) || 'null'); if (d && d.clients) return d; } catch (e) {}
+    if (window.NX && NX.realMode) return { staff: [], clients: [], files: [], obligations: [], messages: [] };
     var s = seed(); save(s); return s;
   }
   function save(db) {
-    try { localStorage.setItem(KEY, JSON.stringify(db)); return true; }
+    if (window.NX && NX.beforeSave) { try { NX.beforeSave(db); } catch (e) { console.error(e); } }
+    try { localStorage.setItem(KEY, JSON.stringify(db, (window.NX && NX.realMode) ? function (k, v) { return k === 'data' && typeof v === 'string' && v.indexOf('data:') === 0 ? undefined : v; } : undefined)); return true; }
     catch (e) { alertBox('Espaço do protótipo cheio. Exclua arquivos grandes ou use “Restaurar dados de exemplo”.'); return false; }
   }
   function alertBox(msg) { if (window.NX && NX.toast) NX.toast(msg); }
@@ -75,7 +77,7 @@
   }
 
   function readFile(file, cb) {
-    if (file.size > MAX_FILE) { alertBox('No protótipo, cada arquivo pode ter até 1,5 MB.'); return; }
+    if (file.size > ((window.NX && NX.realMode) ? 25 * 1024 * 1024 : MAX_FILE)) { alertBox((window.NX && NX.realMode) ? 'Cada arquivo pode ter até 25 MB.' : 'No protótipo, cada arquivo pode ter até 1,5 MB.'); return; }
     var r = new FileReader();
     r.onload = function () { cb({ nome: file.name, data: r.result, size: file.size }); };
     r.readAsDataURL(file);
@@ -116,7 +118,7 @@
     return '<div class="cal">' + h + '</div>';
   }
 
-  window.NX = { catalogFor: catalogFor, KEY: KEY, load: load, save: save, seed: seed, uid: uid, today: today, ym: ym, obligationsFor: obligationsFor, readFile: readFile, download: download, brl: brl, fdate: fdate, fcomp: fcomp, ftime: ftime, esc: esc, fsize: fsize, statusOf: statusOf, toast: toast, monthLabel: monthLabel, shiftMonth: shiftMonth, calendarHTML: calendarHTML };
+  window.NX = { useKey: function (k) { KEY = k; }, catalogFor: catalogFor, KEY: KEY, load: load, save: save, seed: seed, uid: uid, today: today, ym: ym, obligationsFor: obligationsFor, readFile: readFile, download: download, brl: brl, fdate: fdate, fcomp: fcomp, ftime: ftime, esc: esc, fsize: fsize, statusOf: statusOf, toast: toast, monthLabel: monthLabel, shiftMonth: shiftMonth, calendarHTML: calendarHTML };
   // sincroniza entre abas (equipe e cliente abertos ao mesmo tempo)
   window.addEventListener('storage', function (e) { if (e.key === KEY && typeof window.NX_onSync === 'function') window.NX_onSync(); });
 })();
