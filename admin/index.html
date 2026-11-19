@@ -72,7 +72,7 @@ function loginDemo(){
 
 /* ---------- LAYOUT ---------- */
 function shell(active,html){
-  var nav=(S.user&&S.user.real)?[['reais','Clientes',0]]:([['painel','Painel',0],['clientes','Clientes',newDocs()],['processos','Processos',0],['contabil','Controle contábil',0],['documentos','Documentos',0],['mensagens','Mensagens',unread()],['comunicacoes','Comunicações',0],['lote','Guias em lote',0],['notificacoes','Notificações',0],['lgpd','Privacidade (LGPD)',(db.lgpd||[]).filter(function(r){return r.status!=='concluida';}).length],['agenda','Agenda da equipe',0],['obrigacoes','Obrigações',0]]);
+  var nav=(S.user&&S.user.real)?[['reais','Clientes',0],['painel','Painel',0],['processos','Processos',0],['contabil','Controle contábil',0],['agenda','Agenda da equipe',0],['obrigacoes','Obrigações',0]]:([['painel','Painel',0],['clientes','Clientes',newDocs()],['processos','Processos',0],['contabil','Controle contábil',0],['documentos','Documentos',0],['mensagens','Mensagens',unread()],['comunicacoes','Comunicações',0],['lote','Guias em lote',0],['notificacoes','Notificações',0],['lgpd','Privacidade (LGPD)',(db.lgpd||[]).filter(function(r){return r.status!=='concluida';}).length],['agenda','Agenda da equipe',0],['obrigacoes','Obrigações',0]]);
   root.innerHTML='<div class="app"><aside class="side"><a class="logo" href="#/painel"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a><div class="role">Painel da equipe</div>'+NX.sideToggleHTML()+
   nav.map(function(n){return '<a class="nav" href="#/'+n[0]+'"'+(active===n[0]?' aria-current="page"':'')+'>'+n[1]+(n[2]?'<span class="cnt">'+n[2]+'</span>':'')+'</a>';}).join('')+
   '<div class="foot"><span>'+e(S.user.nome)+'</span>'+(S.user.real?'<a href="/portal/" target="_blank" rel="noopener">Abrir portal do cliente</a>':'<a href="/portal/demo/" target="_blank" rel="noopener">Ver portal do cliente (demo)</a><a href="#" id="reset">Restaurar dados de exemplo</a>')+'<a href="#" id="logout">Sair</a></div></aside><main class="main">'+html+'</main></div>';
@@ -80,7 +80,7 @@ function shell(active,html){
   document.getElementById('logout').onclick=function(ev){ev.preventDefault();logEq('Saiu do painel');persist();if(S.user&&S.user.real)NXA.acesso('Saiu do painel');S.user=null;try{sessionStorage.removeItem('nx_staff');}catch(x){}NXA.sair().then(function(){render();});};
   var rs=document.getElementById('reset');if(rs)rs.onclick=function(ev){ev.preventDefault();if(confirm('Apagar tudo e restaurar os dados de exemplo?')){db=NX.seed();persist();render();NX.toast('Dados de exemplo restaurados.');}};
 }
-function head(t,sub,right){return '<div class="page-h"><div><h1>'+t+'</h1>'+(sub?'<p>'+sub+'</p>':'')+'</div><div class="row">'+(right||'')+(S.user&&S.user.real?'':'<span class="badge-proto">Protótipo</span>')+'</div></div>';}
+function head(t,sub,right){return '<div class="page-h"><div><h1>'+t+'</h1>'+(sub?'<p>'+sub+'</p>':'')+'</div><div class="row">'+(right||'')+(S.user&&S.user.real?(route()[0]==='reais'?'':'<span class="badge-proto" title="Este módulo ainda grava só neste navegador. Em breve no banco de dados.">Salvo neste navegador</span>'):'<span class="badge-proto">Protótipo</span>')+'</div></div>';}
 
 /* ---------- PAINEL ---------- */
 function painel(){
@@ -808,7 +808,7 @@ var _shell=shell;shell=function(active,html){
   _shell(active,html);
   root.querySelectorAll('.side a.nav').forEach(function(a){var r=(a.getAttribute('href')||'').replace('#/','');if(!navAllowed(r))a.remove();});
   var last=[].slice.call(root.querySelectorAll('.side a.nav')).pop();
-  [['usuarios','Usuários'],['acessos','Registro de acessos']].forEach(function(x){if(!navAllowed(x[0])||!last)return;var a=document.createElement('a');a.className='nav';a.href='#/'+x[0];a.textContent=x[1];if(active===x[0])a.setAttribute('aria-current','page');last.parentNode.insertBefore(a,last.nextSibling);last=a;});
+  [['usuarios','Usuários'],['acessos','Registro de acessos']].forEach(function(x){if(!navAllowed(x[0])||!last||(S.user&&S.user.real))return;var a=document.createElement('a');a.className='nav';a.href='#/'+x[0];a.textContent=x[1];if(active===x[0])a.setAttribute('aria-current','page');last.parentNode.insertBefore(a,last.nextSibling);last=a;});
   var ft=root.querySelector('.side .foot span');if(ft)ft.textContent=meStaff().nome+' · '+NX.NIV_EQ[lvl()].nome;
   NX.applySide();
 };
@@ -868,7 +868,7 @@ function seedFicha(){if(db.fichaV)return;db.fichaV=1;var c=db.clients[0],d=funct
   var c2=db.clients[1];if(c2)c2.trib=c2.trib||{regime:'MEI',anexo:'III',fatorR:false,rbt12:0,folha12:0,iss:0,issRet:false,lc116:'',mun:'Manaus/AM'};
   var c3=db.clients[2];if(c3)c3.trib=c3.trib||{regime:'PF',anexo:'III',fatorR:false,rbt12:0,folha12:0,iss:0,lc116:'04.01',mun:'Manaus/AM'};persist();}
 document.addEventListener('click',function(ev){if(ev.target.closest&&ev.target.closest('[data-fic]'))S.tab='dados';},true);
-function render(){db=NX.load();if(NX.ensureUsers(db))persist();if(purgeLixeira())persist();seedFicha();if(!S.user){login();return;}if(!staffBy(S.user.id)){S.user=null;login();return;}var r=route();if(S.user.real&&r[0]!=='reais'){location.hash='#/reais';return;}if(!navAllowed(r[0]||'painel')&&r[0]){location.hash='#/painel';return;}
+function render(){db=NX.load();if(NX.ensureUsers(db))persist();if(purgeLixeira())persist();seedFicha();if(!S.user){login();return;}if(!staffBy(S.user.id)){S.user=null;login();return;}var r=route();if(S.user.real){prepararReal();if(!R.sync){root.innerHTML='<div class="login"><div class="box"><p class="help">Carregando seus clientes…</p></div></div>';syncClientes(render);return;}if(r[0]==='clientes'){location.hash='#/reais'+(r[1]?'/'+r[1]:'');return;}if(REAL_NAV.indexOf(r[0]||'reais')<0){location.hash='#/reais';return;}}if(!navAllowed(r[0]||'painel')&&r[0]){location.hash='#/painel';return;}
   if(r[0]==='usuarios'){usuarios();return;}if(r[0]==='contabil'){contabil();return;}if(r[0]==='lote'){lote();return;}if(r[0]==='lgpd'){lgpd();return;}if(r[0]==='reais'){reais(r[1]);return;}if(r[0]==='notificacoes'){notificacoes();return;}if(r[0]==='acessos'){acessos();return;}
   if(r[0]==='clientes')clientes(r[1]);else if(r[0]==='mensagens')mensagens();else if(r[0]==='obrigacoes')obrigacoes();else if(r[0]==='agenda')agenda();else if(r[0]==='documentos')documentos();else if(r[0]==='processos')processos();else if(r[0]==='comunicacoes')comunicacoes();else painel();}
 window.addEventListener('hashchange',render);
@@ -881,7 +881,7 @@ function reais(id){if(!S.user||!S.user.real){shell('reais',head('Clientes (siste
   if(id)return realCliente(id);
   shell('reais',head('Clientes','Cadastro, documentos, usuários do portal e mensagens.','<button class="btn b-blue" id="novo">+ Cadastrar cliente</button>')+'<section class="card" id="lst"><p class="help">Carregando…</p></section>');
   document.getElementById('novo').onclick=function(){openDlg('<h2>Cadastrar cliente</h2><label>Razão social<input name="rs" required></label><label>Nome fantasia<input name="nf"></label><label>CNPJ / CPF<input name="doc" required></label><label>Código IBGE do município<input name="ibge" value="1302603"></label>',
-    function(fd){NXA.sb.from('empresas').insert({razao_social:fd.get('rs'),fantasia:fd.get('nf')||null,documento:String(fd.get('doc')).replace(/\D/g,''),municipio_ibge:fd.get('ibge')||null}).select().single().then(function(r){if(sbErr(r))return;NXA.acesso('Cadastrou cliente',r.data.razao_social,r.data.id);location.hash='#/reais/'+r.data.id;});});};
+    function(fd){NXA.sb.from('empresas').insert({razao_social:fd.get('rs'),fantasia:fd.get('nf')||null,documento:String(fd.get('doc')).replace(/\D/g,''),municipio_ibge:fd.get('ibge')||null}).select().single().then(function(r){if(sbErr(r))return;NXA.acesso('Cadastrou cliente',r.data.razao_social,r.data.id);R.sync=0;location.hash='#/reais/'+r.data.id;});});};
   NXA.sb.from('empresas').select('id,razao_social,fantasia,documento,empresa_usuarios(count),documentos(count)').order('razao_social').then(function(r){if(sbErr(r))return;var l=r.data||[];
     document.getElementById('lst').innerHTML=l.length?'<div class="tbl"><table><thead><tr><th>Cliente</th><th>CNPJ / CPF</th><th>Usuários</th><th>Documentos</th><th><span class="sr">Abrir</span></th></tr></thead><tbody>'+l.map(function(c){return '<tr><td><b>'+e(c.razao_social)+'</b><small style="display:block;color:var(--muted)">'+e(c.fantasia||'')+'</small></td><td>'+fmtCnpj(c.documento)+'</td><td>'+((c.empresa_usuarios[0]||{}).count||0)+'</td><td>'+((c.documentos[0]||{}).count||0)+'</td><td><a class="btn b-line" href="#/reais/'+c.id+'">Abrir</a></td></tr>';}).join('')+'</tbody></table></div>':'<p class="empty">Nenhum cliente cadastrado.</p>';});}
 function realCliente(id){var tabs=[['docs','Documentos'],['usuarios','Usuários do portal'],['msgs','Mensagens'],['ficha','Ficha']];
@@ -926,7 +926,21 @@ function rFicha(c,el){var T=c.trib||{},I=c.inscricoes||{};
   '<section class="card"><h2>Licenças</h2>'+((c.licencas||[]).map(function(l){return '<div class="list-item"><div><b>'+e(l.tipo)+'</b><small>'+e(l.numero||'')+' · '+e(l.orgao||'')+' · '+(l.validade?'validade '+NX.fdate(l.validade):e(l.obs||'sem validade'))+'</small></div></div>';}).join('')||'<p class="empty">Nenhuma.</p>')+'</section>'+
   '<section class="card"><h2>Sócios</h2>'+((c.socios||[]).map(function(s){return '<div class="list-item"><div><b>'+e(s.nome)+'</b><small>'+e(s.part||'')+'%'+(s.adm?' · administrador(a)':'')+'</small></div></div>';}).join('')||'<p class="empty">Nenhum.</p>')+'</section>';
   document.getElementById('rff').onsubmit=function(ev){ev.preventDefault();var fd=new FormData(ev.target);T=Object.assign({},T,{regime:fd.get('reg'),anexo:fd.get('anx'),cnae:fd.get('cnae')});I=Object.assign({},I,{im:fd.get('im'),ie:fd.get('ie'),nire:fd.get('nire'),email:fd.get('em'),telefone:fd.get('tel'),endereco:fd.get('end')});
-    NXA.sb.from('empresas').update({razao_social:fd.get('rs'),fantasia:fd.get('nf')||null,documento:String(fd.get('doc')).replace(/\D/g,''),municipio_ibge:fd.get('ibge')||null,trib:T,inscricoes:I}).eq('id',c.id).then(function(r){if(sbErr(r))return;NXA.acesso('Atualizou ficha do cliente','',c.id);NX.toast('Ficha salva.');});};}
+    NXA.sb.from('empresas').update({razao_social:fd.get('rs'),fantasia:fd.get('nf')||null,documento:String(fd.get('doc')).replace(/\D/g,''),municipio_ibge:fd.get('ibge')||null,trib:T,inscricoes:I}).eq('id',c.id).then(function(r){if(sbErr(r))return;NXA.acesso('Atualizou ficha do cliente','',c.id);R.sync=0;NX.toast('Ficha salva.');});};}
+/* ---------- modo real: base limpa + clientes do banco ---------- */
+var REAL_NAV=['reais','painel','processos','contabil','agenda','obrigacoes'];
+function prepararReal(){if(db.realV)return;var me=staffBy(S.user.id);
+  db.staff=me?[me]:[];if(me){me.cor=me.cor||'#0740EF';me.cargo=me.cargo||'Diretor';me.diretor=true;me.nivel=me.nivel||'admin';}
+  db.clients=[];db.files=[];db.office=[];db.messages=[];db.avisos=[];db.notas=[];db.notifs=[];db.cusers=[];db.acessos=[];db.logs=[];db.contab={};db.lgpd=[];db.incidentes=[];db.meetings=[];db.obligations=[];db.tasks=[];
+  db.procT=null;db.catV=0;db.procDemo=1;db.agendaSeeded=true;db.fichaV=1;db.contabV=1;db.notifInit=1;db.usersV=1;db.realV=1;persist();}
+function syncClientes(cb){NXA.sb.from('empresas').select('*').eq('ativo',true).order('razao_social').then(function(r){if(r.error){NX.toast('Erro ao carregar clientes: '+r.error.message);cb&&cb();return;}
+  var antigos={};(db.clients||[]).forEach(function(c){antigos[c.id]=c;});
+  db.clients=(r.data||[]).map(function(x){var a=antigos[x.id]||{},I=x.inscricoes||{},T=x.trib||{};return Object.assign(a,{id:x.id,nome:x.razao_social,fantasia:x.fantasia||'',doc:fmtCnpj(x.documento),email:I.email||'',tel:I.telefone||'',endereco:I.endereco||'',cidade:T.mun||'Manaus/AM',plano:a.plano||(T.regime==='MEI'?'NEXIO MEI START':T.regime==='PF'?'NEXIO PF ESSENTIAL':'NEXIO SN START'),trib:T,insc:{im:I.im,ie:I.ie,nire:I.nire},licencas:x.licencas||[],socios:x.socios||[],resp:a.resp||''});});
+  var novo=!db.procT;ensureProc();if(novo)db.tasks=db.tasks.filter(function(t){return t.tipo==='cliente';});
+  var ids=db.staff.map(function(s){return s.id;}),eu=S.user.id;(db.procT||[]).forEach(function(tp){if(ids.indexOf(tp.resp)<0)tp.resp=eu;});
+  var comp=NX.ym();if(typeof gerarDemandas==='function'){gerarDemandas(NX.shiftMonth(comp,-1),true);gerarDemandas(comp,true);}
+  db.tasks.forEach(function(t){if(t.resp&&ids.indexOf(t.resp)<0)t.resp=eu;});
+  R.sync=Date.now();persist();cb&&cb();});}
 render();
 })();
 </script>
