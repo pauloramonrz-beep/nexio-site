@@ -68,7 +68,7 @@ input.sm{min-height:36px}
 #tc input{min-height:36px;padding:6px 8px}
 </style>
 <script src="/assets/fin-export.js"></script>
-<script>document.write('<style>'+NXF.DRE_CSS.replace(/font-size:12px/,'font-size:13px')+' table.dre{min-width:520px}</style>');</script>
+<script>document.write('<style>'+NXF.FILTRO_CSS+NXF.DRE_CSS.replace(/font-size:12px/,'font-size:13px')+' table.dre{min-width:520px}</style>');</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="/assets/auth.js"></script>
 <script>
@@ -104,6 +104,8 @@ if(window.NX_FIN_EMBED)document.documentElement.classList.add('embed');})();
 <tbody id="tc"></tbody></table></div>
 <p class="help">Cadastre todas as contas bancárias e o caixa (dinheiro em espécie). Banco, agência e conta devem ser iguais aos do Domínio. O saldo inicial é o saldo antes do primeiro lançamento.</p>
 </section>
+
+<section class="card" aria-labelledby="h-fil"><h2 id="h-fil">Filtros do relatório</h2><div id="filtros"></div><p class="help" style="margin-top:0">Os filtros valem para os números, a tabela de lançamentos, a DRE (contas) e as exportações (OFX, OFC, PDF e CSV).</p></section>
 
 <div class="kpis">
 <div class="kpi"><span>Entradas no período</span><strong class="pos" id="k_in">R$ 0,00</strong></div>
@@ -143,11 +145,7 @@ if(window.NX_FIN_EMBED)document.documentElement.classList.add('embed');})();
 <section class="card" aria-labelledby="h-list">
 <div class="row" style="justify-content:space-between;margin-bottom:14px">
 <h2 id="h-list" style="margin:0">Lançamentos</h2>
-<div class="row">
-<label>Conta<select id="f_conta"></select></label>
-<label>Mês<input type="month" id="f_mes"></label>
-<button class="btn b-text" type="button" id="b_all">Ver todos</button>
-</div>
+<span class="help" id="l_info" style="margin:0"></span>
 </div>
 <div class="tbl"><table>
 <thead><tr><th scope="col">Data</th><th scope="col">Descrição</th><th scope="col">Conta</th><th scope="col">Categoria</th><th scope="col">Origem</th><th scope="col" style="text-align:right">Valor</th><th scope="col"><span class="sr">Ações</span></th></tr></thead>
@@ -165,7 +163,7 @@ if(window.NX_FIN_EMBED)document.documentElement.classList.add('embed');})();
 </div>
 </div>
 <div class="tbl" id="dre"></div>
-<p class="help">Regime de caixa, considerando bancos e dinheiro (ou só a conta escolhida no filtro de lançamentos). Classifique bem as categorias para a DRE ficar fiel.</p>
+<p class="help">Regime de caixa, considerando as contas escolhidas nos filtros. Classifique bem as categorias para a DRE ficar fiel.</p>
 </section>
 
 <div class="cols">
@@ -175,7 +173,7 @@ if(window.NX_FIN_EMBED)document.documentElement.classList.add('embed');})();
 </section>
 <section class="card" aria-labelledby="h-exp">
 <h2 id="h-exp">Exportar para a contabilidade</h2>
-<p style="margin:0 0 14px;color:var(--muted)">Exporta os lançamentos do período e da conta selecionados. OFX e OFC são gerados por conta.</p>
+<p style="margin:0 0 14px;color:var(--muted)">Exporta os lançamentos filtrados. OFX e OFC são gerados por conta: escolha uma única conta nos filtros.</p>
 <div class="row">
 <button class="btn b-blue" type="button" id="x_ofx">Baixar OFX</button>
 <button class="btn b-line" type="button" id="x_ofc">Baixar OFC</button>
@@ -196,7 +194,7 @@ if(window.NX_FIN_EMBED)document.documentElement.classList.add('embed');})();
 (function(){
 var CATS_IN=NXF.CATS_IN,CATS_OUT=NXF.CATS_OUT,TR=NXF.TRANSF,num=NXF.num;
 var KEY='nexio_fin_v1_'+(window.NX_FIN_CID||'x');
-var st={emp:{},contas:[],items:[],mes:'',conta:'',dmodo:'ano',dref:''};
+var st={emp:{},contas:[],items:[],f:NXF.filtroPadrao(),dmodo:'ano',dref:''};
 function dados(){return {emp:st.emp,contas:st.contas,items:st.items};}
 function norm(){var d={emp:st.emp,contas:st.contas,items:st.items};NXF.contas(d);st.contas=d.contas;}
 function load(){try{var d=JSON.parse(localStorage.getItem(KEY)||'null');if(d){st.emp=d.emp||{};st.contas=d.contas||[];st.items=d.items||[];}}catch(e){}norm();}
@@ -213,8 +211,8 @@ function conta(id){return st.contas.filter(function(c){return c.id===id;})[0];}
 function cNome(c){return c?(c.nome||(c.tipo==='caixa'?'Caixa':'Banco '+(c.banco||''))):'—';}
 function catOpts(sel,tipo){var l=tipo==='tr'?[TR]:tipo==='in'?CATS_IN:CATS_OUT;if(sel&&l.indexOf(sel)<0&&sel!==TR)l=[sel].concat(l);return l.map(function(c){return '<option'+(c===sel?' selected':'')+'>'+esc(c)+'</option>';}).join('');}
 function contaOpts(sel,todas,soBanco){return (todas?'<option value="">Todas as contas</option>':'')+st.contas.filter(function(c){return !soBanco||c.tipo==='banco';}).map(function(c){return '<option value="'+c.id+'"'+(c.id===sel?' selected':'')+'>'+esc(cNome(c))+'</option>';}).join('');}
-function period(){var l=st.items.filter(function(i){return !st.conta||i.conta===st.conta;}).sort(function(a,b){return a.data<b.data?-1:a.data>b.data?1:0;});return st.mes?l.filter(function(i){return i.data.slice(0,7)===st.mes;}):l;}
-function saldoAntes(){return NXF.saldoAte(dados(),st.conta,st.mes?st.mes+'-01':null)-(st.mes?0:0)-(!st.mes?st.items.filter(function(i){return (!st.conta||i.conta===st.conta)&&!(!st.conta&&i.cat===TR);}).reduce(function(s,i){return s+i.valor;},0):0);}
+function period(){return NXF.filtrar(st.items,st.f,st.contas);}
+function itensContas(){return st.items.filter(function(i){return !st.f.contas.length||st.f.contas.indexOf(i.conta)>-1;});}
 
 function render(){
   ['nome','doc'].forEach(function(k){var el=$('e_'+k);if(document.activeElement!==el)el.value=st.emp[k]||'';});
@@ -225,11 +223,10 @@ function render(){
       '<td><input data-c="'+c.id+'" data-k="saldo" value="'+esc(c.saldo||'')+'" inputmode="decimal" style="width:120px" aria-label="Saldo inicial"></td><td class="val '+(at>=0?'pos':'neg')+'">'+brl(at)+'</td><td><button class="btn b-text" type="button" data-cdel="'+c.id+'">Excluir</button></td></tr>';}).join('');
   ['n_conta','i_conta'].forEach(function(id,ix){var el=$(id),v=el.value;el.innerHTML=contaOpts(v||(ix?(st.contas.filter(function(c){return c.tipo==='banco';})[0]||{}).id:st.contas[0]&&st.contas[0].id),false,ix===1);});
   var pv=$('n_para').value;$('n_para').innerHTML=contaOpts(pv||(st.contas[1]||{}).id);
-  $('f_conta').innerHTML=contaOpts(st.conta,true);
-  $('f_mes').value=st.mes;
-  var l=period(),inn=0,out=0,bycat={},semT=function(i){return st.conta||i.cat!==TR;};
-  l.forEach(function(i){if(!semT(i))return;if(i.valor>=0)inn+=i.valor;else out+=i.valor;bycat[i.cat]=(bycat[i.cat]||0)+i.valor;});
-  var ini=st.mes?NXF.saldoAte(dados(),st.conta,st.mes+'-01'):st.contas.filter(function(c){return !st.conta||c.id===st.conta;}).reduce(function(s,c){return s+num(c.saldo);},0);
+  var fe=$('filtros');if(!(document.activeElement&&fe.contains(document.activeElement)&&/INPUT/.test(document.activeElement.tagName)&&document.activeElement.type!=='checkbox')){var ab=fe.querySelector('details[open]');fe.innerHTML=NXF.filtroHTML(st.f,st.contas);NXF.bindFiltro(fe,st.f,function(o){render();NXF.reabrir(fe,o);},st.dref);if(ab)NXF.reabrir(fe,ab.id);}
+  var l=period(),inn=0,out=0,bycat={};
+  l.forEach(function(i){if(i.valor>=0)inn+=i.valor;else out+=i.valor;bycat[i.cat]=(bycat[i.cat]||0)+i.valor;});
+  var ini=NXF.saldoIni(dados(),st.f);$('l_info').textContent=l.length+' lançamento(s) · '+NXF.resumoFiltro(st.f,st.contas);
   $('k_in').textContent=brl(inn);$('k_out').textContent=brl(Math.abs(out));
   var r=inn+out;$('k_res').textContent=brl(r);$('k_res').className=r>=0?'pos':'neg';
   $('k_saldo').textContent=brl(ini+r);
@@ -238,7 +235,7 @@ function render(){
   var keys=Object.keys(bycat).sort(function(a,b){return Math.abs(bycat[b])-Math.abs(bycat[a]);});
   $('cats').innerHTML=keys.length?keys.map(function(k){return '<div class="cat"><div style="flex:1"><div>'+esc(k)+'</div><div class="bar"><i style="width:'+(Math.abs(bycat[k])/max*100).toFixed(1)+'%"></i></div></div><strong class="'+(bycat[k]>=0?'pos':'neg')+'">'+brl(bycat[k])+'</strong></div>';}).join(''):'<p class="empty" style="padding:10px">Sem dados no período.</p>';
   $('d_modo').value=st.dmodo;$('d_ref').value=st.dref;
-  $('dre').innerHTML=NXF.dreHTML(NXF.dre(st.items.filter(function(i){return !st.conta||i.conta===st.conta;}),NXF.mesesDe(st.dmodo,st.dref)));
+  $('dre').innerHTML=NXF.dreHTML(NXF.dre(itensContas(),NXF.mesesDe(st.dmodo,st.dref)));
 }
 
 // empresa e contas
@@ -247,7 +244,7 @@ $('tc').addEventListener('input',function(e){var id=e.target.getAttribute('data-
 $('tc').addEventListener('change',function(){render();});
 $('tc').addEventListener('click',function(e){var id=e.target.getAttribute('data-cdel');if(!id)return;var n=st.items.filter(function(i){return i.conta===id;}).length;
   if(st.contas.length<2){toast('Mantenha pelo menos uma conta.');return;}if(n){toast('Esta conta tem '+n+' lançamento(s). Mova-os para outra conta antes de excluir.');return;}
-  if(!confirm('Excluir a conta '+cNome(conta(id))+'?'))return;st.contas=st.contas.filter(function(c){return c.id!==id;});if(st.conta===id)st.conta='';save();render();});
+  if(!confirm('Excluir a conta '+cNome(conta(id))+'?'))return;st.contas=st.contas.filter(function(c){return c.id!==id;});st.f.contas=st.f.contas.filter(function(x){return x!==id;});save();render();});
 $('add_bank').addEventListener('click',function(){st.contas.push({id:uid(),tipo:'banco',nome:'Banco '+(st.contas.filter(function(c){return c.tipo==='banco';}).length+1),banco:'',ag:'',conta:'',saldo:'0'});save();render();var x=$('tc').querySelectorAll('input[data-k="nome"]');x[x.length-1].focus();x[x.length-1].select();});
 $('add_cash').addEventListener('click',function(){st.contas.push({id:uid(),tipo:'caixa',nome:'Caixa '+(st.contas.filter(function(c){return c.tipo==='caixa';}).length+1),saldo:'0'});save();render();});
 // novo
@@ -262,12 +259,9 @@ $('f_new').addEventListener('submit',function(e){e.preventDefault();var v=Math.a
 $('tb').addEventListener('change',function(e){var id=e.target.getAttribute('data-id'),mv=e.target.getAttribute('data-mv');
   if(id)st.items.forEach(function(i){if(i.id===id)i.cat=e.target.value;});if(mv)st.items.forEach(function(i){if(i.id===mv)i.conta=e.target.value;});if(id||mv){save();render();}});
 $('tb').addEventListener('click',function(e){var id=e.target.getAttribute('data-del');if(!id)return;var it=st.items.filter(function(i){return i.id===id;})[0];st.items=st.items.filter(function(i){return i.id!==id&&!(it.par&&i.par===it.par);});save();render();});
-$('f_mes').addEventListener('change',function(e){st.mes=e.target.value;render();});
-$('f_conta').addEventListener('change',function(e){st.conta=e.target.value;render();});
-$('b_all').addEventListener('click',function(){st.mes='';render();});
 $('d_modo').addEventListener('change',function(e){st.dmodo=e.target.value;render();});
 $('d_ref').addEventListener('change',function(e){if(e.target.value){st.dref=e.target.value;render();}});
-$('d_pdf').addEventListener('click',function(){NXF.drePdf({emp:st.emp,items:st.items.filter(function(i){return !st.conta||i.conta===st.conta;}),meses:NXF.mesesDe(st.dmodo,st.dref),contas:st.conta?cNome(conta(st.conta)):'Todas (bancos e caixa)',por:st.emp.nome||''});});
+$('d_pdf').addEventListener('click',function(){NXF.drePdf({emp:st.emp,items:itensContas(),meses:NXF.mesesDe(st.dmodo,st.dref),contas:NXF.todasContas(st.f,st.contas)?'Todas (bancos e caixa)':st.f.contas.map(function(id){return cNome(conta(id));}).join(', '),por:st.emp.nome||''});});
 
 // importação
 function guessCat(desc,v){var d=desc.toLowerCase();
@@ -299,7 +293,7 @@ function importFile(f){var rd=new FileReader();rd.onload=function(){var txt=Stri
   if(!l.length){toast('Não encontrei lançamentos nesse arquivo.');return;}var ct=alvo||$('i_conta').value;
   var seen={};st.items.forEach(function(i){seen[i.conta+'|'+i.data+'|'+i.valor.toFixed(2)+'|'+i.desc]=1;});var n=0;
   l.forEach(function(x){var k=ct+'|'+x.data+'|'+x.valor.toFixed(2)+'|'+x.desc;if(seen[k])return;seen[k]=1;n++;st.items.push({id:uid(),data:x.data,desc:x.desc,cat:guessCat(x.desc,x.valor),valor:x.valor,orig:'banco',fitid:x.fitid||'',conta:ct});});
-  st.mes=l[0].data.slice(0,7);st.conta=ct;save();render();toast(n+' lançamento(s) importado(s) em '+cNome(conta(ct))+'.'+(l.length>n?' '+(l.length-n)+' repetido(s) ignorado(s).':''));};
+  var ym=l[0].data.slice(0,7);st.f.contas=[ct];st.f.per='pers';st.f.ini=ym+'-01';NXF.periodo(st.f);st.f.fim=l[l.length-1].data;st.f.ini=l[0].data;save();render();toast(n+' lançamento(s) importado(s) em '+cNome(conta(ct))+'.'+(l.length>n?' '+(l.length-n)+' repetido(s) ignorado(s).':''));};
   rd.readAsText(f,'ISO-8859-1');}
 $('file').addEventListener('change',function(e){if(e.target.files[0])importFile(e.target.files[0]);e.target.value='';});
 var dr=$('drop');['dragenter','dragover'].forEach(function(ev){dr.addEventListener(ev,function(e){e.preventDefault();dr.classList.add('over');});});
@@ -307,17 +301,18 @@ var dr=$('drop');['dragenter','dragover'].forEach(function(ev){dr.addEventListen
 dr.addEventListener('drop',function(e){if(e.dataTransfer.files[0])importFile(e.dataTransfer.files[0]);});
 
 // exportação
-function per(){return (st.mes||'todos')+(st.conta?'_'+cNome(conta(st.conta)).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9]+/g,'_').toLowerCase():'');}
-function ini(){return st.mes?NXF.saldoAte(dados(),st.conta,st.mes+'-01'):st.contas.filter(function(c){return !st.conta||c.id===st.conta;}).reduce(function(s,c){return s+num(c.saldo);},0);}
-function empConta(){var c=conta(st.conta)||{};return Object.assign({},st.emp,{tipo:c.tipo,banco:c.banco,ag:c.ag,conta:c.tipo==='caixa'?'CAIXA':c.conta,contaNome:cNome(c)});}
-function need(){if(!st.conta){toast('Escolha a conta no filtro “Conta” dos lançamentos: OFX e OFC são gerados por conta.');$('f_conta').focus();return null;}
-  var l=period();if(!l.length){toast('Não há lançamentos no período para exportar.');return null;}var c=conta(st.conta);
+function per(){return NXF.nomePer(st.f,st.contas);}
+function ini(){return NXF.saldoIni(dados(),st.f);}
+function umaConta(){return st.f.contas.length===1?conta(st.f.contas[0]):null;}
+function empConta(){var c=umaConta()||{};return Object.assign({},st.emp,{tipo:c.tipo,banco:c.banco,ag:c.ag,conta:c.tipo==='caixa'?'CAIXA':c.conta,contaNome:cNome(c)});}
+function need(){var c=umaConta();if(!c){toast('Para OFX/OFC, escolha uma única conta em Filtros › Contas.');var d=document.getElementById('nxf_contas');if(d){d.open=true;d.scrollIntoView({block:'center'});}return null;}
+  var l=period();if(!l.length){toast('Não há lançamentos com esses filtros.');return null;}
   if(c.tipo==='banco'&&(!c.banco||!c.conta)){toast('Preencha banco e conta de '+cNome(c)+' antes de exportar.');return null;}return l;}
 $('x_ofx').addEventListener('click',function(){var l=need();if(!l)return;NXF.baixar(NXF.ofx(empConta(),l,ini()),NXF.nome(st.emp,per(),'ofx'),'application/x-ofx');toast('Arquivo OFX gerado.');});
 $('x_ofc').addEventListener('click',function(){var l=need();if(!l)return;NXF.baixar(NXF.ofc(empConta(),l,ini()),NXF.nome(st.emp,per(),'ofc'),'application/octet-stream');toast('Arquivo OFC gerado.');});
-$('x_csv').addEventListener('click',function(){var l=period();if(!l.length){toast('Não há lançamentos no período.');return;}NXF.baixar(NXF.csv(l.map(function(i){return Object.assign({},i,{desc:i.desc+' ['+cNome(conta(i.conta))+']'});})),NXF.nome(st.emp,per(),'csv'),'text/csv;charset=utf-8');toast('CSV gerado.');});
-$('x_pdf').addEventListener('click',function(){var l=period();if(!l.length){toast('Não há lançamentos no período.');return;}var c=conta(st.conta);
-  NXF.pdf({emp:Object.assign({},st.emp,c?{banco:c.tipo==='caixa'?'Dinheiro em espécie':c.banco,ag:c.ag,conta:c.tipo==='caixa'?cNome(c):c.conta}:{banco:'Todas as contas',ag:'—',conta:st.contas.length+' contas'}),items:l.map(function(i){return st.conta?i:Object.assign({},i,{desc:i.desc+' · '+cNome(conta(i.conta))});}),ini:ini(),periodo:st.mes,por:st.emp.nome||''});});
+$('x_csv').addEventListener('click',function(){var l=period();if(!l.length){toast('Não há lançamentos com esses filtros.');return;}NXF.baixar(NXF.csv(l.map(function(i){return Object.assign({},i,{desc:i.desc+' ['+cNome(conta(i.conta))+']'});})),NXF.nome(st.emp,per(),'csv'),'text/csv;charset=utf-8');toast('CSV gerado.');});
+$('x_pdf').addEventListener('click',function(){var l=period();if(!l.length){toast('Não há lançamentos com esses filtros.');return;}var c=umaConta();
+  NXF.pdf({emp:Object.assign({},st.emp,c?{banco:c.tipo==='caixa'?'Dinheiro em espécie':c.banco,ag:c.ag,conta:c.tipo==='caixa'?cNome(c):c.conta}:{banco:'Todas as contas',ag:'—',conta:st.contas.length+' contas'}),items:l.map(function(i){return c?i:Object.assign({},i,{desc:i.desc+' · '+cNome(conta(i.conta))});}),ini:ini(),perTxt:st.f.ini?fdate(st.f.ini)+' a '+fdate(st.f.fim||st.f.ini):'Todo o período',filtro:NXF.resumoFiltro(st.f,st.contas),por:st.emp.nome||''});});
 
 // demo / limpar
 $('b_demo').addEventListener('click',function(){var m=new Date();var ym=m.getFullYear()+'-'+String(m.getMonth()+1).padStart(2,'0');
@@ -325,10 +320,10 @@ $('b_demo').addEventListener('click',function(){var m=new Date();var ym=m.getFul
   var ex=[['03','Recebimento paciente - consultas','Receita de serviços',4200,'c1'],['04','Consultas pagas em dinheiro','Vendas em dinheiro',850,'cx'],['05','Pagamento aluguel sala','Aluguel',-1800,'c1'],['07','Tarifa pacote de serviços','Tarifas bancárias',-49.9,'c1'],['10','Recebimento convênio','Receita de serviços',6350,'c2'],['12','Fornecedor materiais','Materiais e insumos',-980.4,'c2'],['15','Pró-labore sócio','Pró-labore',-3000,'c1'],['20','DAS Simples Nacional','Impostos sobre o faturamento',-712.35,'c1'],['22','Compra de café e copos','Outras saídas',-64,'cx'],['25','Energia elétrica','Energia, água e internet',-310.22,'c2']];
   st.items=ex.map(function(e,ix){return {id:uid(),data:ym+'-'+e[0],desc:e[1],cat:e[2],valor:e[3],orig:ix%2?'banco':'manual',conta:e[4]};});
   st.items.push({id:uid(),data:ym+'-26',desc:'Depósito do dinheiro no banco',cat:TR,valor:-600,orig:'manual',conta:'cx',par:'p1'},{id:uid(),data:ym+'-26',desc:'Depósito do dinheiro no banco',cat:TR,valor:600,orig:'manual',conta:'c1',par:'p1'});
-  st.mes=ym;st.conta='';save();render();toast('Dados de exemplo carregados.');});
-$('b_clear').addEventListener('click',function(){if(!confirm('Apagar todos os lançamentos e contas?'))return;st.emp={};st.contas=[];st.items=[];st.conta='';norm();save();render();toast('Dados apagados.');});
+  st.f=NXF.filtroPadrao(ym);save();render();toast('Dados de exemplo carregados.');});
+$('b_clear').addEventListener('click',function(){if(!confirm('Apagar todos os lançamentos e contas?'))return;st.emp={};st.contas=[];st.items=[];st.f=NXF.filtroPadrao();norm();save();render();toast('Dados apagados.');});
 
-load();var t=new Date();$('n_data').value=t.toISOString().slice(0,10);st.mes=st.mes||t.toISOString().slice(0,7);st.dref=t.toISOString().slice(0,7);fillCats();render();
+load();var t=new Date();$('n_data').value=t.toISOString().slice(0,10);st.dref=t.toISOString().slice(0,7);fillCats();render();
 if(REAL)NXA.sb.from('financeiro').select('dados').eq('empresa_id',window.NX_FIN_CID).maybeSingle().then(function(r){if(r.error){toast('Sem acesso ao controle financeiro desta empresa.');return;}if(r.data&&r.data.dados){var d=r.data.dados;st.emp=d.emp||{};st.contas=d.contas||[];st.items=d.items||[];var antes=!d.contas;norm();if(antes)save();try{localStorage.setItem(KEY,JSON.stringify(dados()));}catch(e){}render();}else if(st.items.length){save();}});
 })();
 </script>
