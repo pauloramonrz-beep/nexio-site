@@ -117,11 +117,16 @@ function push(db){var L=linhas(db),old=NXS.snap,ops=[];
 /* ---------- visualizar / baixar arquivos guardados no servidor ---------- */
 function urlAssinada(f){return sb().storage.from('documentos').createSignedUrl(f.storage_path,300).then(function(r){if(r.error)throw r.error;return r.data.signedUrl;});}
 var viewerOrig=NX.viewer,downOrig=NX.download;
-NX.viewer=function(f,ctx){if(!NX.realMode||f.data)return viewerOrig(f,ctx);var p=NXS.pend[f.id];if(p)return viewerOrig(Object.assign({},f,{data:p.data}),ctx);
+function regView(f,acao){try{if(NX.realMode&&/^[0-9a-f-]{36}$/i.test(f.id||'')&&!NXS.pend[f.id])sb().rpc('registrar_visualizacao',{p_doc:f.id,p_acao:acao}).then(function(){});}catch(e){}}
+NXS.visualizacoes=function(id){return sb().from('doc_visualizacoes').select('nome,email,tipo,acao,em').eq('documento_id',id).order('em',{ascending:false}).limit(200);};
+function painelViews(f){if(NXS.modo!=='equipe'||!/^[0-9a-f-]{36}$/i.test(f.id||''))return;var tent=0;(function poe(){var side=document.querySelector('#nxv[open] .nxv-side');if(!side){if(tent++<40)setTimeout(poe,150);return;}
+  var box=document.createElement('div');box.innerHTML='<h3 style="font-size:15px;color:var(--blue2);margin:6px 0">Quem visualizou</h3><p class="help">Carregando…</p>';side.appendChild(box);
+  NXS.visualizacoes(f.id).then(function(r){var l=r.data||[],e=NX.esc;box.innerHTML='<h3 style="font-size:15px;color:var(--blue2);margin:6px 0">Quem visualizou ('+l.length+')</h3>'+(l.length?'<div style="display:flex;flex-direction:column;gap:6px;font-size:13px">'+l.map(function(v){return '<div style="border-bottom:1px solid var(--line);padding-bottom:4px"><b>'+e(v.nome||v.email||'—')+'</b> <span class="tag '+(v.tipo==='cliente'?'info':'')+'" style="font-size:11px">'+(v.tipo==='cliente'?'Cliente':'Equipe')+'</span><br><span style="color:var(--muted)">'+e(v.acao)+' em '+new Date(v.em).toLocaleString('pt-BR')+'</span></div>';}).join('')+'</div>':'<p class="help">Ninguém abriu este documento ainda.</p>');});})();}
+NX.viewer=function(f,ctx){regView(f,'Visualizou');painelViews(f);if(!NX.realMode||f.data)return viewerOrig(f,ctx);var p=NXS.pend[f.id];if(p)return viewerOrig(Object.assign({},f,{data:p.data}),ctx);
   if(!f.storage_path){NX.toast('Arquivo ainda sendo enviado. Tente em instantes.');return;}
   urlAssinada(f).then(function(u){return fetch(u);}).then(function(r){return r.blob();}).then(function(b){var fr=new FileReader();fr.onload=function(){viewerOrig(Object.assign({},f,{data:fr.result}),ctx);};fr.readAsDataURL(b);}).catch(function(e){NX.toast('Não foi possível abrir: '+(e.message||e));});
   NXA.acesso('Abriu documento',f.titulo,f.cliente);};
-NX.download=function(f){if(!NX.realMode||f.data)return downOrig(f);var p=NXS.pend[f.id];if(p)return downOrig(Object.assign({},f,{data:p.data}));
+NX.download=function(f){regView(f,'Baixou');if(!NX.realMode||f.data)return downOrig(f);var p=NXS.pend[f.id];if(p)return downOrig(Object.assign({},f,{data:p.data}));
   if(!f.storage_path){NX.toast('Arquivo ainda sendo enviado. Tente em instantes.');return;}
   sb().storage.from('documentos').createSignedUrl(f.storage_path,300,{download:f.nome||true}).then(function(r){if(r.error){NX.toast('Erro: '+r.error.message);return;}var a=document.createElement('a');a.href=r.data.signedUrl;document.body.appendChild(a);a.click();a.remove();NXA.acesso('Baixou documento',f.titulo,f.cliente);});};
 /* registro de acessos também no banco */
