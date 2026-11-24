@@ -1204,7 +1204,7 @@ function gcalLink(m){var c=m.cliente?cli(m.cliente):null,dt=function(h){return m
 var RS={q:'',f:'todas'};
 /* ---------- Google Agenda (OAuth no navegador, sem servidor) ---------- */
 var GC={tok:null,exp:0,cli:null};
-function gcId(){return db.gcalClientId||'';}
+function gcId(){return db.gcalClientId===''?'':(db.gcalClientId||'882679468319-tf6lm1oa1lari1iq93rpi7moe40tupih.apps.googleusercontent.com');}
 function gcCarregar(){return new Promise(function(ok,no){if(window.google&&google.accounts&&google.accounts.oauth2)return ok();var sc=document.createElement('script');sc.src='https://accounts.google.com/gsi/client';sc.onload=ok;sc.onerror=function(){no(new Error('Não foi possível carregar o Google.'));};document.head.appendChild(sc);});}
 function gcToken(){if(GC.tok&&Date.now()<GC.exp)return Promise.resolve(GC.tok);if(!gcId())return Promise.reject(new Error('Google Agenda ainda não configurado.'));
   return gcCarregar().then(function(){return new Promise(function(ok,no){var c=google.accounts.oauth2.initTokenClient({client_id:gcId(),scope:'https://www.googleapis.com/auth/calendar.events',callback:function(r){if(r.error){no(new Error(r.error));return;}GC.tok=r.access_token;GC.exp=Date.now()+(r.expires_in-60)*1000;ok(GC.tok);}});c.requestAccessToken({prompt:GC.tok?'':'consent'});});});}
