@@ -82,7 +82,7 @@ function subir(f,interno){var empresa=interno?NXS.interno:(f.cliente||NXS.empres
   var path=empresa+'/'+(NXS.modo==='cliente'?'cliente/':'')+f.id+'-'+NXA.nomeSeguro(f.nome||'arquivo');
   var p=f.data.split(','),mime=(p[0].match(/:(.*?);/)||[])[1]||'application/octet-stream',bin=atob(p[1]),u=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
   return sb().storage.from('documentos').upload(path,new Blob([u],{type:mime}),{contentType:mime,upsert:true}).then(function(r){if(chk(r,'envio do arquivo '+(f.nome||'')))return null;return path;});}
-NX.beforeSave=function(db){if(!NX.realMode||!NXS.modo)return;
+NX.beforeSave=function(db){if(!NX.realMode||!NXS.modo||NXS.somenteLeitura)return;
   [['files',false],['office',true]].forEach(function(x){(db[x[0]]||[]).forEach(function(f){if(f.data&&!f.storage_path&&!NXS.pend[f.id]){NXS.pend[f.id]={data:f.data,interno:x[1]};}});});
   clearTimeout(NXS.timer);var snapDb=JSON.parse(JSON.stringify(db,function(k,v){return k==='data'&&typeof v==='string'&&v.indexOf('data:')===0?undefined:v;}));
   NXS.timer=setTimeout(function(){NXS.empurrar(snapDb);},600);};

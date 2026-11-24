@@ -58,6 +58,7 @@ function shell(active,html){
   
   '<div class="foot"><span>'+e(c.nome)+'</span><a href="https://wa.me/5511939565190">Falar no WhatsApp</a><a href="#" id="logout">Sair</a></div></aside><main class="main">'+html+'</main></div>';
   NX.applySide();
+  if(REAL&&REAL.equipe){var mn=root.querySelector('.main');if(mn){var bn=document.createElement('div');bn.style.cssText='background:#FFF4D6;color:#7A4B00;border-radius:12px;padding:10px 14px;margin-bottom:16px;font-size:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap';bn.innerHTML='<b>Modo visualização da equipe</b> — você está vendo o portal como o cliente vê. Nada do que fizer aqui é salvo.<a href="/admin/" style="margin-left:auto">Voltar ao painel</a><a href="#" id="trc">Trocar empresa</a>';mn.insertBefore(bn,mn.firstChild);document.getElementById('trc').onclick=function(ev){ev.preventDefault();try{sessionStorage.removeItem('nx_emp');}catch(x){}location.reload();};}}
   document.getElementById('logout').onclick=function(ev){ev.preventDefault();sairReal();};
 }
 function head(t,sub){return '<div class="page-h"><div><h1>'+t+'</h1>'+(sub?'<p>'+sub+'</p>':'')+'</div></div>';}
@@ -422,7 +423,10 @@ function bootReal(){
     NXA.perfil().then(function(p){if(!p){NXA.sair().then(telaLoginR);return;}REAL.perfil=p;
       if(NXA.tipoLink==='recovery'){primeiroAcessoR(true);return;}
       if(NXA.tipoLink==='invite'||NXA.tipoLink==='magiclink'||NXA.tipoLink==='signup'||!p.aceite_versao||p.aceite_versao!==TERMOS_V){primeiroAcessoR(false);return;}
-      if(p.tipo==='equipe'){location.replace('/admin/');return;}
+      if(p.tipo==='equipe'){REAL.equipe=true;NXS.somenteLeitura=true;sbp.from('empresas').select('id,razao_social,fantasia,documento').eq('ativo',true).eq('interno',false).order('razao_social').then(function(q){
+          REAL.emps=(q.data||[]).map(function(x){return Object.assign({nivel:'titular'},x);});
+          boxR('<h1>Olá, '+e(p.nome.split(' ')[0])+'!</h1><p class="help">Você é da equipe NEXIO. Pode ir para o painel ou ver o portal exatamente como um cliente vê (modo visualização, sem alterar nada).</p><a class="btn b-blue" href="/admin/">Ir para o painel da equipe</a><h2 style="font-size:16px;margin-top:8px">Ver o portal como o cliente:</h2>'+REAL.emps.map(function(x){return '<button class="btn b-line" data-ce="'+x.id+'" style="justify-content:flex-start;text-align:left;min-height:52px"><span><b>'+e(x.fantasia||x.razao_social)+'</b></span></button>';}).join('')+'<button class="btn b-text" id="sx">Sair</button>');
+          root.querySelectorAll('[data-ce]').forEach(function(b){b.onclick=function(){abrirEmpresa(REAL.emps.filter(function(x){return x.id===b.getAttribute('data-ce');})[0]);};});document.getElementById('sx').onclick=sairReal;});return;}
       sbp.from('empresa_usuarios').select('nivel, empresas(id,razao_social,fantasia,documento)').eq('usuario_id',p.id).then(function(q){if(q.error){boxR('<h1>Erro</h1><p class="help">'+e(q.error.message)+'</p>');return;}
         REAL.emps=(q.data||[]).filter(function(x){return x.empresas;}).map(function(x){return Object.assign({nivel:x.nivel},x.empresas);});
         if(!REAL.emps.length){boxR('<h1>Acesso em liberação</h1><p class="help" style="font-size:15px;color:var(--ink)">Seu usuário foi criado, mas ainda não está ligado a nenhuma empresa. A NEXIO vai liberar em breve.</p><button class="btn b-line" id="sx">Sair</button>');document.getElementById('sx').onclick=sairReal;return;}
@@ -435,7 +439,7 @@ function escolherEmpresa(){try{sessionStorage.removeItem('nx_emp');}catch(x){}NX
 function abrirEmpresa(atual){boxR('<h1>Portal do Cliente</h1><p class="help">Carregando '+e(atual.fantasia||atual.razao_social)+'…</p>');
   NXS._perfil=REAL.perfil;NXS._emps=REAL.emps;NXS._atual=atual;
   NXS.carregarCliente(REAL.perfil,REAL.emps,atual).then(function(d){NXS.iniciar('nexio_cli_'+REAL.perfil.id+'_'+atual.id,d);db=NX.load();
-    S.uid=REAL.perfil.id;S.cid=atual.id;try{sessionStorage.setItem('nx_emp',atual.id);sessionStorage.setItem('nx_client',atual.id);sessionStorage.setItem('nx_cuser',S.uid);}catch(x){}
+    S.uid=REAL.perfil.id;S.cid=atual.id;try{sessionStorage.setItem('nx_emp',atual.id);sessionStorage.setItem('nx_client',atual.id);sessionStorage.setItem('nx_cuser',S.uid);if(REAL.equipe)sessionStorage.setItem('nx_leitura','1');else sessionStorage.removeItem('nx_leitura');}catch(x){}
     NXA.acesso('Entrou no portal','',atual.id);if(!location.hash||location.hash.indexOf('access_token')>-1)location.hash='#/inicio';render();
   }).catch(function(err){boxR('<h1>Erro ao carregar</h1><p class="help" style="font-size:15px;color:var(--ink)">'+e(String(err.message||err))+'</p><button class="btn b-blue" onclick="location.reload()">Tentar de novo</button>');});}
 function nivel(){var u=meU();if(!u)return 'consulta';return (u.niveis&&u.niveis[S.cid])||u.nivel;}

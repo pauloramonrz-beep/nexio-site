@@ -201,9 +201,10 @@ var st={emp:{},contas:[],items:[],f:NXF.filtroPadrao(),dmodo:'ano',dref:''};
 function dados(){return {emp:st.emp,contas:st.contas,items:st.items};}
 function norm(){var d={emp:st.emp,contas:st.contas,items:st.items};NXF.contas(d);st.contas=d.contas;}
 function load(){try{var d=JSON.parse(localStorage.getItem(KEY)||'null');if(d){st.emp=d.emp||{};st.contas=d.contas||[];st.items=d.items||[];}}catch(e){}norm();}
+var LEITURA=false;try{LEITURA=sessionStorage.getItem('nx_leitura')==='1';}catch(x){}
 var REAL=/^[0-9a-f-]{36}$/i.test(window.NX_FIN_CID||'')&&window.NXA&&NXA.ok,tSave=null;
 function save(){try{localStorage.setItem(KEY,JSON.stringify(dados()));}catch(e){}
-  if(REAL){clearTimeout(tSave);tSave=setTimeout(function(){NXA.sb.from('financeiro').upsert({empresa_id:window.NX_FIN_CID,dados:dados(),atualizado_em:new Date().toISOString()}).then(function(r){if(r.error)toast('Não foi possível salvar no servidor: '+r.error.message);});},700);}}
+  if(REAL&&!LEITURA){clearTimeout(tSave);tSave=setTimeout(function(){NXA.sb.from('financeiro').upsert({empresa_id:window.NX_FIN_CID,dados:dados(),atualizado_em:new Date().toISOString()}).then(function(r){if(r.error)toast('Não foi possível salvar no servidor: '+r.error.message);});},700);}}
 function $(id){return document.getElementById(id);}
 function brl(n){return n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
 function fdate(iso){var p=iso.split('-');return p[2]+'/'+p[1]+'/'+p[0];}
