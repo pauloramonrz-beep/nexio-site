@@ -252,6 +252,7 @@ footer .logo{color:#fff}
 <details><summary>Como funciona a assinatura do contrato?</summary><p>O contrato é assinado eletronicamente, sem necessidade de ir a um escritório ou reconhecer firma.</p></details>
 <details><summary>O que é o Plano Fidelidade?</summary><p>É a opção de 12 meses dos planos Simples Nacional: mensalidade menor, 1º certificado digital e-CNPJ A1 gratuito, 10% de desconto em Registro de Marca e condições especiais em soluções empresariais.</p></details>
 <details><summary>Há cobrança adicional por funcionário?</summary><p>Nos planos Simples Nacional, R$ 50 por colaborador. No MEI PRO, R$ 25 por colaborador. Os demais planos não têm adicional.</p></details>
+<details><summary>Como pago a mensalidade? Existe desconto?</summary><p>A mensalidade é paga por boleto ou PIX, disponíveis no portal do cliente. Com o Programa Cliente Pontual, quem paga até o vencimento ganha 10% de desconto na mensalidade do mês seguinte.</p></details>
 <details><summary>Como recebo minhas guias de impostos?</summary><p>As guias são enviadas pelo portal do cliente, onde você acessa tudo de forma organizada.</p></details>
 </div>
 </div>
@@ -306,7 +307,7 @@ var MEI=[['NEXIO MEI START','Para o microempreendedor individual','R$ 99','Valor
 ['NEXIO MEI PRO','Para o MEI que emite mais notas','R$ 149','Valor único mensal',['DAS mensal','Declaração anual','Suporte via WhatsApp','Emissão de 5 notas fiscais por mês']]];
 var PF=[['NEXIO PF ESSENTIAL','Para profissionais autônomos','R$ 89','Valor único mensal',['Apuração mensal do carnê-leão','Emissão de DARF','Emissão de 1 recibo no Receita Saúde']],
 ['NEXIO PF PREMIUM','Para quem quer o IR organizado o ano todo','R$ 189','Valor único mensal',['Tudo do ESSENTIAL','Orientação para organizar os documentos do IRPF','Emissão de 10 recibos no Receita Saúde','30% de desconto na Declaração de IRPF']]];
-var NOTE={sn:'Todos os planos Simples Nacional têm adicional de R$ 50 por colaborador.',mei:'O plano MEI PRO tem adicional de R$ 25 por colaborador.',pf:'Planos mensais sem fidelidade, com cancelamento mediante aviso de 30 dias.'};
+var NOTE={sn:'Todos os planos Simples Nacional têm adicional de R$ 50 por colaborador.',mei:'O plano MEI PRO tem adicional de R$ 25 por colaborador.',pf:'Recibo adicional no Receita Saúde: R$ 10 cada. Planos mensais sem fidelidade, com cancelamento mediante aviso de 30 dias.'};
 var CHECK='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0740EF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>';
 function btn(label,on,fn){var b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('aria-pressed',on);b.onclick=fn;return b;}
 function card(p){return '<article class="plan"><div><h3>'+p.name+'</h3><div class="range">'+p.range+'</div></div><div><div class="price">'+p.price+'<em>/mês</em></div><div class="note">'+p.note+'</div></div><ul>'+p.items.map(function(t){return '<li>'+CHECK+'<span>'+t+'</span></li>';}).join('')+'</ul><a href="'+WA+'" class="btn btn-primary">Quero este plano</a></article>';}
