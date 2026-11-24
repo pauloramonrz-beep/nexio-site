@@ -380,6 +380,8 @@ function parseGuia(txt,nome){var all=(txt+' '+nome),o={tipo:'Guia',setor:'Fiscal
   if(/\d{2}\/\d{2}\/\d{4}/.test(o.comp))o.comp=NX.shiftMonth(NX.ym(),-1);
   var ld=txt.replace(/\s+/g,' ').match(/\d{5}[.\s]?\d{5}\s?\d{5}[.\s]?\d{6}\s?\d{5}[.\s]?\d{6}\s?\d\s?\d{14}/);if(ld)o.linha=ld[0].replace(/\s+/g,' ');
   if(/^Boleto/.test(o.titulo||'')&&o.venc)o.comp=o.venc.slice(0,7);
+  if(/PGDASD-?DECLARA|declara[çc][ãa]o\s+(do|de|mensal)|recibo de entrega|extrato do simples/i.test(all)&&!/PGDASD-?DAS[^a-z]|documento de arrecada/i.test(nome)){var cdn=compDoArquivo({nome:nome});o.tipo='Declaração';o.titulo='Declaração PGDAS-D';o.valor=0;o.venc='';o.linha='';if(cdn)o.comp=cdn;}
+  else{var cg=compDoArquivo({nome:nome});if(cg&&/pgdasd|das/i.test(nome))o.comp=cg;}
   o.titulo=(o.titulo||guessFromName(nome).titulo)+' '+NX.fcomp(o.comp);return o;}
 function pv(s){return parseFloat(String(s||'').replace(/\./g,'').replace(',','.'))||0;}
 S.lote=S.lote||[];window.__nx={S:S,parseGuia:parseGuia};
@@ -397,7 +399,7 @@ function lote(){var L=S.lote;
   root.querySelectorAll('[data-rm]').forEach(function(b){b.onclick=function(){L.splice(+b.getAttribute('data-rm'),1);lote();};});
   var c1=document.getElementById('lclr');if(c1)c1.onclick=function(){S.lote=[];lote();};
   var en=document.getElementById('lenv');if(en)en.onclick=function(){var ok=L.filter(function(x){return x.cliente;}),avisar=document.getElementById('lnot').checked,por={};
-    ok.forEach(function(x){var f={id:NX.uid(),cliente:x.cliente,setor:x.setor,tipo:'Guia',titulo:x.titulo,comp:x.comp,venc:x.venc,valor:x.valor,status:'pendente',de:'equipe',por:S.user.nome,nome:x.nome,data:x.data,size:x.size,criado:NX.today(),visto:false,shared:true,ntf:!avisar};
+    ok.forEach(function(x){var f={id:NX.uid(),cliente:x.cliente,setor:x.setor,tipo:x.tipo||'Guia',titulo:x.titulo,comp:x.comp,venc:x.venc,valor:x.valor,status:x.tipo==='Declaração'?'ok':'pendente',de:'equipe',por:S.user.nome,nome:x.nome,data:x.data,size:x.size,criado:NX.today(),visto:false,shared:true,ntf:!avisar};
       hist(f,'Enviado pela equipe (lote de guias)');db.files.push(f);onDocAdded(f);logEq('Enviou guia em lote',f.titulo,f.cliente);por[x.cliente]=(por[x.cliente]||[]).concat([f]);});
     if(avisar)Object.keys(por).forEach(function(cid){var fs=por[cid];fs.forEach(function(f){f.ntf=1;});NX.notify(db,cid,'doc',fs.length>1?fs.length+' novas guias disponíveis':'Nova guia: '+fs[0].titulo,fs.map(function(f){return f.titulo+(f.venc?' (vence '+NX.fdate(f.venc)+')':'')+(f.valor?' — '+NX.brl(f.valor):'');}).join('; '),'#/arquivos');});
     if(persist()===false)return;
@@ -633,10 +635,24 @@ function gerarDemandas(comp,silent){var n=0;
 function tlog(t,ev){t.log=t.log||[];t.log.push({em:new Date().toISOString(),ev:ev,por:S.user?S.user.nome:'Sistema'});}
 function setStatus(t,k,why){if(t.status===k)return;t.status=k;if(k==='ok'){t.concluido=NX.today();}else delete t.concluido;tlog(t,'Status: '+stInfo(k)[1]+(why?' ('+why+')':''));}
 /* vínculo com documentos: ao enviar um documento, conclui a demanda correspondente */
-function onDocAdded(f){ensureProc();if(f.de!=='equipe')return;var name=(f.titulo+' '+f.nome).toLowerCase(),hit=null;
-  db.tasks.forEach(function(t){if(hit||t.tipo!=='cliente'||t.cliente!==f.cliente||t.status==='ok')return;var tp=db.procT.filter(function(x){return x.id===t.tpl;})[0];
-    var okName=tp&&tp.match&&new RegExp(tp.match,'i').test(name);if(okName&&(t.comp===f.comp||!f.comp))hit=t;});
-  if(hit){hit.doc=f.id;setStatus(hit,'ok','documento “'+f.titulo+'” enviado');persist();NX.toast('Demanda “'+hit.titulo+'” concluída automaticamente.');}}
+/* competência pelo nome/texto do arquivo (ex.: PGDASD-DECLARACAO-<CNPJ><AAAAMM>001, "PA 10/2026") */
+function compDoArquivo(f){var n=(f.nome||'')+' '+(f.titulo||''),m=n.match(/\d{8}(20\d{2})(0[1-9]|1[0-2])\d{3}(?!\d)/)||n.match(/\d{14}(20\d{2})(0[1-9]|1[0-2])\d{0,3}/);if(m)return m[1]+'-'+m[2];
+  m=n.match(/(?:PA|per[ií]odo|compet[eê]ncia)[^0-9]{0,6}(0[1-9]|1[0-2])[\/\-.](20\d{2})/i);if(m)return m[2]+'-'+m[1];return '';}
+var REQS_DAS=[{nome:'Declaração PGDAS-D',match:'declara|recibo'},{nome:'Guia DAS',match:'(^|[^a-z])das([^a-z]|$)|documento de arrecada|guia'}];
+function reqsDe(tp){if(!tp)return null;if(tp.reqs)return tp.reqs;if(/^DAS — Simples/i.test(tp.titulo))return REQS_DAS;return null;}
+function onDocAdded(f){ensureProc();if(f.de!=='equipe')return;var name=(f.titulo+' '+f.nome).toLowerCase(),dc=compDoArquivo(f)||f.comp||'',hit=null,tpH=null;
+  if(!dc)return;
+  var cands=[];db.tasks.forEach(function(t){if(t.tipo!=='cliente'||t.cliente!==f.cliente||t.status==='ok'||t.comp!==dc)return;var tp=db.procT.filter(function(x){return x.id===t.tpl;})[0];
+    if(tp&&tp.match&&new RegExp(tp.match,'i').test(name))cands.push([t,tp]);});
+  cands.sort(function(a,b){var pa=/pgdas/.test(name)&&reqsDe(a[1])?0:1,pb=/pgdas/.test(name)&&reqsDe(b[1])?0:1;return pa-pb;});if(cands[0]){hit=cands[0][0];tpH=cands[0][1];}
+  if(!hit)return;var rq=reqsDe(tpH);
+  if(!rq){hit.doc=f.id;setStatus(hit,'ok','documento “'+f.titulo+'” enviado');persist();NX.toast('Demanda “'+hit.titulo+'” concluída automaticamente.');return;}
+  var r=rq.filter(function(x){return new RegExp(x.match,'i').test(name.replace(/pgdasd?/g,' '));})[0];if(!r)return;
+  hit.docs=hit.docs||{};hit.docs[r.nome]=f.id;hit.doc=f.id;tlog(hit,r.nome+' anexado: '+f.titulo);
+  var falta=rq.filter(function(x){return !hit.docs[x.nome];});
+  if(!falta.length){setStatus(hit,'ok','todos os documentos enviados');NX.toast('Demanda “'+hit.titulo+'” concluída: '+rq.map(function(x){return x.nome;}).join(' e ')+' enviados.');}
+  else{if(hit.status==='nao')setStatus(hit,'and',r.nome+' enviado');NX.toast(r.nome+' anexado. Falta: '+falta.map(function(x){return x.nome;}).join(', ')+'.');}
+  persist();}
 function late(t){return t.status!=='ok'&&t.venc&&t.venc<NX.today();}
 function riscoMulta(t){var d=new Date();d.setDate(d.getDate()+5);return t.multa&&t.status!=='ok'&&t.venc&&t.venc<=d.toISOString().slice(0,10);}
 function av(id){var s=staffBy(id);if(!s)return '<span class="av" style="background:#ccc">?</span>';if(s.foto)return '<span class="av" style="background:#ddd url('+s.foto+') center/cover" title="'+e(s.nome)+'" role="img" aria-label="'+e(s.nome)+'"></span>';return '<span class="av" style="background:'+(s.cor||'#0740EF')+'" title="'+e(s.nome)+'">'+e(s.nome.split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase())+'</span>';}
@@ -1025,6 +1041,13 @@ function limparDemandas(){if(!db||!db.tasks||!db.clients)return 0;var antes=db.t
   return antes-db.tasks.length;}
 var _persist=persist;persist=function(){limparDemandas();return _persist();};
 EX.limparDemandas=limparDemandas;
+function revalidarDAS(){if(!db||!db.tasks||!db.procT||db.revalDAS1)return;var mud=0;
+  db.tasks.forEach(function(t){var tp=db.procT.filter(function(x){return x.id===t.tpl;})[0];if(!reqsDe(tp)||t.status!=='ok'||!t.doc||t.docs)return;
+    var auto=(t.log||[]).some(function(l){return /documento “/.test(l.ev||'');});if(!auto)return;
+    var f=db.files.filter(function(x){return x.id===t.doc;})[0];delete t.doc;t.status='nao';delete t.concluido;tlog(t,'Reaberta: a conclusão automática exigia também a guia/declaração e a competência certa');mud++;
+    if(f){f.comp=compDoArquivo(f)||f.comp;if(/declara|recibo/i.test(f.nome||'')){f.tipo='Declaração';f.status='ok';f.titulo='Declaração PGDAS-D '+NX.fcomp(f.comp);delete f.venc;}onDocAdded(f);}});
+  db.revalDAS1=1;if(mud){persist();}}
+EX.revalidarDAS=revalidarDAS;
 
 /* ---------- atualização automática entre painel e portal ---------- */
 setInterval(function(){if(!real()||!window.NXS||!NXS.modo||document.visibilityState!=='visible')return;
@@ -1039,8 +1062,10 @@ var _fh=filtersHTML;filtersHTML=function(){var P=S.pr,ms=meStaff(),trava=lvl()==
   return '<div class="tabs" role="tablist" style="margin-bottom:14px">'+abas.map(function(s){var n=filteredSetor(s).length;return '<button role="tab" data-sx="'+e(s)+'" aria-selected="'+((P.setor||'')===s)+'">'+(s||'Todos os setores')+' <small style="color:var(--muted)">'+n+'</small></button>';}).join('')+'</div>'+_fh();};
 function filteredSetor(s){var P=S.pr,old=P.setor;P.setor=s;var l=filtered();P.setor=old;return l;}
 function respSel(attr,id,val,lbl){return '<select '+attr+'="'+id+'" aria-label="'+e(lbl)+'" style="width:auto;min-height:32px;padding:2px 6px;font-size:13px">'+db.staff.map(function(s){return '<option value="'+s.id+'"'+(s.id===val?' selected':'')+'>'+e(s.nome.split(' ')[0])+'</option>';}).join('')+'</select>';}
-var _row=rowHTML;rowHTML=function(t,byObr){var h=_row(t,byObr);if(!can('statusAll'))return h;
+var _row=rowHTML;rowHTML=function(t,byObr){var h=_row(t,byObr),tp=db.procT&&db.procT.filter(function(x){return x.id===t.tpl;})[0],rq=reqsDe(tp);
+  if(rq){var tmp=document.createElement('tbody');tmp.innerHTML=h;var td=tmp.querySelectorAll('td')[6];if(td){td.innerHTML=rq.map(function(x){var id=(t.docs||{})[x.nome],d=id&&db.files.filter(function(f){return f.id===id&&!f.deleted;})[0];return d?'<button class="btn b-text" data-doc="'+d.id+'" style="padding:0;display:block;text-align:left">✓ '+e(x.nome)+'</button>':'<span style="display:block;color:var(--muted)">○ falta '+e(x.nome)+'</span>';}).join('');}h=tmp.innerHTML;}if(!can('statusAll'))return h;
   return h.replace('<td>'+av(t.resp)+'</td>','<td>'+respSel('data-rs',t.id,t.resp,'Responsável por '+t.titulo)+'</td>');};
+var _procs=processos;processos=function(){revalidarDAS();return _procs.apply(this,arguments);};
 var _pt=pTabela;pTabela=function(el){_pt(el);var P=S.pr;
   el.querySelectorAll('[data-sx]').forEach(function(b){b.onclick=function(){P.setor=b.getAttribute('data-sx');processos();};});
   if(!can('statusAll'))return;
