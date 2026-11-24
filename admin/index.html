@@ -113,14 +113,14 @@ function clientes(id){
   var list='<section class="card" style="flex:1 1 280px;max-width:360px"><div class="row between" style="margin-bottom:10px"><h2 style="margin:0">Clientes</h2><button class="btn b-blue" id="addc">+ Novo</button></div>'+
   '<label class="sr" for="q">Buscar cliente</label><input id="q" placeholder="Buscar cliente…" style="margin-bottom:10px"><nav class="client-list" id="cl"></nav></section>';
   var det='<section class="card" style="flex:999 1 520px" id="det"></section>';
-  shell('clientes',head('Clientes','Envie guias e arquivos, acompanhe obrigações e converse com cada cliente.')+'<div class="cols">'+list+det+'</div>');
+  shell('clientes',head('Clientes','Ficha cadastral, usuários do portal e obrigações de cada cliente.')+'<div class="cols">'+list+det+'</div>');
   function drawList(q){q=(q||'').toLowerCase();document.getElementById('cl').innerHTML=myClients().filter(function(c){return !q||(c.nome+c.doc).toLowerCase().indexOf(q)>-1;}).map(function(c){var n=unread(c.id)+newDocs(c.id);return '<a href="#/clientes/'+c.id+'"'+(c.id===S.sel?' aria-current="true"':'')+'><span><b>'+e(c.nome)+'</b><small style="display:block;color:var(--muted);font-size:12px">'+e(c.plano)+'</small></span>'+(n?'<span class="tag info">'+n+' novo(s)</span>':'')+'</a>';}).join('')||'<p class="empty">Nenhum cliente.</p>';}
   drawList();document.getElementById('q').oninput=function(ev){drawList(ev.target.value);};
   document.getElementById('addc').onclick=function(){clientDialog();};
   var el=document.getElementById('det');
   if(!S.sel){el.innerHTML='<p class="empty">Selecione um cliente na lista ou cadastre um novo.</p>';return;}
   var c=cli(S.sel);
-  var tabs=[['arquivos','Documentos'],['obrigacoes','Obrigações'],['mensagens','Mensagens'+(unread(c.id)?' ('+unread(c.id)+')':'')],['usuarios','Usuários do portal'],['dados','Ficha do cliente']].filter(function(t){return t[0]==='usuarios'?can('clientesEdit'):t[0]==='arquivos'?can('docs'):t[0]==='obrigacoes'?can('obrig'):t[0]==='dados'?can('clientesEdit'):true;});if(!tabs.some(function(t){return t[0]===S.tab;}))S.tab=tabs[0][0];
+  var tabs=[['dados','Ficha do cliente'],['usuarios','Usuários do cliente'],['obrigacoes','Seleção de obrigações']].filter(function(t){return t[0]==='usuarios'?can('clientesEdit'):t[0]==='arquivos'?can('docs'):t[0]==='obrigacoes'?can('obrig'):t[0]==='dados'?can('clientesEdit'):true;});if(!tabs.some(function(t){return t[0]===S.tab;}))S.tab=tabs[0][0];
   el.innerHTML='<div class="row between" style="margin-bottom:12px"><div><h2 style="margin:0">'+e(c.nome)+'</h2><p class="help">'+e(c.doc)+' · '+e(c.plano)+' · '+e(c.resp)+'</p></div></div>'+
   '<div class="tabs" role="tablist">'+tabs.map(function(t){return '<button role="tab" data-t="'+t[0]+'" aria-selected="'+(S.tab===t[0])+'">'+t[1]+'</button>';}).join('')+'</div><div id="tabc"></div>';
   el.querySelectorAll('[data-t]').forEach(function(b){b.onclick=function(){S.tab=b.getAttribute('data-t');clientes(S.sel);};});
@@ -239,7 +239,7 @@ function tabObrig(c,el){ensureProc();
       return '<fieldset style="border:1px solid var(--line);border-radius:12px;padding:12px"><legend style="font-weight:700;color:var(--blue2);padding:0 6px">'+s+'</legend>'+l.map(function(tp){var on=sel.indexOf(tp.id)>-1,r=(c.obrigResp&&c.obrigResp[tp.id])||tp.resp;
         return '<div class="row between" style="align-items:center;padding:4px 0;border-bottom:1px solid var(--soft)"><label style="flex-direction:row;align-items:center;gap:8px;color:var(--ink);font-weight:500;flex:1;min-width:0"><input type="checkbox" data-ob="'+tp.id+'" '+(on?'checked':'')+' style="width:auto;min-height:auto">'+e(tp.titulo)+' <small style="color:var(--muted)">'+({mensal:'mensal',trimestral:'trimestral',anual:'anual'})[tp.per||'mensal']+' · dia '+tp.venc+'</small></label><select data-or="'+tp.id+'" aria-label="Responsável por '+e(tp.titulo)+'" style="width:auto;min-height:34px;padding:4px 8px;font-size:13px">'+db.staff.map(function(st){return '<option value="'+st.id+'"'+(st.id===r?' selected':'')+'>'+e(st.nome)+'</option>';}).join('')+'</select></div>';}).join('')+'</fieldset>';}).join('')+'</div></section><div id="ocal"></div>';
   document.getElementById('svo').onclick=function(){c.obrig=[].slice.call(el.querySelectorAll('[data-ob]')).filter(function(x){return x.checked;}).map(function(x){return x.getAttribute('data-ob');});
-    c.obrigResp={};el.querySelectorAll('[data-or]').forEach(function(x){c.obrigResp[x.getAttribute('data-or')]=x.value;});persist();NX.toast('Obrigações de '+c.nome+' salvas. Use “Gerar demandas” em Processos.');clientes(c.id);};
+    c.obrigResp={};el.querySelectorAll('[data-or]').forEach(function(x){c.obrigResp[x.getAttribute('data-or')]=x.value;});persist();NX.toast('Obrigações de '+c.nome+' salvas. As demandas e o calendário do cliente já foram ajustados.');clientes(c.id);};
   document.getElementById('sug').onclick=function(){delete c.obrig;persist();clientes(c.id);NX.toast('Sugestão do plano aplicada.');};
   tabObrigCal(c,document.getElementById('ocal'));
 }
@@ -544,8 +544,8 @@ function meetingDialog(m){var isNew=!m.id;
     var cf=conflicts(n,m.id);if(cf.length&&!m._ok){document.getElementById('cfw').innerHTML='Conflito de horário:<br>'+cf.map(e).join('<br>')+'<br><b>Clique em Salvar de novo para marcar mesmo assim.</b>';m._ok=true;return false;}
     db.meetings=db.meetings.filter(function(x){return x.id!==n.id;});db.meetings.push(n);
     if(fd.get('avisar')&&n.cliente)db.messages.push({id:NX.uid(),cliente:n.cliente,de:'equipe',autor:S.user.nome,texto:'Reunião '+(isNew?'agendada':'atualizada')+': '+n.titulo+' em '+NX.fdate(n.data)+', das '+n.ini+' às '+n.fim+(n.local?' ('+n.local+')':'')+'.',em:new Date().toISOString(),lida:false});
-    persist();S.ag.date=n.data;agenda();NX.toast(isNew?'Reunião marcada.':'Reunião atualizada.');});
-  var d=document.getElementById('delm');if(d)d.onclick=function(){if(confirm('Excluir esta reunião?')){db.meetings=db.meetings.filter(function(x){return x.id!==m.id;});persist();dlg.close();agenda();}};
+    persist();if(S.ag)S.ag.date=n.data;if(route()[0]==='reunioes')render();else agenda();NX.toast(isNew?'Reunião marcada.':'Reunião atualizada.');});
+  var d=document.getElementById('delm');if(d)d.onclick=function(){if(confirm('Excluir esta reunião?')){db.meetings=db.meetings.filter(function(x){return x.id!==m.id;});persist();dlg.close();if(route()[0]==='reunioes'){location.hash='#/reunioes';render();}else agenda();}};
 }
 function staffDialog(s){openDlg('<h2>'+(s.id?'Editar pessoa':'Adicionar pessoa')+'</h2><div class="grid"><label>Nome<input name="nome" required value="'+e(s.nome)+'"></label><label>Cargo<input name="cargo" value="'+e(s.cargo||'')+'"></label><label>E-mail<input name="email" type="email" required value="'+e(s.email)+'"></label><label>Cor na agenda<input name="cor" type="color" value="'+s.cor+'"></label><label style="grid-column:1/-1">Google Agenda (e-mail ou ID da agenda)<input name="gcal" value="'+e(s.gcal||'')+'" placeholder="ex.: nome@gmail.com"></label></div><label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" name="diretor" '+(s.diretor?'checked':'')+' style="width:auto;min-height:auto"> Faz parte da diretoria</label>',
   function(fd){var o=s.id?s:{id:NX.uid()};['nome','cargo','email','cor','gcal'].forEach(function(k){o[k]=fd.get(k);});o.diretor=!!fd.get('diretor');if(!s.id)db.staff.push(o);persist();agenda();NX.toast('Equipe atualizada.');});}
@@ -873,7 +873,7 @@ function seedFicha(){if(db.fichaV)return;db.fichaV=1;var c=db.clients[0],d=funct
   var c2=db.clients[1];if(c2)c2.trib=c2.trib||{regime:'MEI',anexo:'III',fatorR:false,rbt12:0,folha12:0,iss:0,issRet:false,lc116:'',mun:'Manaus/AM'};
   var c3=db.clients[2];if(c3)c3.trib=c3.trib||{regime:'PF',anexo:'III',fatorR:false,rbt12:0,folha12:0,iss:0,lc116:'04.01',mun:'Manaus/AM'};persist();}
 document.addEventListener('click',function(ev){if(ev.target.closest&&ev.target.closest('[data-fic]'))S.tab='dados';},true);
-function render(){if(S.user&&S.user.real&&!NXS.modo){NX.realMode=true;NX.useKey('nexio_real_'+S.user.id);abrirReal();return;}db=NX.load();if(NX.ensureUsers(db))persist();if(purgeLixeira())persist();seedFicha();if(!S.user){login();return;}if(!staffBy(S.user.id)){S.user=null;login();return;}var r=route();if(r[0]==='reais'){location.hash='#/clientes'+(r[1]?'/'+r[1]:'');return;}if(!navAllowed(r[0]||'painel')&&r[0]){location.hash='#/painel';return;}
+function render(){if(S.user&&S.user.real&&!NXS.modo){NX.realMode=true;NX.useKey('nexio_real_'+S.user.id);abrirReal();return;}db=NX.load();if(NX.ensureUsers(db))persist();if(purgeLixeira())persist();seedFicha();if(!S.user){login();return;}if(!staffBy(S.user.id)){S.user=null;login();return;}var r=route();if(window.EXTRA&&EXTRA[r[0]]&&navAllowed(r[0])){EXTRA[r[0]](r[1]);return;}if(r[0]==='reais'){location.hash='#/clientes'+(r[1]?'/'+r[1]:'');return;}if(!navAllowed(r[0]||'painel')&&r[0]){location.hash='#/painel';return;}
   if(r[0]==='usuarios'){usuarios();return;}if(r[0]==='contabil'){contabil();return;}if(r[0]==='lote'){lote();return;}if(r[0]==='lgpd'){lgpd();return;}if(r[0]==='reais'){reais(r[1]);return;}if(r[0]==='notificacoes'){notificacoes();return;}if(r[0]==='acessos'){acessos();return;}
   if(r[0]==='clientes')clientes(r[1]);else if(r[0]==='mensagens')mensagens();else if(r[0]==='obrigacoes')obrigacoes();else if(r[0]==='agenda')agenda();else if(r[0]==='documentos')documentos();else if(r[0]==='processos')processos();else if(r[0]==='comunicacoes')comunicacoes();else painel();}
 window.addEventListener('hashchange',render);
@@ -956,6 +956,307 @@ function rEquipe(){var me=staffBy(S.user.id)||{},adm=me.nivel==='admin';
         NXA.acesso('Convidou pessoa da equipe',em+' ('+NX.NIV_EQ[nv].nome+')');NX.toast('Convite enviado para '+em+'.');NXS.atualizar(function(){render();});});},1500);});};
   root.querySelectorAll('[data-nv]').forEach(function(sel){sel.onchange=function(){var s=staffBy(sel.getAttribute('data-nv'));s.nivel=sel.value;NXA.sb.from('perfis').update({nivel_eq:sel.value}).eq('id',s.id).then(function(r){if(r.error){NX.toast('Erro: '+r.error.message);return;}persist();NX.toast('Nível atualizado.');});};});
   root.querySelectorAll('[data-off]').forEach(function(b){b.onclick=function(){var s=staffBy(b.getAttribute('data-off'));if(!confirm('Desativar o acesso de '+s.nome+'?'))return;NXA.sb.from('perfis').update({ativo:false}).eq('id',s.id).then(function(r){if(r.error){NX.toast('Erro: '+r.error.message);return;}NXA.acesso('Desativou pessoa da equipe',s.email);NXS.atualizar(function(){render();});});};});}
+/* ===== módulos extras ===== */
+/* NEXIO — módulos extras do painel da equipe:
+   Financeiro dos clientes · Contratos e honorários · Reuniões e atas ·
+   Processos por setor (estilo Monday) · limpeza de demandas · atualização automática */
+var EX=window.EXTRA={};
+function real(){return !!(S.user&&S.user.real&&window.NXA&&NXA.ok);}
+function sb(){return NXA.sb;}
+function brl(n){return (Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
+function num(v){if(typeof v==='number')return v;v=String(v||'').trim().replace(/[R$\s]/g,'');if(/,\d{1,2}$/.test(v))v=v.replace(/\./g,'').replace(',','.');else v=v.replace(/,/g,'');var n=parseFloat(v);return isNaN(n)?0:n;}
+function fd(d){return d?NX.fdate(String(d).slice(0,10)):'—';}
+function addMonths(iso,n){var d=new Date(iso+'T12:00:00');d.setMonth(d.getMonth()+n);return d.toISOString().slice(0,10);}
+function soReal(nome){shell(nome,head('Disponível no acesso real','Este módulo usa o banco de dados do escritório.')+'<section class="card"><p class="empty">Entre com seu login real para usar.</p></section>');}
+function erro(r){if(r&&r.error){NX.toast('Erro: '+r.error.message);return true;}return false;}
+function baixar(nome,conteudo,tipo){var b=new Blob(['\ufeff'+conteudo],{type:tipo||'text/csv;charset=utf-8'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=nome;document.body.appendChild(a);a.click();a.remove();}
+function imprimir(titulo,corpo){var w=window.open('','_blank');if(!w){NX.toast('Libere as janelas pop-up para gerar o PDF.');return;}
+  w.document.write('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>'+e(titulo)+'</title><style>body{font:14px/1.6 Calibri,Arial,sans-serif;color:#000;max-width:780px;margin:30px auto;padding:0 24px}header{border-bottom:2px solid #2344AC;padding-bottom:8px;margin-bottom:24px}header b{color:#2344AC;font-size:24px;letter-spacing:2px}header small{display:block;color:#2344AC;font-size:10px;letter-spacing:3px}h1{font-size:18px;color:#2344AC}h2{font-size:15px;color:#2344AC;margin-top:22px}pre{white-space:pre-wrap;font:inherit}footer{border-top:1px solid #2344AC;margin-top:40px;padding-top:6px;font-size:10px;color:#555}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:4px 8px;text-align:left}@media print{button{display:none}}</style></head><body><header><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></header>'+corpo+
+  '<footer>Nexio Inteligência Contábil Ltda • Av. Brig. Faria Lima, 1811 - CXPST ESC1119 - Jardim Paulistano, São Paulo - SP, 01452-001<br>(11) 93956-5190 • contato@nexioic.com.br • Contabilidade que impulsiona o futuro.</footer><script>setTimeout(function(){print()},400)<\/script></body></html>');w.document.close();}
+function clientesSel(sel,vazio){return (vazio?'<option value="">'+vazio+'</option>':'')+db.clients.map(function(c){return '<option value="'+c.id+'"'+(sel===c.id?' selected':'')+'>'+e(c.nome)+'</option>';}).join('');}
+
+/* ---------- permissões e menu ---------- */
+['admin','gestor'].forEach(function(n){PERM[n].contratos=1;PERM[n].fincli=1;});PERM.analista.fincli=1;
+NAVOK.fincli='fincli';NAVOK.contratos='contratos';NAVOK.reunioes=1;
+var _sh=shell;shell=function(active,html){_sh(active,html);
+  var ref=root.querySelector('.side a.nav[href="#/processos"]')||root.querySelector('.side a.nav');if(!ref)return;
+  [['reunioes','Reuniões e atas'],['contratos','Contratos e honorários'],['fincli','Financeiro dos clientes']].forEach(function(x){if(!navAllowed(x[0]))return;
+    var a=document.createElement('a');a.className='nav';a.href='#/'+x[0];a.textContent=x[1];if(active===x[0])a.setAttribute('aria-current','page');ref.parentNode.insertBefore(a,ref.nextSibling);});
+  NX.applySide();
+};
+
+/* ---------- demandas: só das obrigações selecionadas ---------- */
+function limparDemandas(){if(!db||!db.tasks||!db.clients)return 0;var antes=db.tasks.length,sel={};
+  db.clients.forEach(function(c){if(Array.isArray(c.obrig))sel[c.id]=c.obrig;});
+  db.tasks=db.tasks.filter(function(t){if(t.tipo!=='cliente'||t.status==='ok'||!sel[t.cliente]||!t.tpl)return true;return sel[t.cliente].indexOf(t.tpl)>-1;});
+  return antes-db.tasks.length;}
+var _persist=persist;persist=function(){limparDemandas();return _persist();};
+EX.limparDemandas=limparDemandas;
+
+/* ---------- atualização automática entre painel e portal ---------- */
+setInterval(function(){if(!real()||!window.NXS||!NXS.modo||document.visibilityState!=='visible')return;
+  if(document.querySelector('dialog[open]'))return;var a=document.activeElement;if(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))return;
+  var antes=localStorage.getItem(NXS.chave);NXS.atualizar(function(){if(localStorage.getItem(NXS.chave)!==antes){var y=window.scrollY;render();window.scrollTo(0,y);}});},20000);
+
+/* ======================================================
+   PROCESSOS estilo Monday: abas por setor + responsável editável
+   ====================================================== */
+var _fh=filtersHTML;filtersHTML=function(){var P=S.pr,ms=meStaff(),trava=lvl()==='gestor'&&ms.setor;
+  var abas=trava?[ms.setor]:[''].concat(DEPTO);
+  return '<div class="tabs" role="tablist" style="margin-bottom:14px">'+abas.map(function(s){var n=filteredSetor(s).length;return '<button role="tab" data-sx="'+e(s)+'" aria-selected="'+((P.setor||'')===s)+'">'+(s||'Todos os setores')+' <small style="color:var(--muted)">'+n+'</small></button>';}).join('')+'</div>'+_fh();};
+function filteredSetor(s){var P=S.pr,old=P.setor;P.setor=s;var l=filtered();P.setor=old;return l;}
+function respSel(attr,id,val,lbl){return '<select '+attr+'="'+id+'" aria-label="'+e(lbl)+'" style="width:auto;min-height:32px;padding:2px 6px;font-size:13px">'+db.staff.map(function(s){return '<option value="'+s.id+'"'+(s.id===val?' selected':'')+'>'+e(s.nome.split(' ')[0])+'</option>';}).join('')+'</select>';}
+var _row=rowHTML;rowHTML=function(t,byObr){var h=_row(t,byObr);if(!can('statusAll'))return h;
+  return h.replace('<td>'+av(t.resp)+'</td>','<td>'+respSel('data-rs',t.id,t.resp,'Responsável por '+t.titulo)+'</td>');};
+var _pt=pTabela;pTabela=function(el){_pt(el);var P=S.pr;
+  el.querySelectorAll('[data-sx]').forEach(function(b){b.onclick=function(){P.setor=b.getAttribute('data-sx');processos();};});
+  if(!can('statusAll'))return;
+  el.querySelectorAll('h3[data-tog]').forEach(function(h){var k=h.getAttribute('data-tog').split('|'),grp=filtered().filter(function(t){return t.setor===k[0]&&t.titulo===k[1];});if(!grp.length)return;
+    var cont={};grp.forEach(function(t){cont[t.resp]=(cont[t.resp]||0)+1;});var top=Object.keys(cont).sort(function(a,b){return cont[b]-cont[a];})[0];
+    var w=document.createElement('span');w.style.cssText='margin-left:auto;font:500 13px Inter;color:var(--muted);display:flex;gap:6px;align-items:center';w.innerHTML='Responsável do setor '+respSel('data-rg',e(k[0]+'|'+k[1]),top,'Responsável por '+k[1]);
+    w.onclick=function(ev){ev.stopPropagation();};h.appendChild(w);});
+  el.querySelectorAll('[data-rs]').forEach(function(s){s.onclick=function(ev){ev.stopPropagation();};s.onchange=function(){var t=db.tasks.filter(function(x){return x.id===s.getAttribute('data-rs');})[0],c=cli(t.cliente);
+    t.resp=s.value;tlog(t,'Responsável: '+staffBy(s.value).nome);if(c&&t.tpl){c.obrigResp=c.obrigResp||{};c.obrigResp[t.tpl]=s.value;}logEq('Trocou responsável',t.titulo,t.cliente);persist();NX.toast('Responsável atualizado. Vale também para os próximos meses.');};});
+  el.querySelectorAll('[data-rg]').forEach(function(s){s.onchange=function(){var k=s.getAttribute('data-rg').split('|'),n=0;
+    filtered().forEach(function(t){if(t.setor===k[0]&&t.titulo===k[1]&&t.status!=='ok'){t.resp=s.value;tlog(t,'Responsável: '+staffBy(s.value).nome);var c=cli(t.cliente);if(c&&t.tpl){c.obrigResp=c.obrigResp||{};c.obrigResp[t.tpl]=s.value;}n++;}});
+    (db.procT||[]).forEach(function(tp){if(tp.setor===k[0]&&tp.titulo===k[1])tp.resp=s.value;});
+    logEq('Definiu responsável do setor',k[1]);persist();processos();NX.toast(n+' demanda(s) passaram para '+staffBy(s.value).nome+'.');};});
+};
+
+/* ======================================================
+   FINANCEIRO DOS CLIENTES (o que o cliente lança no portal)
+   ====================================================== */
+var FC={cid:null,mes:null,cache:{}};
+EX.fincli=function(id){if(!real())return soReal('fincli');FC.cid=id||FC.cid;
+  shell('fincli',head('Financeiro dos clientes','Contas, saldos e lançamentos que cada cliente registra no portal — para conferir e lançar no contábil.')+
+  '<div class="cols"><section class="card" style="flex:1 1 260px;max-width:340px"><h2>Clientes</h2><nav class="client-list" id="fcl"><p class="help">Carregando…</p></nav></section><section class="card" style="flex:999 1 560px" id="fcd"><p class="empty">Selecione um cliente.</p></section></div>');
+  sb().from('financeiro').select('empresa_id,dados,atualizado_em').then(function(r){if(erro(r))return;FC.cache={};(r.data||[]).forEach(function(x){FC.cache[x.empresa_id]=x;});
+    document.getElementById('fcl').innerHTML=myClients().map(function(c){var x=FC.cache[c.id],n=x&&x.dados&&x.dados.items?x.dados.items.length:0;
+      return '<a href="#/fincli/'+c.id+'"'+(c.id===FC.cid?' aria-current="true"':'')+'><span><b>'+e(c.nome)+'</b><small style="display:block;color:var(--muted);font-size:12px">'+(x?n+' lançamento(s) · atualizado '+fd(x.atualizado_em):'Ainda não usou o controle')+'</small></span></a>';}).join('')||'<p class="empty">Nenhum cliente.</p>';
+    if(FC.cid&&cli(FC.cid))detalhe(cli(FC.cid));});
+};
+function detalhe(c){var el=document.getElementById('fcd'),x=FC.cache[c.id];
+  if(!x||!x.dados){el.innerHTML='<h2>'+e(c.nome)+'</h2><p class="empty">Este cliente ainda não lançou nada no Controle financeiro do portal.</p>';return;}
+  var emp=x.dados.emp||{},it=(x.dados.items||[]).slice().sort(function(a,b){return a.data<b.data?-1:a.data>b.data?1:0;}),contas=x.dados.contas||(emp.banco||emp.conta?[{banco:emp.banco,ag:emp.ag,conta:emp.conta,saldo:emp.saldo}]:[]);
+  var meses={};it.forEach(function(i){meses[i.data.slice(0,7)]=1;});var ml=Object.keys(meses).sort();if(!FC.mes||ml.indexOf(FC.mes)<0)FC.mes=ml[ml.length-1]||NX.ym();
+  var saldo=num(emp.saldo),linhas=ml.map(function(m){var ent=0,sai=0;it.forEach(function(i){if(i.data.slice(0,7)===m){if(i.valor>=0)ent+=i.valor;else sai+=i.valor;}});var ini=saldo;saldo+=ent+sai;return {m:m,ini:ini,ent:ent,sai:sai,fim:saldo};});
+  var doMes=it.filter(function(i){return i.data.slice(0,7)===FC.mes;}),cats={};doMes.forEach(function(i){cats[i.cat]=(cats[i.cat]||0)+i.valor;});
+  el.innerHTML='<div class="row between" style="align-items:flex-start"><div><h2 style="margin:0">'+e(c.nome)+'</h2><p class="help">Última atualização pelo cliente: '+new Date(x.atualizado_em).toLocaleString('pt-BR')+'</p></div><div class="row"><button class="btn b-line" id="xall">Exportar tudo (CSV)</button><button class="btn b-blue" id="xmes">Exportar '+NX.fcomp(FC.mes)+' (CSV)</button></div></div>'+
+  '<h3 style="font-size:16px;color:var(--blue2);margin-top:14px">Contas bancárias cadastradas</h3>'+(contas.length?'<div class="tbl"><table><thead><tr><th>Banco</th><th>Agência</th><th>Conta</th><th>Saldo inicial</th></tr></thead><tbody>'+contas.map(function(k){return '<tr><td>'+e(k.banco||'—')+'</td><td>'+e(k.ag||'—')+'</td><td>'+e(k.conta||'—')+'</td><td>'+brl(num(k.saldo))+'</td></tr>';}).join('')+'</tbody></table></div>':'<p class="empty">Nenhuma conta informada.</p>')+
+  '<h3 style="font-size:16px;color:var(--blue2);margin-top:18px">Saldos mensais</h3><div class="tbl"><table><thead><tr><th>Mês</th><th>Saldo inicial</th><th>Entradas</th><th>Saídas</th><th>Saldo final</th></tr></thead><tbody>'+linhas.slice().reverse().map(function(l){return '<tr'+(l.m===FC.mes?' style="background:var(--soft)"':'')+'><td><button class="btn b-text" data-fm="'+l.m+'" style="padding:0">'+NX.fcomp(l.m)+'</button></td><td>'+brl(l.ini)+'</td><td style="color:var(--ok)">'+brl(l.ent)+'</td><td style="color:var(--bad)">'+brl(Math.abs(l.sai))+'</td><td><b>'+brl(l.fim)+'</b></td></tr>';}).join('')+'</tbody></table></div>'+
+  '<h3 style="font-size:16px;color:var(--blue2);margin-top:18px">Resumo por categoria — '+NX.fcomp(FC.mes)+'</h3><div class="tbl"><table><tbody>'+Object.keys(cats).sort().map(function(k){return '<tr><td>'+e(k)+'</td><td style="text-align:right">'+brl(cats[k])+'</td></tr>';}).join('')+'</tbody></table></div>'+
+  '<h3 style="font-size:16px;color:var(--blue2);margin-top:18px">Lançamentos — '+NX.fcomp(FC.mes)+' ('+doMes.length+')</h3><div class="tbl"><table><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Origem</th><th style="text-align:right">Valor</th></tr></thead><tbody>'+
+  doMes.map(function(i){return '<tr><td>'+fd(i.data)+'</td><td>'+e(i.desc)+'</td><td>'+e(i.cat)+'</td><td>'+(i.orig==='banco'?'Extrato':'Manual')+'</td><td style="text-align:right;color:'+(i.valor>=0?'var(--ok)':'var(--bad)')+'">'+brl(i.valor)+'</td></tr>';}).join('')+'</tbody></table></div>';
+  el.querySelectorAll('[data-fm]').forEach(function(b){b.onclick=function(){FC.mes=b.getAttribute('data-fm');detalhe(c);};});
+  var csv=function(l){return 'Data;Descrição;Categoria;Origem;Entrada;Saída;Valor\n'+l.map(function(i){var v=i.valor.toFixed(2).replace('.',',');return [fd(i.data),'"'+String(i.desc).replace(/"/g,'""')+'"',i.cat,i.orig==='banco'?'Extrato':'Manual',i.valor>=0?v:'',i.valor<0?v.replace('-',''):'',v].join(';');}).join('\n');};
+  var slug=c.nome.replace(/[^A-Za-z0-9]+/g,'_');
+  document.getElementById('xmes').onclick=function(){baixar('lancamentos_'+slug+'_'+FC.mes+'.csv',csv(doMes));NXA.acesso('Exportou financeiro do cliente',FC.mes,c.id);};
+  document.getElementById('xall').onclick=function(){baixar('lancamentos_'+slug+'_todos.csv',csv(it));NXA.acesso('Exportou financeiro do cliente','todos',c.id);};
+}
+
+/* ======================================================
+   CONTRATOS E HONORÁRIOS
+   ====================================================== */
+var MODELO_PADRAO='CONTRATO DE PRESTAÇÃO DE SERVIÇOS CONTÁBEIS\n\n'+
+'CONTRATADA: NEXIO INTELIGÊNCIA CONTÁBIL LTDA, inscrita no CNPJ sob nº [CNPJ DA NEXIO INTELIGÊNCIA CONTÁBIL LTDA], com sede na Av. Brig. Faria Lima, 1811 - CXPST ESC1119 - Jardim Paulistano, São Paulo - SP, CEP 01452-001.\n\n'+
+'CONTRATANTE: {{CLIENTE}}, inscrita no CNPJ/CPF sob nº {{DOCUMENTO}}.\n\n'+
+'CLÁUSULA 1ª — DO OBJETO\nA CONTRATADA prestará à CONTRATANTE os serviços contábeis do plano {{PLANO}}, conforme o escopo divulgado no portal do cliente e nos materiais comerciais vigentes, incluindo as obrigações fiscais, trabalhistas e contábeis aplicáveis ao regime tributário da CONTRATANTE.\n\n'+
+'CLÁUSULA 2ª — DAS OBRIGAÇÕES DA CONTRATANTE\nA CONTRATANTE se compromete a enviar pelo portal do cliente, nos prazos informados, os documentos e informações necessários à execução dos serviços, respondendo pela veracidade e integridade do que fornecer.\n\n'+
+'CLÁUSULA 3ª — DOS HONORÁRIOS\nPelos serviços, a CONTRATANTE pagará honorários mensais de {{VALOR}}, com vencimento todo dia {{DIA_VENC}} de cada mês, por boleto ou PIX emitido pela CONTRATADA. O atraso sujeitará a parcela a multa de 2% e juros de 1% ao mês.\n\n'+
+'CLÁUSULA 4ª — DO REAJUSTE\nOs honorários serão reajustados pelo índice {{REAJUSTE}}, ou revistos em caso de alteração relevante no volume de trabalho, mediante aviso prévio.\n\n'+
+'CLÁUSULA 5ª — DA VIGÊNCIA E RESCISÃO\nEste contrato vigora de {{INICIO}} a {{FIM}}, renovando-se automaticamente por iguais períodos, salvo manifestação contrária de qualquer das partes com 30 (trinta) dias de antecedência. A rescisão não desobriga as partes dos serviços e pagamentos referentes às competências já iniciadas.\n\n'+
+'CLÁUSULA 6ª — DA PROTEÇÃO DE DADOS (LGPD)\nAs partes tratarão os dados pessoais envolvidos conforme a Lei nº 13.709/2018, segundo a Política de Privacidade publicada em nexioic.com.br/privacidade. Encarregado: Paulo Ramon Zani Batista — contato@nexioic.com.br.\n\n'+
+'CLÁUSULA 7ª — DA ASSINATURA ELETRÔNICA\nAs partes reconhecem a validade da assinatura eletrônica deste instrumento, nos termos do art. 10, § 2º, da MP nº 2.200-2/2001, ficando registrados data, hora, IP e código de integridade do aceite.\n\n'+
+'CLÁUSULA 8ª — DO FORO\nFica eleito o foro da comarca de São Paulo/SP para dirimir quaisquer questões oriundas deste contrato.\n\nSão Paulo, {{DATA}}.';
+function modelo(){return db.contratoModelo||MODELO_PADRAO;}
+function montar(txt,c,k){var cl=cli(c)||{};return txt.replace(/\{\{CLIENTE\}\}/g,cl.nome||'').replace(/\{\{DOCUMENTO\}\}/g,NX.fmtDoc?NX.fmtDoc(cl.doc||''):(cl.doc||'')).replace(/\{\{PLANO\}\}/g,k.plano||cl.plano||'')
+  .replace(/\{\{VALOR\}\}/g,brl(k.valor)).replace(/\{\{DIA_VENC\}\}/g,k.dia_venc).replace(/\{\{REAJUSTE\}\}/g,k.reajuste||'IPCA').replace(/\{\{INICIO\}\}/g,fd(k.inicio)).replace(/\{\{FIM\}\}/g,fd(k.fim))
+  .replace(/\{\{DATA\}\}/g,new Date().toLocaleDateString('pt-BR',{day:'numeric',month:'long',year:'numeric'}));}
+var CS={rascunho:['Rascunho','s0'],enviado:['Aguardando assinatura','s2'],assinado:['Assinado','s3'],encerrado:['Encerrado','s0']};
+var CT={tab:'contratos',comp:NX.ym(),ct:[],ft:[]};
+function linkContrato(k){return location.origin+'/contrato/?t='+k.token;}
+EX.contratos=function(){if(!real())return soReal('contratos');
+  shell('contratos',head('Contratos e honorários','Contratos com assinatura eletrônica e controle das faturas mensais dos clientes.','<button class="btn b-blue" id="nct">+ Novo contrato</button>')+
+  '<div class="kpis" id="ckp"></div><section class="card"><div class="tabs" role="tablist">'+[['contratos','Contratos'],['faturas','Faturas e vencimentos'],['modelo','Modelo de contrato']].map(function(t){return '<button role="tab" data-ctab="'+t[0]+'" aria-selected="'+(CT.tab===t[0])+'">'+t[1]+'</button>';}).join('')+'</div><div id="ctc"><p class="help">Carregando…</p></div></section>');
+  root.querySelectorAll('[data-ctab]').forEach(function(b){b.onclick=function(){CT.tab=b.getAttribute('data-ctab');EX.contratos();};});
+  document.getElementById('nct').onclick=function(){contratoDlg({empresa_id:'',valor:0,dia_venc:10,inicio:NX.today(),fim:addMonths(NX.today(),12),reajuste:'IPCA, anualmente',status:'rascunho'});};
+  Promise.all([sb().from('contratos').select('*').order('criado_em',{ascending:false}),sb().from('faturas').select('*').order('vencimento')]).then(function(rs){if(erro(rs[0])||erro(rs[1]))return;CT.ct=rs[0].data;CT.ft=rs[1].data;
+    var hoje=NX.today(),ativos=CT.ct.filter(function(k){return k.status==='assinado';}),abertas=CT.ft.filter(function(f){return f.status==='aberta';}),venc=abertas.filter(function(f){return f.vencimento<hoje;});
+    document.getElementById('ckp').innerHTML='<div class="kpi main"><span>Honorários mensais contratados</span><strong>'+brl(ativos.reduce(function(s,k){return s+Number(k.valor);},0))+'</strong></div><div class="kpi"><span>Contratos aguardando assinatura</span><strong>'+CT.ct.filter(function(k){return k.status==='enviado';}).length+'</strong></div><div class="kpi"><span>Faturas em aberto</span><strong>'+brl(abertas.reduce(function(s,f){return s+Number(f.valor);},0))+'</strong></div><div class="kpi"><span>Faturas vencidas</span><strong style="color:var(--bad)">'+venc.length+'</strong></div>';
+    ({contratos:tabContratos,faturas:tabFaturas,modelo:tabModelo})[CT.tab](document.getElementById('ctc'));});
+};
+function tabContratos(el){var hoje=NX.today();
+  el.innerHTML=CT.ct.length?'<div class="tbl"><table><thead><tr><th>Cliente</th><th>Plano</th><th>Honorários</th><th>Vigência</th><th>Situação</th><th></th></tr></thead><tbody>'+CT.ct.map(function(k){var c=cli(k.empresa_id),s=CS[k.status],aviso=k.fim&&k.status==='assinado'&&k.fim<addMonths(hoje,1)?' <span class="tag warn">vence em breve</span>':'';
+    return '<tr><td><b>'+e(c?c.nome:'—')+'</b></td><td>'+e(k.plano||'')+'</td><td>'+brl(k.valor)+'<small style="display:block;color:var(--muted)">dia '+k.dia_venc+'</small></td><td>'+fd(k.inicio)+' a '+fd(k.fim)+aviso+'</td><td><span class="pill '+s[1]+'" style="cursor:default">'+s[0]+'</span>'+(k.assinado_em?'<small style="display:block;color:var(--muted)">'+e(k.assinado_nome||'')+' em '+new Date(k.assinado_em).toLocaleString('pt-BR')+'</small>':'')+'</td><td><button class="btn b-text" data-ck="'+k.id+'">Abrir</button></td></tr>';}).join('')+'</tbody></table></div>':'<p class="empty">Nenhum contrato ainda. Clique em “+ Novo contrato”.</p>';
+  el.querySelectorAll('[data-ck]').forEach(function(b){b.onclick=function(){contratoDlg(CT.ct.filter(function(k){return k.id===b.getAttribute('data-ck');})[0]);};});}
+function contratoDlg(k){var novo=!k.id,trav=k.status==='assinado'||k.status==='encerrado',c=cli(k.empresa_id);
+  openDlg('<h2>'+(novo?'Novo contrato':'Contrato — '+e(c?c.nome:''))+'</h2>'+(trav?'<p class="help">Contrato '+CS[k.status][0].toLowerCase()+(k.assinado_em?' por '+e(k.assinado_nome)+' (CPF/CNPJ '+e(k.assinado_doc||'')+') em '+new Date(k.assinado_em).toLocaleString('pt-BR')+', IP '+e(k.assinado_ip||'—')+'. Código de integridade: <code style="font-size:11px">'+e((k.assinado_hash||'').slice(0,24))+'…</code>':'')+'. O texto não pode mais ser alterado.</p>':'')+
+  '<div class="grid"><label style="grid-column:1/-1">Cliente<select name="emp" required '+(novo?'':'disabled')+'>'+clientesSel(k.empresa_id,'— selecione —')+'</select></label>'+
+  '<label>Plano<select name="plano">'+(function(){var v=k.plano||(c?c.plano:'')||'',l=['NEXIO SN START','NEXIO SN PRO','NEXIO SN SCALE','NEXIO SN MAX','NEXIO MEI START','NEXIO MEI PRO','NEXIO PF ESSENTIAL','NEXIO PF PREMIUM','Serviço avulso'];if(v&&l.indexOf(v)<0)l.unshift(v);return '<option value="">— selecione —</option>'+l.map(function(p){return '<option'+(p===v?' selected':'')+'>'+e(p)+'</option>';}).join('');})()+'</select></label><label>Honorários mensais (R$)<input name="valor" required inputmode="decimal" value="'+(k.valor?String(k.valor).replace('.',','):'')+'"></label><label>Dia do vencimento<input name="dia" type="number" min="1" max="28" value="'+k.dia_venc+'"></label>'+
+  '<label>Início<input name="ini" type="date" value="'+(k.inicio||'')+'"></label><label>Fim<input name="fim" type="date" value="'+(k.fim||'')+'"></label><label>Reajuste<input name="reaj" value="'+e(k.reajuste||'')+'"></label>'+
+  '<label style="grid-column:1/-1">E-mail para envio<input name="email" type="email" value="'+e(k.email_envio||'')+'" placeholder="e-mail do responsável da empresa"></label>'+
+  '<label style="grid-column:1/-1">Texto do contrato '+(trav?'':'<button type="button" class="btn b-text" id="regen" style="padding:0">Gerar a partir do modelo</button>')+'<textarea name="texto" rows="12" '+(trav?'readonly':'')+'>'+e(k.texto||'')+'</textarea></label></div>'+
+  '<div class="row" style="flex-wrap:wrap">'+(novo?'':'<button type="button" class="btn b-line" id="cpdf">PDF</button>')+(k.status==='enviado'||k.status==='assinado'?'<button type="button" class="btn b-line" id="clink">Copiar link de assinatura</button>':'')+(k.status==='rascunho'||k.status==='enviado'?'<button type="button" class="btn b-blue" id="cenv">'+(k.status==='enviado'?'Reenviar por e-mail':'Salvar e enviar por e-mail')+'</button>':'')+(k.status==='assinado'?'<button type="button" class="btn b-line" id="cenc">Encerrar contrato</button>':'')+(!novo&&k.status!=='assinado'?'<button type="button" class="btn b-danger" id="cdel">Excluir</button>':'')+'</div><p class="help" id="cmsg" style="color:var(--bad)"></p>',
+  function(f){salvar(f,k,false);return false;});
+  var F=function(n){return df.querySelector('[name="'+n+'"]');};
+  var dados=function(){return {empresa_id:F('emp').value||k.empresa_id,plano:F('plano').value,valor:num(F('valor').value),dia_venc:Math.min(28,Math.max(1,+F('dia').value||10)),inicio:F('ini').value||null,fim:F('fim').value||null,reajuste:F('reaj').value,email_envio:F('email').value,texto:F('texto').value};};
+  F('emp').onchange=function(){var cc=cli(F('emp').value);if(cc&&cc.plano&&!F('plano').value){if(![].some.call(F('plano').options,function(o){return o.value===cc.plano;}))F('plano').add(new Option(cc.plano,cc.plano));F('plano').value=cc.plano;}};
+  var rg=document.getElementById('regen');if(rg)rg.onclick=function(){var d=dados();if(!d.empresa_id){document.getElementById('cmsg').textContent='Escolha o cliente primeiro.';return;}F('texto').value=montar(modelo(),d.empresa_id,d);};
+  function salvar(f,k,enviar){var d=dados();if(!d.empresa_id){document.getElementById('cmsg').textContent='Escolha o cliente.';return;}if(!d.valor){document.getElementById('cmsg').textContent='Informe o valor dos honorários.';return;}if(!d.plano){document.getElementById('cmsg').textContent='Escolha o plano.';return;}
+    if(!d.texto.trim())d.texto=montar(modelo(),d.empresa_id,d);
+    if(enviar&&!/^\S+@\S+\.\S+$/.test(d.email_envio)){document.getElementById('cmsg').textContent='Informe o e-mail para envio.';return;}
+    if(trav){d={email_envio:d.email_envio};}
+    if(enviar){d.status='enviado';d.enviado_em=new Date().toISOString();}d.atualizado_em=new Date().toISOString();
+    var q=novo?sb().from('contratos').insert(d).select().single():sb().from('contratos').update(d).eq('id',k.id).select().single();
+    q.then(function(r){if(r.error){document.getElementById('cmsg').textContent='Erro: '+r.error.message;return;}var x=r.data;NXA.acesso(enviar?'Enviou contrato':'Salvou contrato','',x.empresa_id);
+      if(enviar){var cc=cli(x.empresa_id)||{};
+        location.href='mailto:'+encodeURIComponent(x.email_envio)+'?subject='+encodeURIComponent('Contrato de prestação de serviços — NEXIO Inteligência Contábil')+'&body='+encodeURIComponent('Olá!\n\nSegue o contrato de prestação de serviços contábeis da '+(cc.nome||'sua empresa')+' com a NEXIO Inteligência Contábil.\n\nPara ler e assinar eletronicamente, acesse:\n'+linkContrato(x)+'\n\nA assinatura leva menos de um minuto e fica registrada com data, hora e código de integridade.\n\nQualquer dúvida, estamos à disposição.\n\nNEXIO Inteligência Contábil\n(11) 93956-5190 • contato@nexioic.com.br');
+        db.messages.push({id:NX.uid(),cliente:x.empresa_id,de:'equipe',autor:S.user.nome,texto:'Enviamos o seu contrato de prestação de serviços para assinatura eletrônica. Você também pode ler e assinar pelo link: '+linkContrato(x),em:new Date().toISOString(),lida:false});persist();
+        NX.toast('Contrato pronto. Seu e-mail foi aberto com a mensagem — é só clicar em Enviar.');}
+      else NX.toast('Contrato salvo.');dlg.close();EX.contratos();});}
+  var g=function(id){return document.getElementById(id);};
+  if(g('cenv'))g('cenv').onclick=function(){salvar(null,k,true);};
+  if(g('clink'))g('clink').onclick=function(){navigator.clipboard.writeText(linkContrato(k)).then(function(){NX.toast('Link copiado.');});};
+  if(g('cpdf'))g('cpdf').onclick=function(){imprimir('Contrato — '+(c?c.nome:''),'<pre>'+e(F('texto').value)+'</pre>'+(k.assinado_em?'<h2>Registro de assinatura eletrônica</h2><p>Assinado por '+e(k.assinado_nome)+' (CPF/CNPJ '+e(k.assinado_doc)+') em '+new Date(k.assinado_em).toLocaleString('pt-BR')+' — IP '+e(k.assinado_ip||'—')+'<br>Código de integridade (SHA-256): '+e(k.assinado_hash||'')+'</p>':''));};
+  if(g('cenc'))g('cenc').onclick=function(){if(!confirm('Encerrar este contrato? As faturas futuras não serão mais geradas.'))return;sb().from('contratos').update({status:'encerrado',atualizado_em:new Date().toISOString()}).eq('id',k.id).then(function(r){if(erro(r))return;dlg.close();EX.contratos();});};
+  if(g('cdel'))g('cdel').onclick=function(){if(!confirm('Excluir este contrato?'))return;sb().from('contratos').delete().eq('id',k.id).then(function(r){if(erro(r))return;dlg.close();EX.contratos();});};
+}
+var FS={aberta:['Em aberto','s1'],paga:['Paga','s3'],cancelada:['Cancelada','s0']};
+function tabFaturas(el){var hoje=NX.today(),l=CT.ft.filter(function(f){return f.competencia===CT.comp;});
+  el.innerHTML='<div class="row" style="align-items:flex-end;margin-bottom:14px"><label>Competência<input type="month" id="fcomp" value="'+CT.comp+'"></label><button class="btn b-blue" id="fger">Gerar faturas de '+NX.fcomp(CT.comp)+'</button><button class="btn b-line" id="fnova">+ Fatura avulsa</button><button class="btn b-line" id="fcsv">Exportar (CSV)</button></div>'+
+  '<p class="help" style="margin-bottom:10px">Gere as faturas a partir dos contratos assinados, emita o boleto/PIX no Inter e cole o link ou a linha digitável em cada fatura — o cliente vê tudo em “Contrato e faturas” no portal.</p>'+
+  (l.length?'<div class="tbl"><table><thead><tr><th>Cliente</th><th>Descrição</th><th>Valor</th><th>Vencimento</th><th>Boleto/PIX</th><th>Situação</th><th></th></tr></thead><tbody>'+l.map(function(f){var c=cli(f.empresa_id),s=FS[f.status],atr=f.status==='aberta'&&f.vencimento<hoje;
+    return '<tr><td><b>'+e(c?c.nome:'—')+'</b></td><td>'+e(f.descricao)+'</td><td>'+brl(f.valor)+'</td><td class="'+(atr?'late':'')+'">'+fd(f.vencimento)+'</td><td>'+(f.boleto_url||f.linha||f.pix?'<span class="tag ok">informado</span>':'<span class="tag warn">falta</span>')+'</td><td><span class="pill '+s[1]+'" style="cursor:default'+(atr?';background:var(--bad);color:#fff':'')+'">'+(atr?'Vencida':s[0])+'</span>'+(f.pago_em?'<small style="display:block;color:var(--muted)">em '+fd(f.pago_em)+'</small>':'')+'</td><td><button class="btn b-text" data-fe="'+f.id+'">Editar</button>'+(f.status==='aberta'?'<button class="btn b-text" data-fp="'+f.id+'">Marcar paga</button>':'')+'</td></tr>';}).join('')+'</tbody></table></div>':'<p class="empty">Nenhuma fatura nesta competência.</p>');
+  var g=function(id){return document.getElementById(id);};
+  g('fcomp').onchange=function(ev){if(ev.target.value){CT.comp=ev.target.value;tabFaturas(el);}};
+  g('fger').onclick=function(){var ins=[],ini=CT.comp+'-01';CT.ct.filter(function(k){return k.status==='assinado'&&(!k.inicio||k.inicio.slice(0,7)<=CT.comp)&&(!k.fim||k.fim>=ini);}).forEach(function(k){
+      if(CT.ft.some(function(f){return f.contrato_id===k.id&&f.competencia===CT.comp;}))return;
+      ins.push({empresa_id:k.empresa_id,contrato_id:k.id,competencia:CT.comp,descricao:'Honorários contábeis — '+NX.fcomp(CT.comp),valor:k.valor,vencimento:CT.comp+'-'+String(k.dia_venc).padStart(2,'0')});});
+    if(!ins.length){NX.toast('Nenhuma fatura nova: todos os contratos assinados já têm fatura em '+NX.fcomp(CT.comp)+'.');return;}
+    sb().from('faturas').insert(ins).then(function(r){if(erro(r))return;NX.toast(ins.length+' fatura(s) gerada(s).');NXA.acesso('Gerou faturas',CT.comp);EX.contratos();});};
+  g('fnova').onclick=function(){faturaDlg({empresa_id:'',competencia:CT.comp,descricao:'Serviço avulso',valor:0,vencimento:CT.comp+'-10',status:'aberta'});};
+  g('fcsv').onclick=function(){baixar('faturas_'+CT.comp+'.csv','Cliente;Descrição;Valor;Vencimento;Situação;Pago em\n'+l.map(function(f){var c=cli(f.empresa_id);return ['"'+(c?c.nome:'')+'"','"'+f.descricao+'"',String(f.valor).replace('.',','),fd(f.vencimento),FS[f.status][0],f.pago_em?fd(f.pago_em):''].join(';');}).join('\n'));};
+  el.querySelectorAll('[data-fe]').forEach(function(b){b.onclick=function(){faturaDlg(CT.ft.filter(function(f){return f.id===b.getAttribute('data-fe');})[0]);};});
+  el.querySelectorAll('[data-fp]').forEach(function(b){b.onclick=function(){var d=prompt('Data do pagamento (dd/mm/aaaa):',new Date().toLocaleDateString('pt-BR'));if(!d)return;var p=d.split('/');if(p.length!==3)return;
+    sb().from('faturas').update({status:'paga',pago_em:p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0')}).eq('id',b.getAttribute('data-fp')).then(function(r){if(erro(r))return;NX.toast('Fatura marcada como paga.');EX.contratos();});};});
+}
+function faturaDlg(f){var novo=!f.id;
+  openDlg('<h2>'+(novo?'Nova fatura':'Fatura')+'</h2><div class="grid"><label style="grid-column:1/-1">Cliente<select name="emp" required '+(novo?'':'disabled')+'>'+clientesSel(f.empresa_id,'— selecione —')+'</select></label>'+
+  '<label style="grid-column:1/-1">Descrição<input name="desc" value="'+e(f.descricao)+'"></label><label>Competência<input name="comp" type="month" value="'+f.competencia+'"></label><label>Valor (R$)<input name="valor" inputmode="decimal" value="'+String(f.valor||'').replace('.',',')+'"></label><label>Vencimento<input name="venc" type="date" value="'+f.vencimento+'"></label>'+
+  '<label>Situação<select name="st">'+Object.keys(FS).map(function(k){return '<option value="'+k+'"'+(f.status===k?' selected':'')+'>'+FS[k][0]+'</option>';}).join('')+'</select></label><label>Pago em<input name="pago" type="date" value="'+(f.pago_em||'')+'"></label>'+
+  '<label style="grid-column:1/-1">Link do boleto (Inter)<input name="url" type="url" value="'+e(f.boleto_url||'')+'" placeholder="https://"></label><label style="grid-column:1/-1">Linha digitável<input name="linha" value="'+e(f.linha||'')+'"></label><label style="grid-column:1/-1">PIX copia e cola<textarea name="pix" rows="2">'+e(f.pix||'')+'</textarea></label></div>'+
+  (novo?'':'<button type="button" class="btn b-danger" id="fdel" style="align-self:flex-start">Excluir fatura</button>'),
+  function(x){var d={descricao:x.get('desc'),competencia:x.get('comp'),valor:num(x.get('valor')),vencimento:x.get('venc'),status:x.get('st'),pago_em:x.get('pago')||null,boleto_url:x.get('url')||null,linha:x.get('linha')||null,pix:x.get('pix')||null};
+    if(novo){d.empresa_id=x.get('emp');if(!d.empresa_id){NX.toast('Escolha o cliente.');return false;}}
+    if(d.status==='paga'&&!d.pago_em)d.pago_em=NX.today();
+    (novo?sb().from('faturas').insert(d):sb().from('faturas').update(d).eq('id',f.id)).then(function(r){if(erro(r))return;
+      if((d.boleto_url||d.linha||d.pix)&&!(f.boleto_url||f.linha||f.pix)&&d.status==='aberta'){db.messages.push({id:NX.uid(),cliente:d.empresa_id||f.empresa_id,de:'equipe',autor:S.user.nome,texto:'Sua fatura de honorários de '+NX.fcomp(d.competencia)+' ('+brl(d.valor)+', vence em '+fd(d.vencimento)+') está disponível em “Contrato e faturas”.',em:new Date().toISOString(),lida:false});persist();}
+      NX.toast('Fatura salva.');EX.contratos();});});
+  var b=document.getElementById('fdel');if(b)b.onclick=function(){if(!confirm('Excluir esta fatura?'))return;sb().from('faturas').delete().eq('id',f.id).then(function(r){if(erro(r))return;dlg.close();EX.contratos();});};
+}
+function tabModelo(el){el.innerHTML='<p class="help" style="margin-bottom:8px">Campos automáticos: {{CLIENTE}} {{DOCUMENTO}} {{PLANO}} {{VALOR}} {{DIA_VENC}} {{INICIO}} {{FIM}} {{REAJUSTE}} {{DATA}}. O modelo vale para os próximos contratos; os já enviados não mudam.</p><textarea id="mtx" rows="24" style="width:100%;font:14px/1.5 Calibri,Arial,sans-serif">'+e(modelo())+'</textarea><div class="row" style="margin-top:10px"><button class="btn b-blue" id="msv">Salvar modelo</button><button class="btn b-line" id="mrs">Voltar ao modelo padrão</button></div>';
+  document.getElementById('msv').onclick=function(){db.contratoModelo=document.getElementById('mtx').value;persist();NX.toast('Modelo salvo.');};
+  document.getElementById('mrs').onclick=function(){if(confirm('Voltar ao modelo padrão?')){delete db.contratoModelo;db.contratoModelo=null;persist();tabModelo(el);}};}
+
+/* ======================================================
+   REUNIÕES E ATAS (Google Agenda + transcrição)
+   ====================================================== */
+function gcalLink(m){var c=m.cliente?cli(m.cliente):null,dt=function(h){return m.data.replace(/-/g,'')+'T'+h.replace(':','')+'00';};
+  var conv=m.part.map(function(id){var s=staffBy(id);return s&&s.email;}).filter(Boolean).concat((m.convidados||'').split(/[,;\s]+/).filter(function(x){return /@/.test(x);}));
+  return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent(m.titulo+(c?' — '+c.nome:''))+'&dates='+dt(m.ini)+'/'+dt(m.fim)+'&ctz=America/Manaus&details='+encodeURIComponent((m.pauta?'Pauta:\n'+m.pauta+'\n\n':'')+'Registro: '+location.origin+'/admin/#/reunioes/'+m.id)+(m.local?'&location='+encodeURIComponent(m.local):'')+(conv.length?'&add='+encodeURIComponent(conv.join(',')):'');}
+var RS={q:'',f:'todas'};
+EX.reunioes=function(id){db.meetings=db.meetings||[];if(id){var m=db.meetings.filter(function(x){return x.id===id;})[0];if(m)return ata(m);}
+  var hoje=NX.today(),l=db.meetings.slice().sort(function(a,b){return (b.data+b.ini)<(a.data+a.ini)?-1:1;}).filter(function(m){var c=m.cliente?cli(m.cliente):null;
+    return (!RS.q||(m.titulo+' '+(c?c.nome:'')).toLowerCase().indexOf(RS.q.toLowerCase())>-1)&&(RS.f==='todas'||(RS.f==='proximas'?m.data>=hoje:RS.f==='semata'?(m.data<=hoje&&!(m.ata&&m.ata.status==='final')):true));});
+  shell('reunioes',head('Reuniões e atas','Agende no Google Agenda, anexe a transcrição da gravação e gere a ata com as pendências.','<button class="btn b-blue" id="nre">+ Nova reunião</button>')+
+  '<section class="card"><div class="row" style="align-items:flex-end;margin-bottom:14px"><label>Mostrar<select id="rf">'+[['todas','Todas'],['proximas','Próximas'],['semata','Realizadas sem ata final']].map(function(o){return '<option value="'+o[0]+'"'+(RS.f===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></label><label>Buscar<input id="rq" value="'+e(RS.q)+'" placeholder="Assunto ou cliente"></label></div>'+
+  (l.length?'<div class="tbl"><table><thead><tr><th>Data</th><th>Assunto</th><th>Cliente</th><th>Participantes</th><th>Ata</th><th></th></tr></thead><tbody>'+l.map(function(m){var c=m.cliente?cli(m.cliente):null,st=m.ata?(m.ata.status==='final'?'<span class="tag ok">Final</span>':'<span class="tag warn">Rascunho</span>'):(m.data<=hoje?'<span class="tag">Sem ata</span>':'<span class="tag info">Agendada</span>');
+    return '<tr><td>'+fd(m.data)+'<small style="display:block;color:var(--muted)">'+m.ini+'–'+m.fim+'</small></td><td><b>'+e(m.titulo)+'</b></td><td>'+e(c?c.nome:'Interna')+'</td><td>'+m.part.map(av).join('')+'</td><td>'+st+'</td><td style="white-space:nowrap"><a class="btn b-text" href="'+gcalLink(m)+'" target="_blank" rel="noopener">Google Agenda</a><a class="btn b-text" href="#/reunioes/'+m.id+'">Ata</a></td></tr>';}).join('')+'</tbody></table></div>':'<p class="empty">Nenhuma reunião.</p>')+'</section>');
+  document.getElementById('nre').onclick=function(){var t=NX.today();meetingDialog({data:t,ini:'09:00',fim:'10:00',part:[S.user.id]});};
+  document.getElementById('rf').onchange=function(ev){RS.f=ev.target.value;EX.reunioes();};
+  var q=document.getElementById('rq');q.oninput=function(){clearTimeout(q._t);q._t=setTimeout(function(){RS.q=q.value;EX.reunioes();var x=document.getElementById('rq');x.focus();x.setSelectionRange(x.value.length,x.value.length);},350);};
+};
+/* leitura de transcrições (Google Meet .txt/.sbv, Teams/Zoom .vtt, .srt, texto colado) */
+function parseTranscricao(txt){txt=String(txt||'').replace(/\r/g,'');var falas=[];
+  txt=txt.replace(/^WEBVTT.*\n/,'');
+  var blocos=txt.split(/\n{2,}/);
+  blocos.forEach(function(b){var ls=b.split('\n').filter(function(x){return x.trim()&&!/^\d+$/.test(x.trim())&&!/-->|^\d{1,2}:\d{2}(:\d{2})?([.,]\d+)?(,\d{1,2}:\d{2})?/.test(x.trim());});
+    ls.forEach(function(x){x=x.trim();var m=x.match(/^<v\s+([^>]+)>(.*?)(<\/v>)?$/);if(m){falas.push({quem:m[1].trim(),texto:m[2].trim()});return;}
+      m=x.match(/^([A-ZÀ-Úa-zà-ú][\wÀ-ú .'-]{1,40}?)\s*(\(\d{1,2}:\d{2}(:\d{2})?\))?\s*:\s+(.+)$/);if(m&&!/^(https?|obs|nota)$/i.test(m[1])){falas.push({quem:m[1].trim(),texto:m[4].trim()});return;}
+      if(falas.length&&!/[.!?]$/.test(falas[falas.length-1].texto))falas[falas.length-1].texto+=' '+x;else falas.push({quem:'',texto:x});});});
+  return falas.filter(function(f){return f.texto;});}
+function frases(t){return String(t).split(/(?<=[.!?])\s+/).map(function(s){return s.trim();}).filter(function(s){return s.length>12;});}
+function rascunho(m){var falas=parseTranscricao(m.transcricao),quem={},dec=[],pen=[],tot=0;
+  falas.forEach(function(f){var n=f.texto.split(/\s+/).length;tot+=n;if(f.quem)quem[f.quem]=(quem[f.quem]||0)+n;
+    frases(f.texto).forEach(function(s){
+      if(/\b(decidid|decidimos|ficou (decidido|definido|acertado|combinado)|fica (decidido|definido|combinado)|aprovad|vamos (seguir|fazer|manter|optar)|combinado)/i.test(s))dec.push(s);
+      else if(/\b(vou |vai |fica responsável|ficou responsável|precisa(mos)? (enviar|mandar|fazer|providenciar)|enviar|mandar|providenciar|até (o dia|amanhã|segunda|terça|quarta|quinta|sexta|sábado|semana)|prazo)/i.test(s))pen.push({texto:s,quem:f.quem});});});
+  var staffDe=function(nome){if(!nome)return S.user.id;var p=nome.toLowerCase().split(' ')[0];var s=db.staff.filter(function(x){return x.nome.toLowerCase().split(' ')[0]===p;})[0];return s?s.id:'';};
+  var falantes=Object.keys(quem).sort(function(a,b){return quem[b]-quem[a];});
+  var resumo=(m.pauta?'Pauta: '+m.pauta.replace(/\n+/g,'; ')+'.\n\n':'')+'Reunião '+(m.cliente?'com '+((cli(m.cliente)||{}).nome||'o cliente'):'interna')+' realizada em '+fd(m.data)+', das '+m.ini+' às '+m.fim+'. '+(falantes.length?'Falaram: '+falantes.join(', ')+'. ':'')+'Transcrição com cerca de '+tot+' palavras. '+
+    (dec.length||pen.length?'Foram identificadas '+dec.length+' decisão(ões) e '+pen.length+' pendência(s) — revise abaixo.':'Não foram identificadas decisões automaticamente — complete o resumo abaixo.');
+  return {status:'rascunho',participantes:(falantes.length?falantes:m.part.map(function(id){return (staffBy(id)||{}).nome;})).filter(Boolean).join(', '),resumo:resumo,decisoes:dec.slice(0,15).join('\n'),
+    pendencias:pen.slice(0,20).map(function(p){return {texto:p.texto,resp:staffDe(p.quem),prazo:'',tarefa:''};})};}
+function pedidoIA(m){var c=m.cliente?cli(m.cliente):null;return 'Você é o secretário de reuniões da NEXIO Inteligência Contábil. Com base na transcrição abaixo, escreva a ATA DA REUNIÃO em português, em tom formal e objetivo, com as seções: 1) Identificação (data '+fd(m.data)+', horário '+m.ini+'–'+m.fim+', '+(c?'cliente '+c.nome:'reunião interna')+', participantes); 2) Pauta; 3) Resumo dos assuntos tratados; 4) Decisões tomadas; 5) Pendências — tabela com Ação, Responsável e Prazo; 6) Próximos passos. Não invente informações que não estejam na transcrição.\n\nPauta prevista: '+(m.pauta||'(não informada)')+'\n\nTRANSCRIÇÃO:\n'+(m.transcricao||'');}
+function ata(m){var A=m.ata,c=m.cliente?cli(m.cliente):null;
+  shell('reunioes',head(e(m.titulo),fd(m.data)+' · '+m.ini+'–'+m.fim+' · '+e(c?c.nome:'Reunião interna')+(m.local?' · '+e(m.local):''),'<a class="btn b-line" href="#/reunioes">Voltar</a><a class="btn b-line" href="'+gcalLink(m)+'" target="_blank" rel="noopener">Google Agenda</a><button class="btn b-line" id="edm">Editar reunião</button>')+
+  '<div class="cols"><section class="card" style="flex:1 1 380px"><h2>1. Pauta e transcrição</h2>'+
+  '<label>Pauta<textarea id="rpauta" rows="3" placeholder="Assuntos previstos">'+e(m.pauta||'')+'</textarea></label>'+
+  '<label style="margin-top:10px">Convidados externos (e-mails, para o Google Agenda)<input id="rconv" value="'+e(m.convidados||'')+'" placeholder="cliente@empresa.com.br"></label>'+
+  '<div class="row" style="margin:14px 0 6px;align-items:center"><label class="btn b-line" style="cursor:pointer">Anexar transcrição<input type="file" id="rfile" accept=".txt,.vtt,.srt,.sbv,.md,.docx" hidden></label><span class="help">Google Meet, Teams, Zoom ou gravador do celular (.txt, .vtt, .srt, .docx)</span></div>'+
+  '<textarea id="rtrans" rows="16" placeholder="…ou cole aqui a transcrição. Formato ideal: “Nome: fala”, uma por linha.">'+e(m.transcricao||'')+'</textarea>'+
+  '<div class="row" style="margin-top:10px;flex-wrap:wrap"><button class="btn b-blue" id="rger">Gerar rascunho da ata</button><button class="btn b-line" id="ria" title="Copia um pedido pronto com a transcrição para colar no Claude">Copiar pedido para o Claude</button><button class="btn b-text" id="rsvt">Salvar</button></div></section>'+
+  '<section class="card" style="flex:1 1 460px" id="rata"></section></div>');
+  var g=function(id){return document.getElementById(id);};
+  var guardar=function(){m.pauta=g('rpauta').value;m.convidados=g('rconv').value;m.transcricao=g('rtrans').value;};
+  g('edm').onclick=function(){meetingDialog(m);};
+  g('rsvt').onclick=function(){guardar();persist();NX.toast('Salvo.');};
+  g('rfile').onchange=function(ev){var f=ev.target.files[0];if(!f)return;
+    if(/\.docx$/i.test(f.name)){lerDocx(f).then(function(t){g('rtrans').value=t;guardar();persist();NX.toast('Transcrição anexada.');}).catch(function(){NX.toast('Não consegui ler esse .docx. Abra-o e cole o texto aqui.');});return;}
+    var r=new FileReader();r.onload=function(){g('rtrans').value=r.result;guardar();persist();NX.toast('Transcrição anexada.');};r.readAsText(f,'utf-8');};
+  g('rger').onclick=function(){guardar();if(!m.transcricao.trim()&&!confirm('Não há transcrição. Gerar uma ata em branco para preencher?'))return;
+    if(m.ata&&!confirm('Substituir o rascunho atual da ata?'))return;m.ata=rascunho(m);persist();ata(m);NX.toast('Rascunho gerado. Revise antes de finalizar.');};
+  g('ria').onclick=function(){guardar();persist();navigator.clipboard.writeText(pedidoIA(m)).then(function(){NX.toast('Pedido copiado. Cole numa conversa com o Claude e depois traga o resultado para os campos da ata.');});};
+  var el=g('rata');
+  if(!A){el.innerHTML='<h2>2. Ata</h2><p class="empty">Anexe ou cole a transcrição e clique em “Gerar rascunho da ata”.</p>';return;}
+  el.innerHTML='<div class="row between"><h2 style="margin:0">2. Ata</h2>'+(A.status==='final'?'<span class="tag ok">Final</span>':'<span class="tag warn">Rascunho</span>')+'</div>'+
+  '<label style="margin-top:10px">Participantes<input id="ap" value="'+e(A.participantes||'')+'"></label>'+
+  '<label style="margin-top:10px">Resumo<textarea id="ar" rows="7">'+e(A.resumo||'')+'</textarea></label>'+
+  '<label style="margin-top:10px">Decisões (uma por linha)<textarea id="ad" rows="5">'+e(A.decisoes||'')+'</textarea></label>'+
+  '<h3 style="font-size:15px;color:var(--blue2);margin-top:14px">Pendências</h3><div id="apl">'+(A.pendencias||[]).map(function(p,i){return '<div class="row" style="align-items:center;gap:6px;margin-bottom:6px;flex-wrap:nowrap"><input data-pt="'+i+'" value="'+e(p.texto)+'" style="flex:1"><select data-pr="'+i+'" style="width:auto"><option value="">Cliente</option>'+db.staff.map(function(s){return '<option value="'+s.id+'"'+(p.resp===s.id?' selected':'')+'>'+e(s.nome.split(' ')[0])+'</option>';}).join('')+'</select><input type="date" data-pd="'+i+'" value="'+(p.prazo||'')+'" style="width:auto">'+(p.tarefa?'<span class="tag ok" title="Demanda criada">✓</span>':'')+'<button class="btn b-text" data-px="'+i+'" aria-label="Remover">×</button></div>';}).join('')+'</div>'+
+  '<button class="btn b-text" id="apa" style="padding:0">+ Pendência</button>'+
+  '<div class="row" style="margin-top:16px;flex-wrap:wrap"><button class="btn b-blue" id="asv">Salvar ata</button><button class="btn b-line" id="atk">Criar demandas das pendências</button><button class="btn b-line" id="apdf">PDF</button>'+(c?'<button class="btn b-line" id="acli">Enviar ao cliente pelo portal</button>':'')+'<button class="btn b-line" id="afin">'+(A.status==='final'?'Reabrir':'Finalizar ata')+'</button></div>';
+  var ler=function(){A.participantes=g('ap').value;A.resumo=g('ar').value;A.decisoes=g('ad').value;
+    A.pendencias=A.pendencias.map(function(p,i){return {texto:el.querySelector('[data-pt="'+i+'"]').value,resp:el.querySelector('[data-pr="'+i+'"]').value,prazo:el.querySelector('[data-pd="'+i+'"]').value,tarefa:p.tarefa};}).filter(function(p){return p.texto.trim();});};
+  el.querySelectorAll('[data-px]').forEach(function(b){b.onclick=function(){ler();A.pendencias.splice(+b.getAttribute('data-px'),1);persist();ata(m);};});
+  g('apa').onclick=function(){ler();A.pendencias.push({texto:'',resp:S.user.id,prazo:'',tarefa:''});persist();ata(m);};
+  g('asv').onclick=function(){ler();persist();NX.toast('Ata salva.');ata(m);};
+  g('afin').onclick=function(){ler();A.status=A.status==='final'?'rascunho':'final';if(A.status==='final')A.finalizada={em:new Date().toISOString(),por:S.user.nome};persist();ata(m);};
+  g('atk').onclick=function(){ler();var n=0;A.pendencias.forEach(function(p){if(p.tarefa||!p.resp)return;var id=NX.uid();
+      db.tasks.push({id:id,tipo:'pessoal',titulo:p.texto.slice(0,140),data:p.prazo||NX.today(),resp:p.resp,owner:p.resp,status:'nao',prio:'media',cliente:m.cliente||'',origem:'Ata: '+m.titulo,criado:NX.today(),log:[{em:new Date().toISOString(),ev:'Criada a partir da ata de '+fd(m.data),por:S.user.nome}]});p.tarefa=id;n++;});
+    persist();ata(m);NX.toast(n?n+' demanda(s) criada(s) na agenda dos responsáveis.':'Nenhuma pendência nova com responsável da equipe.');};
+  g('apdf').onclick=function(){ler();persist();imprimir('Ata — '+m.titulo,ataHTML(m));};
+  var ac=g('acli');if(ac)ac.onclick=function(){ler();persist();if(!confirm('Enviar o resumo, as decisões e as pendências desta ata ao cliente pelo portal?'))return;
+    db.messages.push({id:NX.uid(),cliente:m.cliente,de:'equipe',autor:S.user.nome,texto:'Ata da reunião “'+m.titulo+'” ('+fd(m.data)+')\n\n'+A.resumo+(A.decisoes?'\n\nDecisões:\n- '+A.decisoes.split('\n').filter(Boolean).join('\n- '):'')+(A.pendencias.length?'\n\nPendências:\n- '+A.pendencias.map(function(p){return p.texto+' — '+(p.resp?(staffBy(p.resp)||{}).nome:'Cliente')+(p.prazo?' até '+fd(p.prazo):'');}).join('\n- '):''),em:new Date().toISOString(),lida:false});
+    persist();NX.toast('Ata enviada ao cliente em Mensagens.');};
+}
+function ataHTML(m){var A=m.ata,c=m.cliente?cli(m.cliente):null;
+  return '<h1>ATA DE REUNIÃO — '+e(m.titulo)+'</h1><p><b>Data:</b> '+fd(m.data)+' · <b>Horário:</b> '+m.ini+' às '+m.fim+'<br><b>'+(c?'Cliente:</b> '+e(c.nome):'Tipo:</b> reunião interna')+(m.local?'<br><b>Local:</b> '+e(m.local):'')+'<br><b>Participantes:</b> '+e(A.participantes||'')+'</p>'+
+  (m.pauta?'<h2>Pauta</h2><pre>'+e(m.pauta)+'</pre>':'')+'<h2>Resumo</h2><pre>'+e(A.resumo||'')+'</pre>'+
+  (A.decisoes?'<h2>Decisões</h2><ul>'+A.decisoes.split('\n').filter(Boolean).map(function(d){return '<li>'+e(d)+'</li>';}).join('')+'</ul>':'')+
+  (A.pendencias.length?'<h2>Pendências</h2><table><tr><th>Ação</th><th>Responsável</th><th>Prazo</th></tr>'+A.pendencias.map(function(p){return '<tr><td>'+e(p.texto)+'</td><td>'+e(p.resp?(staffBy(p.resp)||{}).nome:'Cliente')+'</td><td>'+(p.prazo?fd(p.prazo):'—')+'</td></tr>';}).join('')+'</table>':'')+
+  (A.finalizada?'<p style="margin-top:24px;color:#555">Ata finalizada por '+e(A.finalizada.por)+' em '+new Date(A.finalizada.em).toLocaleString('pt-BR')+'.</p>':'');}
+/* .docx sem bibliotecas: descompacta word/document.xml (deflate) */
+function lerDocx(file){return file.arrayBuffer().then(function(buf){var v=new DataView(buf),u8=new Uint8Array(buf),eo=-1;
+  for(var j=u8.length-22;j>=0&&j>u8.length-70000;j--){if(v.getUint32(j,true)===0x06054b50){eo=j;break;}}if(eo<0)throw new Error('docx');
+  var n=v.getUint16(eo+10,true),p=v.getUint32(eo+16,true);
+  for(var k=0;k<n;k++){if(v.getUint32(p,true)!==0x02014b50)break;var met=v.getUint16(p+10,true),cs=v.getUint32(p+20,true),nl=v.getUint16(p+28,true),xl=v.getUint16(p+30,true),cl=v.getUint16(p+32,true),off=v.getUint32(p+42,true),nome=new TextDecoder().decode(u8.subarray(p+46,p+46+nl));
+    if(nome==='word/document.xml'){var ini=off+30+v.getUint16(off+26,true)+v.getUint16(off+28,true),dados=u8.subarray(ini,ini+cs);
+      var st=met===8?new Blob([dados]).stream().pipeThrough(new DecompressionStream('deflate-raw')):new Blob([dados]).stream();
+      return new Response(st).text().then(function(x){return x.replace(/<\/w:p>/g,'\n').replace(/<w:tab\/>/g,'\t').replace(/<[^>]+>/g,'').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&apos;/g,"'");});}
+    p+=46+nl+xl+cl;}
+  throw new Error('docx');});}
+
 render();
 })();
 </script>

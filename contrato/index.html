@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Contrato — NEXIO Inteligência Contábil</title>
+<link rel="stylesheet" href="/assets/portal.css">
+<style>
+body{background:#F3EFEC}
+.wrap{max-width:820px;margin:0 auto;padding:28px 18px 60px}
+.top{display:flex;align-items:baseline;gap:10px;border-bottom:2px solid #2344AC;padding-bottom:10px;margin-bottom:20px}
+.top b{color:#2344AC;font-size:26px;letter-spacing:3px}.top small{color:#2344AC;font-size:11px;letter-spacing:3px}
+pre{white-space:pre-wrap;font:15px/1.65 Calibri,Arial,sans-serif;background:#fff;border:1px solid #ddd;border-radius:12px;padding:24px;max-height:60vh;overflow:auto}
+.sign{background:#fff;border:1px solid #ddd;border-radius:12px;padding:20px;margin-top:18px;display:grid;gap:12px}
+.ok{background:#E8F7EF;border:1px solid #00A36C;border-radius:12px;padding:16px;margin-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></div>
+  <main id="app"><p class="help">Carregando contrato…</p></main>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+(function(){
+var sb=supabase.createClient('https://pctwjndleohoidikiwcv.supabase.co','sb_publishable_U8jK8tPwRuQ4xQGARUHHWg_UWz8Potv',{auth:{persistSession:false}});
+var app=document.getElementById('app'),tk=new URLSearchParams(location.search).get('t')||'';
+function e(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function brl(n){return (Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
+function fd(d){if(!d)return '—';var p=String(d).slice(0,10).split('-');return p[2]+'/'+p[1]+'/'+p[0];}
+if(!/^[0-9a-f-]{36}$/i.test(tk)){app.innerHTML='<h1>Link inválido</h1><p class="help">Confira o link recebido por e-mail ou fale com contato@nexioic.com.br.</p>';return;}
+function carregar(){sb.rpc('contrato_por_token',{p_token:tk}).then(function(r){var c=r.data;
+  if(r.error||!c){app.innerHTML='<h1>Contrato indisponível</h1><p class="help">Este link não está ativo. Fale com a NEXIO: contato@nexioic.com.br · (11) 93956-5190.</p>';return;}
+  var assinado=c.status==='assinado';
+  app.innerHTML='<h1 style="font-size:24px">Contrato de prestação de serviços</h1><p class="help">'+e(c.empresa)+' · '+e(c.plano||'')+' · '+brl(c.valor)+'/mês · vigência de '+fd(c.inicio)+' a '+fd(c.fim)+'</p>'+
+  '<pre>'+e(c.texto)+'</pre>'+
+  (assinado?'<div class="ok"><b>Contrato assinado eletronicamente</b><br>por '+e(c.assinado_nome)+' em '+new Date(c.assinado_em).toLocaleString('pt-BR')+'.</div>':
+  '<form class="sign" id="f"><h2 style="margin:0;font-size:18px">Assinatura eletrônica</h2>'+
+  '<label>Nome completo do responsável<input name="nome" required autocomplete="name"></label>'+
+  '<label>CPF do responsável<input name="doc" required inputmode="numeric" placeholder="000.000.000-00"></label>'+
+  '<label style="flex-direction:row;align-items:flex-start;gap:8px;font-weight:500"><input type="checkbox" name="ok" required style="width:auto;min-height:auto;margin-top:4px"> Li e concordo com todas as cláusulas deste contrato e declaro ter poderes para assiná-lo em nome da empresa.</label>'+
+  '<p class="help">Serão registrados data, hora, endereço IP e um código de integridade do texto aceito.</p>'+
+  '<button class="btn b-blue" type="submit">Assinar contrato</button><p class="help" id="m" style="color:var(--bad)"></p></form>');
+  var f=document.getElementById('f');if(f)f.onsubmit=function(ev){ev.preventDefault();var d=new FormData(f),cpf=String(d.get('doc')).replace(/\D/g,'');
+    if(cpf.length!==11&&cpf.length!==14){document.getElementById('m').textContent='Informe um CPF válido.';return;}
+    f.querySelector('button').disabled=true;
+    sb.rpc('assinar_contrato',{p_token:tk,p_nome:d.get('nome'),p_doc:cpf}).then(function(r){if(r.error){f.querySelector('button').disabled=false;document.getElementById('m').textContent=/dados_invalidos/.test(r.error.message)?'Confira o nome e o CPF.':'Não foi possível assinar agora. Tente novamente.';return;}carregar();window.scrollTo(0,document.body.scrollHeight);});};
+});}
+carregar();
+})();
+</script>
+</body>
+</html>
