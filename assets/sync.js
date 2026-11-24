@@ -12,7 +12,7 @@ var isUuid=function(s){return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-
 var data=function(s){return /^\d{4}-\d{2}-\d{2}/.test(String(s||''))?String(s).slice(0,10):null;};
 var comp=function(s){return /^\d{4}-\d{2}$/.test(String(s||''))?s:null;};
 var SETORES=['Fiscal','Departamento Pessoal','Contábil','Financeiro','Societário','Certidões','Notas fiscais','Enviados pelo cliente','Administrativo (interno)'];
-var ESTADO=['tasks','procT','servicos','meetings','contab','obligations','avisos','notifCfg','lgpdCfg','catV','procDemo','agendaSeeded','office_pastas','folders','pastas','contratoModelo'];
+var ESTADO=['tasks','procT','servicos','meetings','contab','obligations','avisos','notifCfg','lgpdCfg','catV','procDemo','agendaSeeded','office_pastas','folders','pastas','contratoModelo','gcalClientId','contratoCopia'];
 function chk(r,ctx){if(r&&r.error){NXS.erros++;console.error('[sync]',ctx,r.error);NXS.ultimo=ctx+': '+r.error.message;if(window.NX&&NX.toast&&NXS.erros<4)NX.toast('Não foi possível salvar ('+ctx+'). '+r.error.message);return true;}return false;}
 
 /* ---------- mapeamentos ---------- */
