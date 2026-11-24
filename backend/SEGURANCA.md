@@ -26,7 +26,7 @@ Versão 1.0 · 18/11/2026. Guia para quem for desenvolver o servidor do Portal d
 - **Níveis do cliente:** Titular, Financeiro, RH, Emissor de notas, Consulta, cada um limitado aos setores definidos em `cliente_ve_setor`.
 - **Níveis da equipe:** Administrador e Gestor veem toda a carteira; Analista, Atendimento e Assistente, só os clientes da sua carteira.
 - **Verificação em duas etapas (TOTP)** obrigatória para toda a equipe e recomendada para Titulares.
-- **Sessão:** expira após 30 minutos sem uso; token de acesso curto (1 h) com renovação.
+- **Sessão:** o login fica salvo no navegador até a pessoa clicar em Sair; token de acesso curto (1 h) com renovação automática. Senha mínima de 8 caracteres.
 - **Arquivos:** bucket privado; download apenas por URL assinada de 5 minutos.
 - **Desligamento:** desativar o perfil (`ativo = false`) revoga o acesso imediatamente em todas as políticas.
 

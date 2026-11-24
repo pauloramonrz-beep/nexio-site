@@ -3,7 +3,7 @@
   var URL='https://pctwjndleohoidikiwcv.supabase.co',KEY='sb_publishable_U8jK8tPwRuQ4xQGARUHHWg_UWz8Potv';
   var h=location.hash||'';
   window.NXA={tipoLink:/type=(invite|recovery|signup|magiclink)/.exec(h)?/type=(invite|recovery|signup|magiclink)/.exec(h)[1]:null,erroLink:/error_description=([^&]+)/.exec(h)?decodeURIComponent(/error_description=([^&]+)/.exec(h)[1].replace(/\+/g,' ')):null};
-  try{NXA.sb=window.supabase.createClient(URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:'implicit',storage:window.sessionStorage}});}catch(x){NXA.sb=null;}
+  try{NXA.sb=window.supabase.createClient(URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:'implicit',storage:window.localStorage}});}catch(x){NXA.sb=null;}
   NXA.ok=!!NXA.sb;
   /* cliente separado, sem sessão, só para enviar convites (não mexe no login de quem convida) */
   NXA.convite=function(email,nome,redirect){var c=window.supabase.createClient(URL,KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false,storageKey:'nx-convite',flowType:'implicit'}});return c.auth.signInWithOtp({email:email,options:{shouldCreateUser:true,emailRedirectTo:redirect,data:{nome:nome}}});};
