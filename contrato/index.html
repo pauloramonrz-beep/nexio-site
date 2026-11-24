@@ -36,7 +36,7 @@ if(!/^[0-9a-f-]{36}$/i.test(tk)){app.innerHTML='<h1>Link inválido</h1><p class=
 function carregar(){sb.rpc('contrato_por_token',{p_token:tk}).then(function(r){var c=r.data;
   if(r.error||!c){app.innerHTML='<h1>Contrato indisponível</h1><p class="help">Este link não está ativo. Fale com a NEXIO: contato@nexioic.com.br · (11) 93956-5190.</p>';return;}
   var assinado=c.status==='assinado';
-  app.innerHTML='<h1 style="font-size:24px">Contrato de prestação de serviços</h1><p class="help">'+e(c.empresa)+' · '+e(c.plano||'')+' · '+brl(c.valor)+'/mês · vigência de '+fd(c.inicio)+' a '+fd(c.fim)+(c.fidelidade_meses?' · <b>fidelidade de '+c.fidelidade_meses+' meses</b>':'')+'</p>'+
+  app.innerHTML='<h1 style="font-size:24px">Contrato de prestação de serviços</h1><p class="help">'+e(c.empresa)+' · '+e(c.plano||'')+' · '+brl(c.valor)+'/mês · vigência '+(c.fim?'de '+fd(c.inicio)+' a '+fd(c.fim):'a partir de '+fd(c.inicio)+', prazo indeterminado')+(c.fidelidade_meses?' · <b>fidelidade de '+c.fidelidade_meses+' meses</b>':'')+'</p>'+
   '<pre>'+e(c.texto)+'</pre>'+
   (assinado?'<div class="ok"><b>Contrato assinado eletronicamente</b><br>por '+e(c.assinado_nome)+' em '+new Date(c.assinado_em).toLocaleString('pt-BR')+'.<br><button class="btn b-blue" id="pdf" style="margin-top:10px">Baixar via assinada (PDF com certificado)</button></div>':
   '<form class="sign" id="f"><h2 style="margin:0;font-size:18px">Assinatura eletrônica</h2>'+

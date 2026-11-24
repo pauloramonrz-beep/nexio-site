@@ -24,6 +24,7 @@
 <script src="/assets/store.js"></script>
 <script src="/assets/auth.js"></script>
 <script src="/assets/sync.js"></script>
+<script src="/assets/blog.js"></script>
 <script src="/assets/explorer.js"></script>
 <script>
 (function(){
@@ -52,7 +53,7 @@ function login(){NX.ensureUsers(db);persist();
 function enter(id){S.cid=id;try{sessionStorage.setItem('nx_client',id);}catch(x){}location.hash='#/inicio';render();}
 
 function shell(active,html){
-  var c=me(),nav=[['inicio','Início',0],['arquivos','Documentos',novos()],['calendario','Obrigações',0],['notas','Notas fiscais',0],['financeiro','Controle financeiro',0],['contrato','Contrato e faturas',0],['mensagens','Mensagens',unread()]];
+  var c=me(),nav=[['inicio','Início',0],['arquivos','Documentos',novos()],['calendario','Obrigações',0],['notas','Notas fiscais',0],['financeiro','Controle financeiro',0],['contrato','Contrato e faturas',0],['mensagens','Mensagens',unread()],['conteudos','Conteúdos',0]];
   root.innerHTML='<div class="app"><aside class="side"><a class="logo" href="#/inicio"><img src="/assets/logo-nexio-branco.png" alt="NEXIO Inteligência Contábil" style="width:150px;max-width:100%;display:block"></a><div class="role">Portal do cliente</div>'+NX.sideToggleHTML()+
   nav.map(function(n){return '<a class="nav" href="#/'+n[0]+'"'+(active===n[0]?' aria-current="page"':'')+'>'+n[1]+(n[2]?'<span class="cnt">'+n[2]+'</span>':'')+'</a>';}).join('')+
   
@@ -324,7 +325,7 @@ function bindBell(){var b=document.getElementById('bell');if(!b)return;b.onclick
 try{S.uid=sessionStorage.getItem('nx_cuser');}catch(x){}
 function meU(){return (db.cusers||[]).filter(function(u){return u.id===S.uid;})[0];}
 function nivel(){var u=meU();return u?u.nivel:'titular';}
-var ROTAS={titular:['inicio','arquivos','calendario','notas','financeiro','contrato','mensagens','usuarios','config'],financeiro:['inicio','arquivos','calendario','notas','financeiro','contrato','mensagens','config'],rh:['inicio','arquivos','calendario','mensagens','config'],notas:['inicio','notas','mensagens','config'],consulta:['inicio','arquivos','calendario','config']};
+var ROTAS={titular:['inicio','arquivos','calendario','notas','financeiro','contrato','mensagens','usuarios','conteudos','config'],financeiro:['inicio','arquivos','calendario','notas','financeiro','contrato','mensagens','conteudos','config'],rh:['inicio','arquivos','calendario','mensagens','conteudos','config'],notas:['inicio','notas','mensagens','conteudos','config'],consulta:['inicio','arquivos','calendario','conteudos','config']};
 function pode(r){return (ROTAS[nivel()]||[]).indexOf(r)>-1;}
 function setoresNivel(){var n=nivel();if(n==='rh')return ['Departamento Pessoal','Enviados pelo cliente'];if(n==='notas')return ['Notas fiscais'];if(n==='financeiro')return ['Fiscal','Contábil','Financeiro','Societário','Certidões','Notas fiscais','Enviados pelo cliente'];return null;}
 function logCli(acao,alvo){var u=meU();NX.log(db,{tipo:'cliente',quem:u?u.nome:'—',nivel:u?NX.NIV_CLI[u.nivel].nome:'',acao:acao,alvo:alvo||'',cliente:S.cid});}
@@ -355,8 +356,17 @@ function usuariosEmp(){var c=me(),l=(db.cusers||[]).filter(function(u){return u.
 function escolherEmpresa(u){root.innerHTML='<div class="login"><div class="box"><a class="logo" href="/"><img src="/assets/logo-nexio.png" alt="NEXIO Inteligência Contábil" style="height:58px;display:block"></a><h1>Olá, '+e(u.nome.split(' ')[0])+'!</h1><p class="help">Você tem acesso a '+u.empresas.length+' empresas. Escolha qual deseja acessar:</p>'+
   u.empresas.map(function(id){var c=db.clients.filter(function(x){return x.id===id;})[0];return c?'<button class="btn b-line" data-ce="'+id+'" style="justify-content:flex-start;text-align:left;min-height:56px"><span><b>'+e(c.nome)+'</b><small style="display:block;color:var(--muted);font-weight:400">'+e(c.doc)+' · '+e(c.plano)+'</small></span></button>':'';}).join('')+'</div></div>';
   root.querySelectorAll('[data-ce]').forEach(function(b){b.onclick=function(){S.cid=b.getAttribute('data-ce');try{sessionStorage.setItem('nx_client',S.cid);}catch(x){}logCli('Entrou no portal (escolheu empresa)');persist();location.hash='#/inicio';render();};});}
-function render(){if(!NXS.modo){bootReal();return;}db=NX.load();if(NX.ensureUsers(db))persist();if(NX.runReminders(db))persist();var u=meU();if(!u){login();return;}if(!u.aceite||u.aceite.v!==TERMOS_V){aceiteTela(u);return;}if(!S.cid||u.empresas.indexOf(S.cid)<0||!me()){if(u.empresas.length===1){S.cid=u.empresas[0];}else{escolherEmpresa(u);return;}}var r=route();if(!pode(r)){location.hash='#/'+(ROTAS[nivel()][0]);return;}if(r==='usuarios'){usuariosEmp();return;}if(r==='config'){config();return;}if(r==='contrato'){contratoPg();return;}
+function render(){if(!NXS.modo){bootReal();return;}db=NX.load();if(NX.ensureUsers(db))persist();if(NX.runReminders(db))persist();var u=meU();if(!u){login();return;}if(!u.aceite||u.aceite.v!==TERMOS_V){aceiteTela(u);return;}if(!S.cid||u.empresas.indexOf(S.cid)<0||!me()){if(u.empresas.length===1){S.cid=u.empresas[0];}else{escolherEmpresa(u);return;}}var r=route();if(r.indexOf('conteudos')===0){conteudosPg(decodeURIComponent(r.split('/')[1]||''));return;}if(!pode(r)){location.hash='#/'+(ROTAS[nivel()][0]);return;}if(r==='usuarios'){usuariosEmp();return;}if(r==='config'){config();return;}if(r==='contrato'){contratoPg();return;}
   if(r==='arquivos')arquivos();else if(r==='calendario')calendario();else if(r==='mensagens')mensagens();else if(r==='financeiro')financeiro();else if(r==='notas')notas();else inicio();}
+
+/* ---------- Conteúdos (blog da NEXIO) ---------- */
+function conteudosPg(slug){if(!document.getElementById('nxbcss'))document.head.insertAdjacentHTML('beforeend','<style id="nxbcss">'+NXB.CSS+'</style>');
+  shell('conteudos',head('Conteúdos','Informações e orientações da NEXIO para você e sua empresa.')+'<div id="blg"><p class="help">Carregando…</p></div>');
+  var el=document.getElementById('blg');if(!window.NXA||!NXA.sb){el.innerHTML='<p class="empty">Disponível no acesso real.</p>';return;}
+  if(slug){NXA.sb.from('posts').select('*').eq('slug',slug).maybeSingle().then(function(r){var p=r.data;if(!p){el.innerHTML='<p class="empty">Conteúdo não encontrado.</p>';return;}
+    el.innerHTML='<a class="btn b-text" href="#/conteudos" style="padding:0;margin-bottom:12px;display:inline-block">← Todos os conteúdos</a><article class="card" style="max-width:860px">'+(p.capa?'<div style="aspect-ratio:16/7;border-radius:14px;background:url('+p.capa+') center/cover;margin-bottom:18px"></div>':'')+'<span class="tag info">'+e(p.categoria)+'</span><h2 style="font-size:28px;margin:10px 0 4px">'+e(p.titulo)+'</h2><p class="help">'+NXB.data(p.publicado_em)+' · '+NXB.tempo(p.conteudo)+'</p><div class="nxb-art">'+NXB.md(p.conteudo)+'</div></article>';});return;}
+  NXA.sb.from('posts').select('titulo,slug,resumo,categoria,capa,publicado_em').eq('publicado',true).order('publicado_em',{ascending:false}).limit(100).then(function(r){var l=r.data||[];
+    el.innerHTML=l.length?'<div class="nxb-grid">'+l.map(function(p){return NXB.card(p,'#/conteudos/'+encodeURIComponent(p.slug));}).join('')+'</div>':'<p class="empty">Em breve, conteúdos da NEXIO por aqui.</p>';});}
 
 /* ---------- Contrato e faturas ---------- */
 function contratoPg(){var brl=function(n){return (Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});},fd=function(d){return d?NX.fdate(String(d).slice(0,10)):'—';};
@@ -369,7 +379,7 @@ function contratoPg(){var brl=function(n){return (Number(n)||0).toLocaleString('
     var dias=k&&k.fim?Math.round((new Date(k.fim+'T12:00:00')-new Date(hoje+'T12:00:00'))/864e5):null;
     var card=k?'<section class="card" style="margin-bottom:18px"><div class="row between" style="align-items:flex-start"><div><h2 style="margin:0">Contrato de prestação de serviços</h2><p class="help">'+e(k.plano||'')+' · honorários de '+brl(k.valor)+' por mês, vencimento todo dia '+k.dia_venc+'</p></div>'+
       ({assinado:'<span class="tag ok">Assinado</span>',enviado:'<span class="tag warn">Aguardando sua assinatura</span>',encerrado:'<span class="tag">Encerrado</span>'})[k.status]+'</div>'+
-      '<div class="kpis" style="margin-top:14px"><div class="kpi"><span>Início</span><strong style="font-size:20px">'+fd(k.inicio)+'</strong></div><div class="kpi"><span>Vigente até</span><strong style="font-size:20px">'+fd(k.fim)+'</strong></div><div class="kpi"><span>Renovação</span><strong style="font-size:20px">'+(dias===null?'—':dias>=0?'em '+dias+' dia(s)':'automática')+'</strong></div><div class="kpi"><span>Reajuste</span><strong style="font-size:16px">'+e(k.reajuste||'—')+'</strong></div></div>'+
+      '<div class="kpis" style="margin-top:14px"><div class="kpi"><span>Início</span><strong style="font-size:20px">'+fd(k.inicio)+'</strong></div><div class="kpi"><span>Vigente até</span><strong style="font-size:20px">'+(k.fim?fd(k.fim):'Prazo indeterminado')+'</strong></div><div class="kpi"><span>Renovação</span><strong style="font-size:20px">'+(dias===null?'Sem data':dias>=0?'em '+dias+' dia(s)':'automática')+'</strong></div><div class="kpi"><span>Reajuste</span><strong style="font-size:16px">'+e(k.reajuste||'—')+'</strong></div></div>'+
       (k.fidelidade_meses?'<p class="help" style="margin-top:10px">Fidelidade de '+k.fidelidade_meses+' meses a partir de '+fd(k.inicio)+'.</p>':'')+'<div class="row" style="margin-top:12px">'+(k.status==='enviado'?'<button class="btn b-blue" id="lerc">Ler e assinar o contrato</button>':'<a class="btn b-line" href="/contrato/?t='+k.token+'" target="_blank" rel="noopener">Ver contrato e certificado</a>')+(k.assinado_em?'<span class="help">Assinado por '+e(k.assinado_nome||'')+' em '+new Date(k.assinado_em).toLocaleString('pt-BR')+'</span>':'')+'</div></section>'
       :'<section class="card" style="margin-bottom:18px"><p class="empty">Seu contrato ainda não foi disponibilizado aqui. Fale com a gente em Mensagens.</p></section>';
     el.innerHTML=card+'<div class="kpis" style="margin-bottom:18px"><div class="kpi main"><span>Próximo vencimento</span><strong>'+(prox?fd(prox.vencimento):'—')+'</strong></div><div class="kpi"><span>Em aberto</span><strong>'+brl(abertas.reduce(function(s,f){return s+Number(f.valor);},0))+'</strong></div><div class="kpi"><span>Vencidas</span><strong style="color:var(--bad)">'+abertas.filter(function(f){return f.vencimento<hoje;}).length+'</strong></div></div>'+
