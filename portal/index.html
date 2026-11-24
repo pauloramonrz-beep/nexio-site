@@ -50,7 +50,7 @@ function enter(id){S.cid=id;try{sessionStorage.setItem('nx_client',id);}catch(x)
 
 function shell(active,html){
   var c=me(),nav=[['inicio','Início',0],['arquivos','Documentos',novos()],['calendario','Obrigações',0],['notas','Notas fiscais',0],['financeiro','Controle financeiro',0],['contrato','Contrato e faturas',0],['mensagens','Mensagens',unread()]];
-  root.innerHTML='<div class="app"><aside class="side"><a class="logo" href="#/inicio"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a><div class="role">Portal do cliente</div>'+NX.sideToggleHTML()+
+  root.innerHTML='<div class="app"><aside class="side"><a class="logo" href="#/inicio"><img src="/assets/logo-nexio-branco.png" alt="NEXIO Inteligência Contábil" style="width:150px;max-width:100%;display:block"></a><div class="role">Portal do cliente</div>'+NX.sideToggleHTML()+
   nav.map(function(n){return '<a class="nav" href="#/'+n[0]+'"'+(active===n[0]?' aria-current="page"':'')+'>'+n[1]+(n[2]?'<span class="cnt">'+n[2]+'</span>':'')+'</a>';}).join('')+
   
   '<div class="foot"><span>'+e(c.nome)+'</span><a href="https://wa.me/5511939565190">Falar no WhatsApp</a><a href="#" id="logout">Sair</a></div></aside><main class="main">'+html+'</main></div>';

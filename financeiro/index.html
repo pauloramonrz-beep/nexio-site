@@ -64,8 +64,11 @@ td select{min-height:36px;padding:6px 8px;font-size:13px}
   #print h1{font-size:18pt;color:#2344AC}#print table{min-width:0;font-size:9.5pt}
   #print th{background:#EEF2FF}#print .sum{display:flex;gap:24px;margin:10px 0 16px}
 }
+input.sm{min-height:36px}
+#tc input{min-height:36px;padding:6px 8px}
 </style>
 <script src="/assets/fin-export.js"></script>
+<script>document.write('<style>'+NXF.DRE_CSS.replace(/font-size:12px/,'font-size:13px')+' table.dre{min-width:520px}</style>');</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="/assets/auth.js"></script>
 <script>
@@ -79,28 +82,27 @@ if(window.NX_FIN_EMBED)document.documentElement.classList.add('embed');})();
 <body>
 <header>
 <div class="top">
-<a class="logo" href="/"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a>
+<a class="logo" href="/"><img src="/assets/logo-nexio-branco.png" alt="NEXIO Inteligência Contábil" style="height:42px"></a>
 <nav aria-label="Portal"><a href="/portal/">Voltar ao portal</a></nav>
 </div>
 </header>
 
 <main>
 <div class="title">
-<div><h1>Controle Financeiro</h1><p>Lance entradas e saídas, importe o extrato do banco e exporte para a contabilidade.</p></div>
+<div><h1>Controle Financeiro</h1><p>Bancos e dinheiro em espécie, extratos, DRE gerencial e exportação para a contabilidade.</p></div>
 <span class="badge">Protótipo · dados salvos só neste navegador</span>
 </div>
 
 <section class="card" aria-labelledby="h-emp">
-<h2 id="h-emp">Empresa e conta bancária</h2>
-<div class="grid">
+<div class="row" style="justify-content:space-between;margin-bottom:12px"><h2 id="h-emp" style="margin:0">Empresa e contas</h2><div class="row"><button class="btn b-line" type="button" id="add_bank">+ Conta bancária</button><button class="btn b-line" type="button" id="add_cash">+ Caixa (dinheiro)</button></div></div>
+<div class="grid" style="margin-bottom:14px">
 <label>Empresa<input id="e_nome" placeholder="Razão social"></label>
 <label>CNPJ / CPF<input id="e_doc" placeholder="00.000.000/0001-00"></label>
-<label>Código do banco<input id="e_banco" placeholder="Ex.: 341" inputmode="numeric"></label>
-<label>Agência<input id="e_ag" placeholder="0000" inputmode="numeric"></label>
-<label>Conta<input id="e_conta" placeholder="00000-0"></label>
-<label>Saldo inicial (R$)<input id="e_saldo" placeholder="0,00" inputmode="decimal"></label>
 </div>
-<p class="help">Banco, agência e conta precisam ser iguais aos cadastrados no Domínio, para o extrato cair na conta certa.</p>
+<div class="tbl"><table style="min-width:760px">
+<thead><tr><th>Nome da conta</th><th>Tipo</th><th>Cód. banco</th><th>Agência</th><th>Conta</th><th>Saldo inicial</th><th style="text-align:right">Saldo atual</th><th><span class="sr">Ações</span></th></tr></thead>
+<tbody id="tc"></tbody></table></div>
+<p class="help">Cadastre todas as contas bancárias e o caixa (dinheiro em espécie). Banco, agência e conta devem ser iguais aos do Domínio. O saldo inicial é o saldo antes do primeiro lançamento.</p>
 </section>
 
 <div class="kpis">
@@ -114,23 +116,27 @@ if(window.NX_FIN_EMBED)document.documentElement.classList.add('embed');})();
 <section class="card" aria-labelledby="h-new">
 <h2 id="h-new">Novo lançamento</h2>
 <form id="f_new" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
-<label>Tipo<select id="n_tipo"><option value="in">Entrada</option><option value="out" selected>Saída</option></select></label>
+<label>Tipo<select id="n_tipo"><option value="in">Entrada</option><option value="out" selected>Saída</option><option value="tr">Transferência entre contas</option></select></label>
 <label>Data<input id="n_data" type="date" required></label>
+<label id="l_conta">Conta<select id="n_conta"></select></label>
+<label id="l_para" hidden>Para a conta<select id="n_para"></select></label>
 <label style="grid-column:1/-1">Descrição<input id="n_desc" required placeholder="Ex.: Pagamento fornecedor X"></label>
-<label>Categoria<select id="n_cat"></select></label>
+<label id="l_cat">Categoria<select id="n_cat"></select></label>
 <label>Valor (R$)<input id="n_valor" required placeholder="0,00" inputmode="decimal"></label>
 <div style="grid-column:1/-1"><button class="btn b-blue" type="submit">Adicionar lançamento</button></div>
 </form>
+<p class="help">Depósito do dinheiro no banco ou saque: use “Transferência entre contas” — não entra como receita nem despesa.</p>
 </section>
 
 <section class="card" aria-labelledby="h-imp">
 <h2 id="h-imp">Importar extrato do banco</h2>
+<label style="margin-bottom:12px">Conta do extrato<select id="i_conta"></select></label>
 <div class="drop" id="drop">
 <p style="margin:0 0 12px">Arraste o arquivo aqui ou escolha no computador</p>
 <label class="btn b-line" style="display:inline-flex;flex-direction:row;color:var(--blue)">Escolher arquivo<input type="file" id="file" accept=".ofx,.ofc,.csv,.txt" style="display:none"></label>
 <p class="help">Aceita OFX (exportado pelo internet banking) ou CSV com as colunas: data; descrição; valor.</p>
 </div>
-<p class="help">Depois de importar, ajuste a categoria de cada lançamento na tabela abaixo.</p>
+<p class="help">Se o OFX trouxer o número da conta, ele vai para a conta certa automaticamente.</p>
 </section>
 </div>
 
@@ -138,14 +144,28 @@ if(window.NX_FIN_EMBED)document.documentElement.classList.add('embed');})();
 <div class="row" style="justify-content:space-between;margin-bottom:14px">
 <h2 id="h-list" style="margin:0">Lançamentos</h2>
 <div class="row">
+<label>Conta<select id="f_conta"></select></label>
 <label>Mês<input type="month" id="f_mes"></label>
 <button class="btn b-text" type="button" id="b_all">Ver todos</button>
 </div>
 </div>
 <div class="tbl"><table>
-<thead><tr><th scope="col">Data</th><th scope="col">Descrição</th><th scope="col">Categoria</th><th scope="col">Origem</th><th scope="col" style="text-align:right">Valor</th><th scope="col"><span class="sr">Ações</span></th></tr></thead>
+<thead><tr><th scope="col">Data</th><th scope="col">Descrição</th><th scope="col">Conta</th><th scope="col">Categoria</th><th scope="col">Origem</th><th scope="col" style="text-align:right">Valor</th><th scope="col"><span class="sr">Ações</span></th></tr></thead>
 <tbody id="tb"></tbody>
 </table></div>
+</section>
+
+<section class="card" aria-labelledby="h-dre">
+<div class="row" style="justify-content:space-between;margin-bottom:14px">
+<h2 id="h-dre" style="margin:0">DRE gerencial financeira</h2>
+<div class="row">
+<label>Período<select id="d_modo"><option value="mes">Mês</option><option value="tri">Trimestre</option><option value="ano" selected>Ano (mês a mês)</option><option value="12m">Últimos 12 meses</option></select></label>
+<label>Referência<input type="month" id="d_ref"></label>
+<button class="btn b-blue" type="button" id="d_pdf">Baixar PDF</button>
+</div>
+</div>
+<div class="tbl" id="dre"></div>
+<p class="help">Regime de caixa, considerando bancos e dinheiro (ou só a conta escolhida no filtro de lançamentos). Classifique bem as categorias para a DRE ficar fiel.</p>
 </section>
 
 <div class="cols">
@@ -155,7 +175,7 @@ if(window.NX_FIN_EMBED)document.documentElement.classList.add('embed');})();
 </section>
 <section class="card" aria-labelledby="h-exp">
 <h2 id="h-exp">Exportar para a contabilidade</h2>
-<p style="margin:0 0 14px;color:var(--muted)">Exporta os lançamentos do período selecionado.</p>
+<p style="margin:0 0 14px;color:var(--muted)">Exporta os lançamentos do período e da conta selecionados. OFX e OFC são gerados por conta.</p>
 <div class="row">
 <button class="btn b-blue" type="button" id="x_ofx">Baixar OFX</button>
 <button class="btn b-line" type="button" id="x_ofc">Baixar OFC</button>
@@ -174,79 +194,112 @@ if(window.NX_FIN_EMBED)document.documentElement.classList.add('embed');})();
 
 <script>
 (function(){
-var CATS_IN=['Receita de serviços','Receita de vendas','Rendimentos financeiros','Aporte dos sócios','Outras entradas'];
-var CATS_OUT=['Fornecedores','Aluguel','Folha e encargos','Pró-labore','Impostos e taxas','Tarifas bancárias','Energia, água e internet','Marketing','Software e sistemas','Honorários contábeis','Retirada dos sócios','Outras saídas','A classificar'];
+var CATS_IN=NXF.CATS_IN,CATS_OUT=NXF.CATS_OUT,TR=NXF.TRANSF,num=NXF.num;
 var KEY='nexio_fin_v1_'+(window.NX_FIN_CID||'x');
-var st={emp:{},items:[],mes:''};
-function load(){try{var p=JSON.parse(localStorage.getItem('nexio_portal_v1')||'null');if(p){var c=(p.clients||[]).filter(function(x){return x.id===window.NX_FIN_CID;})[0];if(c){st.emp.nome=st.emp.nome||c.nome;st.emp.doc=st.emp.doc||c.doc;}}}catch(e){}try{var d=JSON.parse(localStorage.getItem(KEY)||'null');if(d){st.emp=Object.assign(st.emp,d.emp||{});st.items=d.items||[];}}catch(e){}}
+var st={emp:{},contas:[],items:[],mes:'',conta:'',dmodo:'ano',dref:''};
+function dados(){return {emp:st.emp,contas:st.contas,items:st.items};}
+function norm(){var d={emp:st.emp,contas:st.contas,items:st.items};NXF.contas(d);st.contas=d.contas;}
+function load(){try{var d=JSON.parse(localStorage.getItem(KEY)||'null');if(d){st.emp=d.emp||{};st.contas=d.contas||[];st.items=d.items||[];}}catch(e){}norm();}
 var REAL=/^[0-9a-f-]{36}$/i.test(window.NX_FIN_CID||'')&&window.NXA&&NXA.ok,tSave=null;
-function save(){try{localStorage.setItem(KEY,JSON.stringify({emp:st.emp,items:st.items}));}catch(e){}
-  if(REAL){clearTimeout(tSave);tSave=setTimeout(function(){NXA.sb.from('financeiro').upsert({empresa_id:window.NX_FIN_CID,dados:{emp:st.emp,items:st.items},atualizado_em:new Date().toISOString()}).then(function(r){if(r.error)toast('Não foi possível salvar no servidor: '+r.error.message);});},700);}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(dados()));}catch(e){}
+  if(REAL){clearTimeout(tSave);tSave=setTimeout(function(){NXA.sb.from('financeiro').upsert({empresa_id:window.NX_FIN_CID,dados:dados(),atualizado_em:new Date().toISOString()}).then(function(r){if(r.error)toast('Não foi possível salvar no servidor: '+r.error.message);});},700);}}
 function $(id){return document.getElementById(id);}
-function num(v){if(typeof v==='number')return v;v=String(v||'').trim().replace(/[R$\s]/g,'');if(/,\d{1,2}$/.test(v))v=v.replace(/\./g,'').replace(',','.');else v=v.replace(/,/g,'');var n=parseFloat(v);return isNaN(n)?0:n;}
 function brl(n){return n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
 function fdate(iso){var p=iso.split('-');return p[2]+'/'+p[1]+'/'+p[0];}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
-function toast(m){var t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(function(){t.style.display='none';},2600);}
-function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
-function catOpts(sel,tipo){var l=tipo==='in'?CATS_IN:CATS_OUT;return l.map(function(c){return '<option'+(c===sel?' selected':'')+'>'+esc(c)+'</option>';}).join('');}
-function period(){var l=st.items.slice().sort(function(a,b){return a.data<b.data?-1:a.data>b.data?1:0;});return st.mes?l.filter(function(i){return i.data.slice(0,7)===st.mes;}):l;}
-function saldoAntes(){var s=num(st.emp.saldo);if(!st.mes)return s;st.items.forEach(function(i){if(i.data.slice(0,7)<st.mes)s+=i.valor;});return s;}
+function toast(m){var t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(function(){t.style.display='none';},2800);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function conta(id){return st.contas.filter(function(c){return c.id===id;})[0];}
+function cNome(c){return c?(c.nome||(c.tipo==='caixa'?'Caixa':'Banco '+(c.banco||''))):'—';}
+function catOpts(sel,tipo){var l=tipo==='tr'?[TR]:tipo==='in'?CATS_IN:CATS_OUT;if(sel&&l.indexOf(sel)<0&&sel!==TR)l=[sel].concat(l);return l.map(function(c){return '<option'+(c===sel?' selected':'')+'>'+esc(c)+'</option>';}).join('');}
+function contaOpts(sel,todas,soBanco){return (todas?'<option value="">Todas as contas</option>':'')+st.contas.filter(function(c){return !soBanco||c.tipo==='banco';}).map(function(c){return '<option value="'+c.id+'"'+(c.id===sel?' selected':'')+'>'+esc(cNome(c))+'</option>';}).join('');}
+function period(){var l=st.items.filter(function(i){return !st.conta||i.conta===st.conta;}).sort(function(a,b){return a.data<b.data?-1:a.data>b.data?1:0;});return st.mes?l.filter(function(i){return i.data.slice(0,7)===st.mes;}):l;}
+function saldoAntes(){return NXF.saldoAte(dados(),st.conta,st.mes?st.mes+'-01':null)-(st.mes?0:0)-(!st.mes?st.items.filter(function(i){return (!st.conta||i.conta===st.conta)&&!(!st.conta&&i.cat===TR);}).reduce(function(s,i){return s+i.valor;},0):0);}
 
 function render(){
-  ['nome','doc','banco','ag','conta','saldo'].forEach(function(k){var el=$('e_'+k);if(document.activeElement!==el)el.value=st.emp[k]||'';});
+  ['nome','doc'].forEach(function(k){var el=$('e_'+k);if(document.activeElement!==el)el.value=st.emp[k]||'';});
+  var foco=document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#tc');
+  if(!foco)$('tc').innerHTML=st.contas.map(function(c){var b=c.tipo==='banco',at=NXF.saldoAte(dados(),c.id);
+    return '<tr><td><input data-c="'+c.id+'" data-k="nome" value="'+esc(c.nome||'')+'" aria-label="Nome da conta"></td><td>'+(b?'Banco':'Dinheiro')+'</td>'+
+      (b?'<td><input data-c="'+c.id+'" data-k="banco" value="'+esc(c.banco||'')+'" inputmode="numeric" style="width:80px" aria-label="Código do banco"></td><td><input data-c="'+c.id+'" data-k="ag" value="'+esc(c.ag||'')+'" style="width:90px" aria-label="Agência"></td><td><input data-c="'+c.id+'" data-k="conta" value="'+esc(c.conta||'')+'" style="width:120px" aria-label="Conta"></td>':'<td colspan="3" style="color:var(--muted)">—</td>')+
+      '<td><input data-c="'+c.id+'" data-k="saldo" value="'+esc(c.saldo||'')+'" inputmode="decimal" style="width:120px" aria-label="Saldo inicial"></td><td class="val '+(at>=0?'pos':'neg')+'">'+brl(at)+'</td><td><button class="btn b-text" type="button" data-cdel="'+c.id+'">Excluir</button></td></tr>';}).join('');
+  ['n_conta','i_conta'].forEach(function(id,ix){var el=$(id),v=el.value;el.innerHTML=contaOpts(v||(ix?(st.contas.filter(function(c){return c.tipo==='banco';})[0]||{}).id:st.contas[0]&&st.contas[0].id),false,ix===1);});
+  var pv=$('n_para').value;$('n_para').innerHTML=contaOpts(pv||(st.contas[1]||{}).id);
+  $('f_conta').innerHTML=contaOpts(st.conta,true);
   $('f_mes').value=st.mes;
-  var l=period(),inn=0,out=0,bycat={};
-  l.forEach(function(i){if(i.valor>=0)inn+=i.valor;else out+=i.valor;bycat[i.cat]=(bycat[i.cat]||0)+i.valor;});
-  var ini=saldoAntes();
+  var l=period(),inn=0,out=0,bycat={},semT=function(i){return st.conta||i.cat!==TR;};
+  l.forEach(function(i){if(!semT(i))return;if(i.valor>=0)inn+=i.valor;else out+=i.valor;bycat[i.cat]=(bycat[i.cat]||0)+i.valor;});
+  var ini=st.mes?NXF.saldoAte(dados(),st.conta,st.mes+'-01'):st.contas.filter(function(c){return !st.conta||c.id===st.conta;}).reduce(function(s,c){return s+num(c.saldo);},0);
   $('k_in').textContent=brl(inn);$('k_out').textContent=brl(Math.abs(out));
   var r=inn+out;$('k_res').textContent=brl(r);$('k_res').className=r>=0?'pos':'neg';
   $('k_saldo').textContent=brl(ini+r);
-  $('tb').innerHTML=l.length?l.map(function(i){var tipo=i.valor>=0?'in':'out';return '<tr><td>'+fdate(i.data)+'</td><td>'+esc(i.desc)+'</td><td><select data-id="'+i.id+'" aria-label="Categoria">'+catOpts(i.cat,tipo)+'</select></td><td>'+(i.orig==='banco'?'Extrato':'Manual')+'</td><td class="val '+(i.valor>=0?'pos':'neg')+'">'+brl(i.valor)+'</td><td><button class="btn b-text" data-del="'+i.id+'" aria-label="Excluir lançamento">Excluir</button></td></tr>';}).join(''):'<tr><td colspan="6" class="empty">Nenhum lançamento no período. Adicione um lançamento ou importe o extrato.</td></tr>';
+  $('tb').innerHTML=l.length?l.map(function(i){var tipo=i.cat===TR?'tr':i.valor>=0?'in':'out';return '<tr><td>'+fdate(i.data)+'</td><td>'+esc(i.desc)+'</td><td><select data-mv="'+i.id+'" aria-label="Conta">'+contaOpts(i.conta)+'</select></td><td>'+(tipo==='tr'?'<span style="color:var(--muted)">'+TR+'</span>':'<select data-id="'+i.id+'" aria-label="Categoria">'+catOpts(i.cat,tipo)+'</select>')+'</td><td>'+(i.orig==='banco'?'Extrato':'Manual')+'</td><td class="val '+(i.valor>=0?'pos':'neg')+'">'+brl(i.valor)+'</td><td><button class="btn b-text" data-del="'+i.id+'" aria-label="Excluir lançamento">Excluir</button></td></tr>';}).join(''):'<tr><td colspan="7" class="empty">Nenhum lançamento no período. Adicione um lançamento ou importe o extrato.</td></tr>';
   var max=Math.max.apply(null,Object.keys(bycat).map(function(k){return Math.abs(bycat[k]);}).concat([1]));
   var keys=Object.keys(bycat).sort(function(a,b){return Math.abs(bycat[b])-Math.abs(bycat[a]);});
   $('cats').innerHTML=keys.length?keys.map(function(k){return '<div class="cat"><div style="flex:1"><div>'+esc(k)+'</div><div class="bar"><i style="width:'+(Math.abs(bycat[k])/max*100).toFixed(1)+'%"></i></div></div><strong class="'+(bycat[k]>=0?'pos':'neg')+'">'+brl(bycat[k])+'</strong></div>';}).join(''):'<p class="empty" style="padding:10px">Sem dados no período.</p>';
+  $('d_modo').value=st.dmodo;$('d_ref').value=st.dref;
+  $('dre').innerHTML=NXF.dreHTML(NXF.dre(st.items.filter(function(i){return !st.conta||i.conta===st.conta;}),NXF.mesesDe(st.dmodo,st.dref)));
 }
 
-// empresa
-['nome','doc','banco','ag','conta','saldo'].forEach(function(k){$('e_'+k).addEventListener('input',function(e){st.emp[k]=e.target.value;save();if(k==='saldo')render();});});
+// empresa e contas
+['nome','doc'].forEach(function(k){$('e_'+k).addEventListener('input',function(e){st.emp[k]=e.target.value;save();});});
+$('tc').addEventListener('input',function(e){var id=e.target.getAttribute('data-c');if(!id)return;conta(id)[e.target.getAttribute('data-k')]=e.target.value;save();});
+$('tc').addEventListener('change',function(){render();});
+$('tc').addEventListener('click',function(e){var id=e.target.getAttribute('data-cdel');if(!id)return;var n=st.items.filter(function(i){return i.conta===id;}).length;
+  if(st.contas.length<2){toast('Mantenha pelo menos uma conta.');return;}if(n){toast('Esta conta tem '+n+' lançamento(s). Mova-os para outra conta antes de excluir.');return;}
+  if(!confirm('Excluir a conta '+cNome(conta(id))+'?'))return;st.contas=st.contas.filter(function(c){return c.id!==id;});if(st.conta===id)st.conta='';save();render();});
+$('add_bank').addEventListener('click',function(){st.contas.push({id:uid(),tipo:'banco',nome:'Banco '+(st.contas.filter(function(c){return c.tipo==='banco';}).length+1),banco:'',ag:'',conta:'',saldo:'0'});save();render();var x=$('tc').querySelectorAll('input[data-k="nome"]');x[x.length-1].focus();x[x.length-1].select();});
+$('add_cash').addEventListener('click',function(){st.contas.push({id:uid(),tipo:'caixa',nome:'Caixa '+(st.contas.filter(function(c){return c.tipo==='caixa';}).length+1),saldo:'0'});save();render();});
 // novo
-function fillCats(){$('n_cat').innerHTML=catOpts('',$('n_tipo').value);}
+function fillCats(){var t=$('n_tipo').value;$('n_cat').innerHTML=catOpts('',t);$('l_cat').hidden=t==='tr';$('l_para').hidden=t!=='tr';$('l_conta').firstChild.textContent=t==='tr'?'Da conta':'Conta';}
 $('n_tipo').addEventListener('change',fillCats);
-$('f_new').addEventListener('submit',function(e){e.preventDefault();var v=Math.abs(num($('n_valor').value));if(!v){toast('Informe um valor válido.');return;}
-  st.items.push({id:uid(),data:$('n_data').value,desc:$('n_desc').value.trim(),cat:$('n_cat').value,valor:$('n_tipo').value==='in'?v:-v,orig:'manual'});
+$('f_new').addEventListener('submit',function(e){e.preventDefault();var v=Math.abs(num($('n_valor').value)),t=$('n_tipo').value,c=$('n_conta').value,d=$('n_data').value,ds=$('n_desc').value.trim();if(!v){toast('Informe um valor válido.');return;}
+  if(t==='tr'){var p=$('n_para').value;if(p===c){toast('Escolha contas diferentes.');return;}var g=uid();
+    st.items.push({id:uid(),data:d,desc:ds,cat:TR,valor:-v,orig:'manual',conta:c,par:g},{id:uid(),data:d,desc:ds,cat:TR,valor:v,orig:'manual',conta:p,par:g});}
+  else st.items.push({id:uid(),data:d,desc:ds,cat:$('n_cat').value,valor:t==='in'?v:-v,orig:'manual',conta:c});
   save();$('n_desc').value='';$('n_valor').value='';render();toast('Lançamento adicionado.');});
 // tabela
-$('tb').addEventListener('change',function(e){var id=e.target.getAttribute('data-id');if(!id)return;st.items.forEach(function(i){if(i.id===id)i.cat=e.target.value;});save();render();});
-$('tb').addEventListener('click',function(e){var id=e.target.getAttribute('data-del');if(!id)return;st.items=st.items.filter(function(i){return i.id!==id;});save();render();});
+$('tb').addEventListener('change',function(e){var id=e.target.getAttribute('data-id'),mv=e.target.getAttribute('data-mv');
+  if(id)st.items.forEach(function(i){if(i.id===id)i.cat=e.target.value;});if(mv)st.items.forEach(function(i){if(i.id===mv)i.conta=e.target.value;});if(id||mv){save();render();}});
+$('tb').addEventListener('click',function(e){var id=e.target.getAttribute('data-del');if(!id)return;var it=st.items.filter(function(i){return i.id===id;})[0];st.items=st.items.filter(function(i){return i.id!==id&&!(it.par&&i.par===it.par);});save();render();});
 $('f_mes').addEventListener('change',function(e){st.mes=e.target.value;render();});
+$('f_conta').addEventListener('change',function(e){st.conta=e.target.value;render();});
 $('b_all').addEventListener('click',function(){st.mes='';render();});
+$('d_modo').addEventListener('change',function(e){st.dmodo=e.target.value;render();});
+$('d_ref').addEventListener('change',function(e){if(e.target.value){st.dref=e.target.value;render();}});
+$('d_pdf').addEventListener('click',function(){NXF.drePdf({emp:st.emp,items:st.items.filter(function(i){return !st.conta||i.conta===st.conta;}),meses:NXF.mesesDe(st.dmodo,st.dref),contas:st.conta?cNome(conta(st.conta)):'Todas (bancos e caixa)',por:st.emp.nome||''});});
 
 // importação
 function guessCat(desc,v){var d=desc.toLowerCase();
-  if(v>=0){if(/rend|juros|aplic/.test(d))return 'Rendimentos financeiros';return 'Receita de serviços';}
+  if(v>=0){if(/rend|juros|aplic/.test(d))return 'Rendimentos financeiros';if(/emprest|empr[ée]stimo|financiam/.test(d))return 'Empréstimos recebidos';return 'Receita de serviços';}
   if(/tarifa|tar\.|pacote serv|manut.*conta|iof/.test(d))return 'Tarifas bancárias';
-  if(/das|darf|gps|fgts|iss|icms|simples|tribut|receita fed/.test(d))return 'Impostos e taxas';
+  if(/\bdas\b|simples|pgdas|\biss\b/.test(d))return 'Impostos sobre o faturamento';
+  if(/darf|gps|fgts|icms|tribut|receita fed|iptu|ipva|taxa/.test(d))return 'Impostos e taxas';
   if(/aluguel|condom/.test(d))return 'Aluguel';
   if(/energia|luz|agua|água|internet|telefon|vivo|claro|tim\b|oi\b/.test(d))return 'Energia, água e internet';
-  if(/salari|folha|ferias|férias|13/.test(d))return 'Folha e encargos';
+  if(/salari|folha|ferias|férias|13|inss/.test(d))return 'Folha e encargos';
   if(/pro.?labore|pró.?labore/.test(d))return 'Pró-labore';
+  if(/combust|posto|uber|99/.test(d))return 'Combustível e transporte';
+  if(/juros|multa|mora/.test(d))return 'Juros e multas';
+  if(/parcela.*empr|financiam/.test(d))return 'Parcelas de empréstimos';
   return 'A classificar';}
 function tag(block,t){var m=new RegExp('<'+t+'>([^<\\r\\n]*)','i').exec(block);return m?m[1].trim():'';}
+var alvo=null;
 function parseOFX(txt){var out=[];var parts=txt.split(/<STMTTRN>/i).slice(1);
   parts.forEach(function(p){var b=p.split(/<\/STMTTRN>/i)[0];var d=tag(b,'DTPOSTED').slice(0,8);var v=num(tag(b,'TRNAMT').replace(',', '.'));
     var desc=tag(b,'MEMO')||tag(b,'NAME')||'Lançamento bancário';if(d.length===8)out.push({data:d.slice(0,4)+'-'+d.slice(4,6)+'-'+d.slice(6,8),desc:desc,valor:v,fitid:tag(b,'FITID')});});
-  var bid=tag(txt,'BANKID'),acc=tag(txt,'ACCTID'),br=tag(txt,'BRANCHID');
-  if(bid&&!st.emp.banco)st.emp.banco=bid.replace(/^0+(?=\d{3})/,'');if(acc&&!st.emp.conta)st.emp.conta=acc;if(br&&!st.emp.ag)st.emp.ag=br;
+  var bid=tag(txt,'BANKID').replace(/^0+(?=\d{3})/,''),acc=tag(txt,'ACCTID'),br=tag(txt,'BRANCHID'),so=function(x){return String(x||'').replace(/\D/g,'');};
+  var ach=acc&&st.contas.filter(function(c){return c.tipo==='banco'&&so(c.conta)&&so(c.conta)===so(acc);})[0];
+  if(ach)alvo=ach.id;else{var c=conta($('i_conta').value);if(c&&!c.conta&&!c.banco){c.banco=bid;c.conta=acc;c.ag=br;}}
   return out;}
 function parseCSV(txt){var out=[];txt.split(/\r?\n/).forEach(function(line){if(!line.trim())return;var sep=line.indexOf(';')>-1?';':',';var c=line.split(sep).map(function(s){return s.replace(/^"|"$/g,'').trim();});if(c.length<3)return;
   var m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(c[0]);var iso=m?m[3]+'-'+m[2]+'-'+m[1]:(/^\d{4}-\d{2}-\d{2}$/.test(c[0])?c[0]:null);if(!iso)return;
   out.push({data:iso,desc:c[1]||'Lançamento',valor:num(c[c.length-1])});});return out;}
-function importFile(f){var rd=new FileReader();rd.onload=function(){var txt=String(rd.result);var l=/<STMTTRN>/i.test(txt)?parseOFX(txt):parseCSV(txt);
-  if(!l.length){toast('Não encontrei lançamentos nesse arquivo.');return;}
-  var seen={};st.items.forEach(function(i){seen[i.data+'|'+i.valor.toFixed(2)+'|'+i.desc]=1;});var n=0;
-  l.forEach(function(x){var k=x.data+'|'+x.valor.toFixed(2)+'|'+x.desc;if(seen[k])return;seen[k]=1;n++;st.items.push({id:uid(),data:x.data,desc:x.desc,cat:guessCat(x.desc,x.valor),valor:x.valor,orig:'banco',fitid:x.fitid||''});});
-  st.mes=l[0].data.slice(0,7);save();render();toast(n+' lançamento(s) importado(s).'+(l.length>n?' '+(l.length-n)+' repetido(s) ignorado(s).':''));};
+function importFile(f){var rd=new FileReader();rd.onload=function(){var txt=String(rd.result);alvo=null;var l=/<STMTTRN>/i.test(txt)?parseOFX(txt):parseCSV(txt);
+  if(!l.length){toast('Não encontrei lançamentos nesse arquivo.');return;}var ct=alvo||$('i_conta').value;
+  var seen={};st.items.forEach(function(i){seen[i.conta+'|'+i.data+'|'+i.valor.toFixed(2)+'|'+i.desc]=1;});var n=0;
+  l.forEach(function(x){var k=ct+'|'+x.data+'|'+x.valor.toFixed(2)+'|'+x.desc;if(seen[k])return;seen[k]=1;n++;st.items.push({id:uid(),data:x.data,desc:x.desc,cat:guessCat(x.desc,x.valor),valor:x.valor,orig:'banco',fitid:x.fitid||'',conta:ct});});
+  st.mes=l[0].data.slice(0,7);st.conta=ct;save();render();toast(n+' lançamento(s) importado(s) em '+cNome(conta(ct))+'.'+(l.length>n?' '+(l.length-n)+' repetido(s) ignorado(s).':''));};
   rd.readAsText(f,'ISO-8859-1');}
 $('file').addEventListener('change',function(e){if(e.target.files[0])importFile(e.target.files[0]);e.target.value='';});
 var dr=$('drop');['dragenter','dragover'].forEach(function(ev){dr.addEventListener(ev,function(e){e.preventDefault();dr.classList.add('over');});});
@@ -254,42 +307,29 @@ var dr=$('drop');['dragenter','dragover'].forEach(function(ev){dr.addEventListen
 dr.addEventListener('drop',function(e){if(e.dataTransfer.files[0])importFile(e.dataTransfer.files[0]);});
 
 // exportação
-function d8(iso){return iso.replace(/-/g,'');}
-function amt(v){return v.toFixed(2);}
-function clean(s){return String(s).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[<>&]/g,' ').slice(0,80);}
-function need(){var l=period();if(!l.length){toast('Não há lançamentos no período para exportar.');return null;}
-  if(!st.emp.banco||!st.emp.conta){toast('Preencha banco e conta da empresa antes de exportar.');return null;}return l;}
-function fname(ext){return 'extrato_'+(clean(st.emp.nome||'empresa').replace(/\s+/g,'_').toLowerCase())+'_'+(st.mes||'todos')+'.'+ext;}
-function dl(txt,name,type){var b=new Blob([txt],{type:type});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},500);}
-function fitid(i,ix){return i.fitid||(d8(i.data)+String(ix+1).padStart(4,'0')+Math.round(Math.abs(i.valor)*100));}
-function bankid(){return String(st.emp.banco||'').replace(/\D/g,'').padStart(3,'0');}
-$('x_ofx').addEventListener('click',function(){var l=need();if(!l)return;var ini=saldoAntes(),fim=ini+l.reduce(function(s,i){return s+i.valor;},0);
-  var now=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
-  var o='OFXHEADER:100\r\nDATA:OFXSGML\r\nVERSION:102\r\nSECURITY:NONE\r\nENCODING:USASCII\r\nCHARSET:1252\r\nCOMPRESSION:NONE\r\nOLDFILEUID:NONE\r\nNEWFILEUID:NONE\r\n\r\n'+
-  '<OFX>\r\n<SIGNONMSGSRSV1>\r\n<SONRS>\r\n<STATUS>\r\n<CODE>0\r\n<SEVERITY>INFO\r\n</STATUS>\r\n<DTSERVER>'+now+'\r\n<LANGUAGE>POR\r\n</SONRS>\r\n</SIGNONMSGSRSV1>\r\n'+
-  '<BANKMSGSRSV1>\r\n<STMTTRNRS>\r\n<TRNUID>1\r\n<STATUS>\r\n<CODE>0\r\n<SEVERITY>INFO\r\n</STATUS>\r\n<STMTRS>\r\n<CURDEF>BRL\r\n<BANKACCTFROM>\r\n<BANKID>'+bankid()+'\r\n<BRANCHID>'+clean(st.emp.ag||'')+'\r\n<ACCTID>'+clean(st.emp.conta)+'\r\n<ACCTTYPE>CHECKING\r\n</BANKACCTFROM>\r\n'+
-  '<BANKTRANLIST>\r\n<DTSTART>'+d8(l[0].data)+'\r\n<DTEND>'+d8(l[l.length-1].data)+'\r\n'+
-  l.map(function(i,ix){return '<STMTTRN>\r\n<TRNTYPE>'+(i.valor>=0?'CREDIT':'DEBIT')+'\r\n<DTPOSTED>'+d8(i.data)+'\r\n<TRNAMT>'+amt(i.valor)+'\r\n<FITID>'+fitid(i,ix)+'\r\n<CHECKNUM>'+fitid(i,ix)+'\r\n<MEMO>'+clean(i.desc+' - '+i.cat)+'\r\n</STMTTRN>\r\n';}).join('')+
-  '</BANKTRANLIST>\r\n<LEDGERBAL>\r\n<BALAMT>'+amt(fim)+'\r\n<DTASOF>'+d8(l[l.length-1].data)+'\r\n</LEDGERBAL>\r\n</STMTRS>\r\n</STMTTRNRS>\r\n</BANKMSGSRSV1>\r\n</OFX>\r\n';
-  dl(o,fname('ofx'),'application/x-ofx');toast('Arquivo OFX gerado.');});
-$('x_ofc').addEventListener('click',function(){var l=need();if(!l)return;var ini=saldoAntes(),fim=ini+l.reduce(function(s,i){return s+i.valor;},0);
-  var o='<OFC>\r\n<DTD>2\r\n<CPAGE>1252\r\n<ACCTSTMT>\r\n<ACCTFROM>\r\n<BANKID>'+bankid()+'\r\n<BRANCHID>'+clean(st.emp.ag||'')+'\r\n<ACCTID>'+clean(st.emp.conta)+'\r\n<ACCTTYPE>0\r\n</ACCTFROM>\r\n<STMTRS>\r\n<DTSTART>'+d8(l[0].data)+'\r\n<DTEND>'+d8(l[l.length-1].data)+'\r\n<LEDGER>'+amt(fim)+'\r\n'+
-  l.map(function(i,ix){return '<STMTTRN>\r\n<TRNTYPE>'+(i.valor>=0?'1':'0')+'\r\n<DTPOSTED>'+d8(i.data)+'\r\n<TRNAMT>'+amt(i.valor)+'\r\n<FITID>'+fitid(i,ix)+'\r\n<CHKNUM>'+fitid(i,ix)+'\r\n<MEMO>'+clean(i.desc+' - '+i.cat)+'\r\n</STMTTRN>\r\n';}).join('')+
-  '</STMTRS>\r\n</ACCTSTMT>\r\n</OFC>\r\n';dl(o,fname('ofc'),'application/octet-stream');toast('Arquivo OFC gerado.');});
-$('x_csv').addEventListener('click',function(){var l=period();if(!l.length){toast('Não há lançamentos no período.');return;}
-  var o='Data;Descrição;Categoria;Tipo;Valor\r\n'+l.map(function(i){return fdate(i.data)+';'+i.desc.replace(/;/g,',')+';'+i.cat+';'+(i.valor>=0?'Entrada':'Saída')+';'+i.valor.toFixed(2).replace('.',',');}).join('\r\n');
-  dl('﻿'+o,fname('csv'),'text/csv;charset=utf-8');toast('CSV gerado.');});
-$('x_pdf').addEventListener('click',function(){var l=period();if(!l.length){toast('Não há lançamentos no período.');return;}NXF.pdf({emp:st.emp,items:l,ini:saldoAntes(),periodo:st.mes,por:st.emp.nome||''});});
+function per(){return (st.mes||'todos')+(st.conta?'_'+cNome(conta(st.conta)).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9]+/g,'_').toLowerCase():'');}
+function ini(){return st.mes?NXF.saldoAte(dados(),st.conta,st.mes+'-01'):st.contas.filter(function(c){return !st.conta||c.id===st.conta;}).reduce(function(s,c){return s+num(c.saldo);},0);}
+function empConta(){var c=conta(st.conta)||{};return Object.assign({},st.emp,{tipo:c.tipo,banco:c.banco,ag:c.ag,conta:c.tipo==='caixa'?'CAIXA':c.conta,contaNome:cNome(c)});}
+function need(){if(!st.conta){toast('Escolha a conta no filtro “Conta” dos lançamentos: OFX e OFC são gerados por conta.');$('f_conta').focus();return null;}
+  var l=period();if(!l.length){toast('Não há lançamentos no período para exportar.');return null;}var c=conta(st.conta);
+  if(c.tipo==='banco'&&(!c.banco||!c.conta)){toast('Preencha banco e conta de '+cNome(c)+' antes de exportar.');return null;}return l;}
+$('x_ofx').addEventListener('click',function(){var l=need();if(!l)return;NXF.baixar(NXF.ofx(empConta(),l,ini()),NXF.nome(st.emp,per(),'ofx'),'application/x-ofx');toast('Arquivo OFX gerado.');});
+$('x_ofc').addEventListener('click',function(){var l=need();if(!l)return;NXF.baixar(NXF.ofc(empConta(),l,ini()),NXF.nome(st.emp,per(),'ofc'),'application/octet-stream');toast('Arquivo OFC gerado.');});
+$('x_csv').addEventListener('click',function(){var l=period();if(!l.length){toast('Não há lançamentos no período.');return;}NXF.baixar(NXF.csv(l.map(function(i){return Object.assign({},i,{desc:i.desc+' ['+cNome(conta(i.conta))+']'});})),NXF.nome(st.emp,per(),'csv'),'text/csv;charset=utf-8');toast('CSV gerado.');});
+$('x_pdf').addEventListener('click',function(){var l=period();if(!l.length){toast('Não há lançamentos no período.');return;}var c=conta(st.conta);
+  NXF.pdf({emp:Object.assign({},st.emp,c?{banco:c.tipo==='caixa'?'Dinheiro em espécie':c.banco,ag:c.ag,conta:c.tipo==='caixa'?cNome(c):c.conta}:{banco:'Todas as contas',ag:'—',conta:st.contas.length+' contas'}),items:l.map(function(i){return st.conta?i:Object.assign({},i,{desc:i.desc+' · '+cNome(conta(i.conta))});}),ini:ini(),periodo:st.mes,por:st.emp.nome||''});});
 
 // demo / limpar
 $('b_demo').addEventListener('click',function(){var m=new Date();var ym=m.getFullYear()+'-'+String(m.getMonth()+1).padStart(2,'0');
-  st.emp={nome:'Clínica Exemplo Ltda',doc:'00.000.000/0001-00',banco:'341',ag:'1234',conta:'56789-0',saldo:'5.000,00'};
-  var ex=[['03','Recebimento paciente - consultas','Receita de serviços',4200],['05','Pagamento aluguel sala','Aluguel',-1800],['07','Tarifa pacote de serviços','Tarifas bancárias',-49.9],['10','Recebimento convênio','Receita de serviços',6350],['12','Fornecedor materiais','Fornecedores',-980.4],['15','Pró-labore sócio','Pró-labore',-3000],['20','DAS Simples Nacional','Impostos e taxas',-712.35],['25','Energia elétrica','Energia, água e internet',-310.22]];
-  st.items=ex.map(function(e,ix){return {id:uid(),data:ym+'-'+e[0],desc:e[1],cat:e[2],valor:e[3],orig:ix%2?'banco':'manual'};});st.mes=ym;save();render();toast('Dados de exemplo carregados.');});
-$('b_clear').addEventListener('click',function(){if(!confirm('Apagar todos os lançamentos?'))return;st={emp:{},items:[],mes:''};save();render();toast('Dados apagados.');});
+  st.emp={nome:'Clínica Exemplo Ltda',doc:'00.000.000/0001-00'};st.contas=[{id:'c1',tipo:'banco',nome:'Itaú',banco:'341',ag:'1234',conta:'56789-0',saldo:'5.000,00'},{id:'c2',tipo:'banco',nome:'Inter',banco:'077',ag:'0001',conta:'1234567-8',saldo:'1.200,00'},{id:'cx',tipo:'caixa',nome:'Caixa (dinheiro em espécie)',saldo:'300,00'}];
+  var ex=[['03','Recebimento paciente - consultas','Receita de serviços',4200,'c1'],['04','Consultas pagas em dinheiro','Vendas em dinheiro',850,'cx'],['05','Pagamento aluguel sala','Aluguel',-1800,'c1'],['07','Tarifa pacote de serviços','Tarifas bancárias',-49.9,'c1'],['10','Recebimento convênio','Receita de serviços',6350,'c2'],['12','Fornecedor materiais','Materiais e insumos',-980.4,'c2'],['15','Pró-labore sócio','Pró-labore',-3000,'c1'],['20','DAS Simples Nacional','Impostos sobre o faturamento',-712.35,'c1'],['22','Compra de café e copos','Outras saídas',-64,'cx'],['25','Energia elétrica','Energia, água e internet',-310.22,'c2']];
+  st.items=ex.map(function(e,ix){return {id:uid(),data:ym+'-'+e[0],desc:e[1],cat:e[2],valor:e[3],orig:ix%2?'banco':'manual',conta:e[4]};});
+  st.items.push({id:uid(),data:ym+'-26',desc:'Depósito do dinheiro no banco',cat:TR,valor:-600,orig:'manual',conta:'cx',par:'p1'},{id:uid(),data:ym+'-26',desc:'Depósito do dinheiro no banco',cat:TR,valor:600,orig:'manual',conta:'c1',par:'p1'});
+  st.mes=ym;st.conta='';save();render();toast('Dados de exemplo carregados.');});
+$('b_clear').addEventListener('click',function(){if(!confirm('Apagar todos os lançamentos e contas?'))return;st.emp={};st.contas=[];st.items=[];st.conta='';norm();save();render();toast('Dados apagados.');});
 
-load();var t=new Date();$('n_data').value=t.toISOString().slice(0,10);st.mes=st.mes||t.toISOString().slice(0,7);fillCats();render();
-if(REAL)NXA.sb.from('financeiro').select('dados').eq('empresa_id',window.NX_FIN_CID).maybeSingle().then(function(r){if(r.error){toast('Sem acesso ao controle financeiro desta empresa.');return;}if(r.data&&r.data.dados){st.emp=Object.assign(st.emp,r.data.dados.emp||{});st.items=r.data.dados.items||[];try{localStorage.setItem(KEY,JSON.stringify({emp:st.emp,items:st.items}));}catch(e){}render();}else if(st.items.length){save();}});
+load();var t=new Date();$('n_data').value=t.toISOString().slice(0,10);st.mes=st.mes||t.toISOString().slice(0,7);st.dref=t.toISOString().slice(0,7);fillCats();render();
+if(REAL)NXA.sb.from('financeiro').select('dados').eq('empresa_id',window.NX_FIN_CID).maybeSingle().then(function(r){if(r.error){toast('Sem acesso ao controle financeiro desta empresa.');return;}if(r.data&&r.data.dados){var d=r.data.dados;st.emp=d.emp||{};st.contas=d.contas||[];st.items=d.items||[];var antes=!d.contas;norm();if(antes)save();try{localStorage.setItem(KEY,JSON.stringify(dados()));}catch(e){}render();}else if(st.items.length){save();}});
 })();
 </script>
 <style>.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}</style>

@@ -212,3 +212,5 @@ button.xp-tg:hover{background:#E6ECFB}
 .agenda-day{margin-bottom:18px}.agenda-day h3{font-size:15px;color:var(--blue2);margin-bottom:6px}
 .chk{width:22px;height:22px;border-radius:6px;border:2px solid var(--line);background:#fff;cursor:pointer;display:grid;place-items:center;flex-shrink:0}
 .chk.on{background:#00A36C;border-color:#00A36C;color:#fff}
+
+.app.min .logo img{width:44px!important}
