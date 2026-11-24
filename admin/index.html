@@ -997,7 +997,7 @@ document.addEventListener('click',function(ev){var b=ev.target.closest&&ev.targe
 /* ---------- demandas: só das obrigações selecionadas ---------- */
 function limparDemandas(){if(!db||!db.tasks||!db.clients)return 0;var antes=db.tasks.length,sel={};
   db.clients.forEach(function(c){if(Array.isArray(c.obrig))sel[c.id]=c.obrig;});
-  db.tasks=db.tasks.filter(function(t){if(t.tipo!=='cliente'||t.status==='ok'||!sel[t.cliente]||!t.tpl)return true;return sel[t.cliente].indexOf(t.tpl)>-1;});
+  db.tasks=db.tasks.filter(function(t){if(t.tipo!=='cliente'||t.doc||!sel[t.cliente]||!t.tpl)return true;return sel[t.cliente].indexOf(t.tpl)>-1;});
   return antes-db.tasks.length;}
 var _persist=persist;persist=function(){limparDemandas();return _persist();};
 EX.limparDemandas=limparDemandas;
