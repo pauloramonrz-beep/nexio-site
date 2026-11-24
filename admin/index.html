@@ -986,6 +986,21 @@ var _sh=shell;shell=function(active,html){_sh(active,html);
     var a=document.createElement('a');a.className='nav';a.href='#/'+x[0];a.textContent=x[1];if(active===x[0])a.setAttribute('aria-current','page');ref.parentNode.insertBefore(a,ref.nextSibling);});
   NX.applySide();
 };
+/* ---------- modo foco: ao escolher um cliente, a lista some e o detalhe ocupa a tela ---------- */
+S.listaAberta=false;
+function aplicarFoco(){root.querySelectorAll('.cols').forEach(function(cols){var nav=cols.querySelector('nav.client-list');if(!nav)return;var lista=nav.closest('section,.card'),det=lista&&lista.nextElementSibling;if(!det)return;
+  var sel=nav.querySelector('a[aria-current="true"]'),old=det.querySelector('.foco-bar');if(old)old.remove();
+  if(!sel){lista.style.display='';return;}
+  lista.style.display=S.listaAberta?'':'none';det.style.maxWidth='none';
+  var bar=document.createElement('div');bar.className='foco-bar row';bar.style.cssText='margin-bottom:14px;align-items:center;gap:10px';
+  var links=[].slice.call(nav.querySelectorAll('a[href]'));
+  bar.innerHTML='<button type="button" class="btn b-line" data-foco>'+(S.listaAberta?'Ocultar lista':'☰ Lista de clientes')+'</button><label class="sr" for="fsel">Trocar cliente</label><select id="fsel" style="width:auto;max-width:420px">'+links.map(function(l){var b=l.querySelector('b');return '<option value="'+e(l.getAttribute('href'))+'"'+(l===sel?' selected':'')+'>'+e(b?b.textContent:l.textContent)+'</option>';}).join('')+'</select>';
+  det.insertBefore(bar,det.firstChild);
+  bar.querySelector('[data-foco]').onclick=function(){S.listaAberta=!S.listaAberta;aplicarFoco();};
+  bar.querySelector('select').onchange=function(ev){location.hash=ev.target.value;};});}
+EX.aplicarFoco=aplicarFoco;
+root.addEventListener('click',function(ev){if(ev.target.closest&&ev.target.closest('nav.client-list a'))S.listaAberta=false;});
+new MutationObserver(function(){clearTimeout(aplicarFoco._t);aplicarFoco._t=setTimeout(function(){var d=root.querySelector('.cols nav.client-list a[aria-current="true"]');var bar=root.querySelector('.foco-bar');if(d&&!bar)aplicarFoco();else if(d&&bar){var l=d.closest('.cols').querySelector('nav.client-list').closest('section,.card');if(l&&(l.style.display==='none')===S.listaAberta)aplicarFoco();}},30);}).observe(root,{childList:true,subtree:true});
 
 /* ---------- fotos da equipe ---------- */
 function escolherFoto(sid,cb){var i=document.createElement('input');i.type='file';i.accept='image/*';i.onchange=function(){var f=i.files[0];if(!f)return;var img=new Image(),u=URL.createObjectURL(f);
