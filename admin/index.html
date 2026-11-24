@@ -39,7 +39,7 @@ function route(){return (location.hash.replace('#/','')||'painel').split('/');}
 
 /* ---------- LOGIN (real, Supabase) ---------- */
 var DEMO=/[?&]demo=1/.test(location.search);
-function loginBox(inner){root.innerHTML='<div class="login"><div class="box" style="max-width:440px"><a class="logo" href="/"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a>'+inner+'</div></div>';}
+function loginBox(inner){root.innerHTML='<div class="login"><div class="box" style="max-width:440px"><a class="logo" href="/"><img src="/assets/logo-nexio.png" alt="NEXIO Inteligência Contábil" style="height:58px;display:block"></a>'+inner+'</div></div>';}
 function entrarComPerfil(p){if(p&&p.tipo==='cliente'){location.replace('/portal/');return;}if(!p||p.tipo!=='equipe'||!p.ativo){NXA.sair();loginBox('<h1>Acesso não liberado</h1><p class="help" style="font-size:15px;color:var(--ink)">Seu usuário ainda não tem acesso ao Painel da Equipe. Fale com o Administrador.</p><button class="btn b-blue" onclick="location.href=\'/admin/\'">Voltar</button>');return;}
   S.user={id:p.id,nome:p.nome,email:p.email,real:true};try{sessionStorage.setItem('nx_staff',JSON.stringify(S.user));}catch(x){}
   NXA.acesso('Entrou no painel');history.replaceState(null,'','/admin/#/painel');abrirReal();}
@@ -70,7 +70,7 @@ function login(){
 
 /* ---------- LOGIN DEMONSTRAÇÃO (?demo=1) ---------- */
 function loginDemo(){
-  root.innerHTML='<div class="login"><form class="box" id="lf"><a class="logo" href="/"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a><h1>Painel da equipe</h1>'+
+  root.innerHTML='<div class="login"><form class="box" id="lf"><a class="logo" href="/"><img src="/assets/logo-nexio.png" alt="NEXIO Inteligência Contábil" style="height:58px;display:block"></a><h1>Painel da equipe</h1>'+
   '<label>E-mail<input id="le" type="email" required value="paulo@nexioic.com.br" autocomplete="username"></label>'+
   '<label>Senha<input id="lp" type="password" required value="demo" autocomplete="current-password"></label>'+
   '<button class="btn b-blue" type="submit">Entrar</button><p class="help">Protótipo: qualquer senha entra. Na versão final, cada funcionário terá login próprio.</p></form></div>';

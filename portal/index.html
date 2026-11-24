@@ -38,7 +38,7 @@ function novos(){return myFiles().filter(function(f){return f.de==='equipe'&&!f.
 function route(){return location.hash.replace('#/','')||'inicio';}
 
 function login(){NX.ensureUsers(db);persist();
-  root.innerHTML='<div class="login"><form class="box" id="lf"><a class="logo" href="/"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a><h1>Portal do Cliente</h1>'+
+  root.innerHTML='<div class="login"><form class="box" id="lf"><a class="logo" href="/"><img src="/assets/logo-nexio.png" alt="NEXIO Inteligência Contábil" style="height:58px;display:block"></a><h1>Portal do Cliente</h1>'+
   '<label>E-mail<input id="le" type="email" required autocomplete="username"></label><label>Senha<input id="lp" type="password" required autocomplete="current-password"></label>'+
   '<button class="btn b-blue">Entrar</button><p class="help" id="err" role="alert"></p>'+
   '<p class="help"><b>Protótipo:</b> entre como um usuário de exemplo:</p><div class="row">'+(db.cusers||[]).slice(0,7).map(function(u){return '<button type="button" class="btn b-line" data-q="'+u.id+'" style="min-height:34px;font-size:12px">'+e(u.nome)+' · '+NX.NIV_CLI[u.nivel].nome+'</button>';}).join('')+'</div>'+
@@ -267,7 +267,7 @@ function financeiro(){
 }
 /* ---------- LGPD: aceite, privacidade, sessão ---------- */
 var TERMOS_V='1.0';
-function aceiteTela(u){root.innerHTML='<div class="login"><form class="box" id="af" style="max-width:520px"><a class="logo" href="/"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a><h1>'+(u.aceite?'Termos atualizados':'Antes de começar')+'</h1>'+
+function aceiteTela(u){root.innerHTML='<div class="login"><form class="box" id="af" style="max-width:520px"><a class="logo" href="/"><img src="/assets/logo-nexio.png" alt="NEXIO Inteligência Contábil" style="height:58px;display:block"></a><h1>'+(u.aceite?'Termos atualizados':'Antes de começar')+'</h1>'+
   '<p class="help" style="font-size:15px;color:var(--ink)">Para usar o Portal do Cliente, leia e aceite os documentos abaixo. Eles explicam como protegemos os seus dados e os da sua empresa.</p>'+
   '<p><a href="/termos/" target="_blank" rel="noopener">Termos de Uso do Portal (versão '+TERMOS_V+')</a><br><a href="/privacidade/" target="_blank" rel="noopener">Política de Privacidade (versão '+TERMOS_V+')</a></p>'+
   '<label style="flex-direction:row;align-items:flex-start;gap:10px;color:var(--ink);font-weight:500"><input type="checkbox" id="ac" required style="width:auto;min-height:auto;margin-top:5px">Li e aceito os Termos de Uso e estou ciente da Política de Privacidade.</label>'+
@@ -354,7 +354,7 @@ function usuariosEmp(){var c=me(),l=(db.cusers||[]).filter(function(u){return u.
     d.querySelector('form').onsubmit=function(ev){ev.preventDefault();var r=F.read(new FormData(ev.target));if(r.erro){NX.toast(r.erro);return;}var s=F.save(db,r.lista,S.cid);
       logCli('Convidou usuários',r.lista.map(function(x){return x.nome+' ('+NX.NIV_CLI[x.nivel].nome+')';}).join(', '));persist();d.close();d.style.maxWidth='';usuariosEmp();NX.toast(s.novos+' usuário(s) criado(s)'+(s.vinc?' e '+s.vinc+' vinculado(s)':'')+'.');};d.showModal();};}
 /* escolha de empresa (multiempresas) */
-function escolherEmpresa(u){root.innerHTML='<div class="login"><div class="box"><a class="logo" href="/"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a><h1>Olá, '+e(u.nome.split(' ')[0])+'!</h1><p class="help">Você tem acesso a '+u.empresas.length+' empresas. Escolha qual deseja acessar:</p>'+
+function escolherEmpresa(u){root.innerHTML='<div class="login"><div class="box"><a class="logo" href="/"><img src="/assets/logo-nexio.png" alt="NEXIO Inteligência Contábil" style="height:58px;display:block"></a><h1>Olá, '+e(u.nome.split(' ')[0])+'!</h1><p class="help">Você tem acesso a '+u.empresas.length+' empresas. Escolha qual deseja acessar:</p>'+
   u.empresas.map(function(id){var c=db.clients.filter(function(x){return x.id===id;})[0];return c?'<button class="btn b-line" data-ce="'+id+'" style="justify-content:flex-start;text-align:left;min-height:56px"><span><b>'+e(c.nome)+'</b><small style="display:block;color:var(--muted);font-weight:400">'+e(c.doc)+' · '+e(c.plano)+'</small></span></button>':'';}).join('')+'</div></div>';
   root.querySelectorAll('[data-ce]').forEach(function(b){b.onclick=function(){S.cid=b.getAttribute('data-ce');try{sessionStorage.setItem('nx_client',S.cid);}catch(x){}logCli('Entrou no portal (escolheu empresa)');persist();location.hash='#/inicio';render();};});}
 function render(){if(!NXS.modo){bootReal();return;}db=NX.load();if(NX.ensureUsers(db))persist();if(NX.runReminders(db))persist();var u=meU();if(!u){login();return;}if(!u.aceite||u.aceite.v!==TERMOS_V){aceiteTela(u);return;}if(!S.cid||u.empresas.indexOf(S.cid)<0||!me()){if(u.empresas.length===1){S.cid=u.empresas[0];}else{escolherEmpresa(u);return;}}var r=route();if(!pode(r)){location.hash='#/'+(ROTAS[nivel()][0]);return;}if(r==='usuarios'){usuariosEmp();return;}if(r==='config'){config();return;}if(r==='contrato'){contratoPg();return;}
@@ -396,7 +396,7 @@ window.addEventListener('hashchange',render);
 window.NX_onSync=function(){if(route()==='financeiro'||route()==='notas')return;if(document.activeElement.tagName!=='INPUT')render();};
 /* ================== MODO REAL (Supabase) ================== */
 var sbp=NXA.sb,REAL={perfil:null,emps:[]};
-function boxR(inner){root.innerHTML='<div class="login"><div class="box" style="max-width:460px"><a class="logo" href="/"><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></a>'+inner+'</div></div>';}
+function boxR(inner){root.innerHTML='<div class="login"><div class="box" style="max-width:460px"><a class="logo" href="/"><img src="/assets/logo-nexio.png" alt="NEXIO Inteligência Contábil" style="height:58px;display:block"></a>'+inner+'</div></div>';}
 function login(){bootReal();}
 function sairReal(){try{NXA.acesso('Saiu do portal','',S.cid);}catch(x){}S.cid=null;S.uid=null;NXS.modo=null;try{sessionStorage.removeItem('nx_client');sessionStorage.removeItem('nx_cuser');sessionStorage.removeItem('nx_emp');}catch(x){}NXA.sair().then(function(){location.hash='';telaLoginR();});}
 function telaLoginR(){
