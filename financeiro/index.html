@@ -65,6 +65,7 @@ td select{min-height:36px;padding:6px 8px;font-size:13px}
   #print th{background:#EEF2FF}#print .sum{display:flex;gap:24px;margin:10px 0 16px}
 }
 </style>
+<script src="/assets/fin-export.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="/assets/auth.js"></script>
 <script>
@@ -278,13 +279,7 @@ $('x_ofc').addEventListener('click',function(){var l=need();if(!l)return;var ini
 $('x_csv').addEventListener('click',function(){var l=period();if(!l.length){toast('Não há lançamentos no período.');return;}
   var o='Data;Descrição;Categoria;Tipo;Valor\r\n'+l.map(function(i){return fdate(i.data)+';'+i.desc.replace(/;/g,',')+';'+i.cat+';'+(i.valor>=0?'Entrada':'Saída')+';'+i.valor.toFixed(2).replace('.',',');}).join('\r\n');
   dl('﻿'+o,fname('csv'),'text/csv;charset=utf-8');toast('CSV gerado.');});
-$('x_pdf').addEventListener('click',function(){var l=period();if(!l.length){toast('Não há lançamentos no período.');return;}
-  var inn=0,out=0;l.forEach(function(i){if(i.valor>=0)inn+=i.valor;else out+=i.valor;});var ini=saldoAntes();
-  $('print').innerHTML='<h1>Relatório financeiro</h1><p><b>'+esc(st.emp.nome||'Empresa')+'</b>'+(st.emp.doc?' · '+esc(st.emp.doc):'')+'<br>Banco '+esc(st.emp.banco||'-')+' · Ag. '+esc(st.emp.ag||'-')+' · Conta '+esc(st.emp.conta||'-')+'<br>Período: '+(st.mes?st.mes.split('-').reverse().join('/'):'todos os lançamentos')+'</p>'+
-  '<div class="sum"><span>Saldo inicial: <b>'+brl(ini)+'</b></span><span>Entradas: <b>'+brl(inn)+'</b></span><span>Saídas: <b>'+brl(Math.abs(out))+'</b></span><span>Saldo final: <b>'+brl(ini+inn+out)+'</b></span></div>'+
-  '<table><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th style="text-align:right">Valor</th></tr></thead><tbody>'+l.map(function(i){return '<tr><td>'+fdate(i.data)+'</td><td>'+esc(i.desc)+'</td><td>'+esc(i.cat)+'</td><td style="text-align:right">'+brl(i.valor)+'</td></tr>';}).join('')+'</tbody></table>'+
-  '<p style="margin-top:16px;font-size:9pt;color:#555">Gerado em '+new Date().toLocaleString('pt-BR')+' · NEXIO Inteligência Contábil · nexioic.com.br</p>';
-  window.print();});
+$('x_pdf').addEventListener('click',function(){var l=period();if(!l.length){toast('Não há lançamentos no período.');return;}NXF.pdf({emp:st.emp,items:l,ini:saldoAntes(),periodo:st.mes,por:st.emp.nome||''});});
 
 // demo / limpar
 $('b_demo').addEventListener('click',function(){var m=new Date();var ym=m.getFullYear()+'-'+String(m.getMonth()+1).padStart(2,'0');

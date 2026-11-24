@@ -33,9 +33,9 @@ if(!/^[0-9a-f-]{36}$/i.test(tk)){app.innerHTML='<h1>Link inválido</h1><p class=
 function carregar(){sb.rpc('contrato_por_token',{p_token:tk}).then(function(r){var c=r.data;
   if(r.error||!c){app.innerHTML='<h1>Contrato indisponível</h1><p class="help">Este link não está ativo. Fale com a NEXIO: contato@nexioic.com.br · (11) 93956-5190.</p>';return;}
   var assinado=c.status==='assinado';
-  app.innerHTML='<h1 style="font-size:24px">Contrato de prestação de serviços</h1><p class="help">'+e(c.empresa)+' · '+e(c.plano||'')+' · '+brl(c.valor)+'/mês · vigência de '+fd(c.inicio)+' a '+fd(c.fim)+'</p>'+
+  app.innerHTML='<h1 style="font-size:24px">Contrato de prestação de serviços</h1><p class="help">'+e(c.empresa)+' · '+e(c.plano||'')+' · '+brl(c.valor)+'/mês · vigência de '+fd(c.inicio)+' a '+fd(c.fim)+(c.fidelidade_meses?' · <b>fidelidade de '+c.fidelidade_meses+' meses</b>':'')+'</p>'+
   '<pre>'+e(c.texto)+'</pre>'+
-  (assinado?'<div class="ok"><b>Contrato assinado eletronicamente</b><br>por '+e(c.assinado_nome)+' em '+new Date(c.assinado_em).toLocaleString('pt-BR')+'.</div>':
+  (assinado?'<div class="ok"><b>Contrato assinado eletronicamente</b><br>por '+e(c.assinado_nome)+' em '+new Date(c.assinado_em).toLocaleString('pt-BR')+'.<br><button class="btn b-blue" id="pdf" style="margin-top:10px">Baixar via assinada (PDF com certificado)</button></div>':
   '<form class="sign" id="f"><h2 style="margin:0;font-size:18px">Assinatura eletrônica</h2>'+
   '<label>Nome completo do responsável<input name="nome" required autocomplete="name"></label>'+
   '<label>CPF do responsável<input name="doc" required inputmode="numeric" placeholder="000.000.000-00"></label>'+
@@ -45,8 +45,14 @@ function carregar(){sb.rpc('contrato_por_token',{p_token:tk}).then(function(r){v
   var f=document.getElementById('f');if(f)f.onsubmit=function(ev){ev.preventDefault();var d=new FormData(f),cpf=String(d.get('doc')).replace(/\D/g,'');
     if(cpf.length!==11&&cpf.length!==14){document.getElementById('m').textContent='Informe um CPF válido.';return;}
     f.querySelector('button').disabled=true;
-    sb.rpc('assinar_contrato',{p_token:tk,p_nome:d.get('nome'),p_doc:cpf}).then(function(r){if(r.error){f.querySelector('button').disabled=false;document.getElementById('m').textContent=/dados_invalidos/.test(r.error.message)?'Confira o nome e o CPF.':'Não foi possível assinar agora. Tente novamente.';return;}carregar();window.scrollTo(0,document.body.scrollHeight);});};
+    sb.rpc('assinar_contrato',{p_token:tk,p_nome:d.get('nome'),p_doc:cpf,p_ua:navigator.userAgent}).then(function(r){if(r.error){f.querySelector('button').disabled=false;document.getElementById('m').textContent=/dados_invalidos/.test(r.error.message)?'Confira o nome e o CPF.':/texto_divergente/.test(r.error.message)?'O texto deste contrato foi alterado. Peça um novo link à NEXIO.':'Não foi possível assinar agora. Tente novamente.';return;}carregar();window.scrollTo(0,document.body.scrollHeight);});};
+  var pb=document.getElementById('pdf');if(pb)pb.onclick=function(){sb.rpc('contrato_eventos_token',{p_token:tk}).then(function(r){pdf(c,r.data||[]);});};
 });}
+function pdf(c,ev){var dt=function(x){return new Date(x).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'});};var w=window.open('','_blank');if(!w){alert('Libere as janelas pop-up para baixar o PDF.');return;}
+  w.document.write('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Contrato assinado — '+e(c.empresa)+'</title><style>body{font:11pt/1.55 Calibri,Arial,sans-serif;max-width:780px;margin:24px auto;padding:0 20px}header{border-bottom:2px solid #2344AC;padding-bottom:6px;margin-bottom:18px}header b{color:#2344AC;font-size:22pt;letter-spacing:3px}header small{display:block;color:#2344AC;font-size:7pt;letter-spacing:3px}pre{white-space:pre-wrap;font:inherit}h1{font-size:14pt;color:#2344AC}table{border-collapse:collapse;width:100%;font-size:9pt}td,th{border:1px solid #ccc;padding:4px 6px;text-align:left;vertical-align:top}footer{border-top:1px solid #2344AC;margin-top:24px;padding-top:4px;font-size:8pt;color:#555}</style></head><body><header><b>NEXIO</b><small>INTELIGÊNCIA CONTÁBIL</small></header><pre>'+e(c.texto)+'</pre>'+
+  '<div style="page-break-before:always"></div><h1>Certificado de assinatura eletrônica</h1><table><tr><th>Contrato</th><td>'+e(c.id)+'</td></tr><tr><th>Contratante</th><td>'+e(c.empresa)+'</td></tr><tr><th>Signatário</th><td>'+e(c.assinado_nome)+' — CPF/CNPJ '+e(c.assinado_doc)+(c.assinado_email?' — conta do portal '+e(c.assinado_email):'')+'</td></tr><tr><th>Data e hora</th><td>'+dt(c.assinado_em)+' (horário de Brasília)</td></tr><tr><th>IP</th><td>'+e(c.assinado_ip||'—')+'</td></tr><tr><th>Integridade (SHA-256)</th><td style="word-break:break-all">'+e(c.assinado_hash)+'</td></tr></table>'+
+  (ev.length?'<h1 style="font-size:12pt">Trilha de auditoria</h1><table><tr><th>Data e hora</th><th>Evento</th><th>IP</th></tr>'+ev.map(function(x){return '<tr><td>'+dt(x.em)+'</td><td>'+e(x.evento)+'</td><td>'+e(x.ip||'')+'</td></tr>';}).join('')+'</table>':'')+
+  '<p style="font-size:9pt;color:#555">Assinatura eletrônica nos termos da MP 2.200-2/2001, art. 10, § 2º, e do art. 784, § 4º, do CPC.</p><footer>Nexio Inteligência Contábil Ltda • Av. Brig. Faria Lima, 1811 - CXPST ESC1119 - Jardim Paulistano, São Paulo - SP, 01452-001 • (11) 93956-5190 • contato@nexioic.com.br</footer><script>setTimeout(function(){print()},400)<\/script></body></html>');w.document.close();}
 carregar();
 })();
 </script>
