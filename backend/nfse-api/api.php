@@ -160,7 +160,7 @@ function assinar(string $xml, string $tagAssinada, array $c): string {
   $xd = $doc->createElementNS($ds, 'X509Data'); $ki->appendChild($xd);
   $pem = preg_replace('/-----[A-Z ]+-----|\s/', '', $c['cert']);
   $xd->appendChild($doc->createElementNS($ds, 'X509Certificate', $pem));
-  return $doc->saveXML($doc->documentElement);
+  return '<?xml version="1.0" encoding="UTF-8"?>' . $doc->saveXML($doc->documentElement);
 }
 function gz64(string $xml): string { return base64_encode(gzencode($xml, 9)); }
 function ungz64(string $b): string { $r = @gzdecode(base64_decode($b)); return $r === false ? '' : $r; }
