@@ -123,7 +123,7 @@ function arquivos(){
     var f={id:NX.uid(),cliente:S.cid,setor:pl.setor,folder:pl.folder,tipo:'Documento',titulo:r.nome.replace(/\.[^.]+$/,''),comp:pl.comp,venc:'',valor:0,status:'recebido',de:'cliente',por:who,nome:r.nome,data:r.data,size:r.size,criado:NX.today(),visto:false};
     hist(f,'Enviado pelo cliente');db.files.push(f);logCli('Enviou documento',f.titulo);
     if(++n===tot&&persist()!==false){if(!L.fid&&!L.comp){S.xp.L={setor:'Enviados pelo cliente',ano:NX.ym().slice(0,4),comp:NX.ym()};}re();NX.toast(tot+' documento(s) enviado(s) para a NEXIO.');}});});}
-  NX.explorer(document.getElementById('xpRoot'),{db:db,cliente:S.cid,role:'cliente',st:S.xp,rootLabel:'Meus documentos',uploadSetor:'Enviados pelo cliente',showAll:true,flat:['Societário'],
+  NX.explorer(document.getElementById('xpRoot'),{db:db,cliente:S.cid,role:'cliente',st:S.xp,rootLabel:'Meus documentos',onGuia:(nivel()==='titular'||nivel()==='financeiro')?function(f,re){var pago=f.status==='pago';if(!confirm(pago?'Marcar "'+f.titulo+'" como NÃO paga?':'Confirmar que você pagou "'+f.titulo+'"?'))return;f.status=pago?'':'pago';f.situacao='';hist(f,pago?'Cliente marcou como não paga':'Pagamento informado');db.messages.push({id:NX.uid(),cliente:S.cid,de:'cliente',autor:meU().nome,texto:(pago?'Marquei a guia como não paga: ':'Informei o pagamento da guia: ')+f.titulo+'.',em:new Date().toISOString(),lida:false});logCli(pago?'Marcou guia como não paga':'Informou pagamento',f.titulo);persist();re();NX.toast(pago?'Guia marcada como não paga.':'Pagamento informado. Obrigado!');}:null,uploadSetor:'Enviados pelo cliente',showAll:true,flat:['Societário'],
     setores:['Fiscal','Departamento Pessoal','Contábil','Financeiro','Societário','Certidões','Notas fiscais','Enviados pelo cliente'].filter(function(s){var v=setoresNivel();return !v||v.indexOf(s)>-1;}),readonly:nivel()==='consulta',
     setorOf:setorOf,visible:visivel,
     onOpen:function(f){openDoc(f);},
@@ -133,6 +133,7 @@ function arquivos(){
 function openDoc(f){var who=meU().nome;
   if(f.de==='equipe'&&!f.visto)f.visto=true;hist(f,'Visualizado');logCli('Visualizou documento',f.titulo);persist();
   var acts=[{label:'Baixar',cls:'b-blue',close:false,fn:function(x){hist(x,'Baixado');logCli('Baixou documento',x.titulo);persist();NX.download(x);}}];
+  if(f.tipo==='Guia'&&f.status==='pago'&&(nivel()==='titular'||nivel()==='financeiro'))acts.push({label:'Marcar como não paga',fn:function(x){x.status='';x.situacao='';hist(x,'Cliente marcou como não paga');db.messages.push({id:NX.uid(),cliente:S.cid,de:'cliente',autor:who,texto:'Marquei a guia como não paga: '+x.titulo+'.',em:new Date().toISOString(),lida:false});logCli('Marcou guia como não paga',x.titulo);persist();NX.toast('Guia marcada como não paga.');}});
   if(f.tipo==='Guia'&&f.status!=='pago'&&(nivel()==='titular'||nivel()==='financeiro'))acts.push({label:'Já paguei',fn:function(x){x.status='pago';hist(x,'Pagamento informado');db.messages.push({id:NX.uid(),cliente:S.cid,de:'cliente',autor:who,texto:'Informei o pagamento da guia: '+x.titulo+'.',em:new Date().toISOString(),lida:false});logCli('Informou pagamento',x.titulo);persist();NX.toast('Pagamento informado. Obrigado!');}});
   NX.viewer(f,{db:db,me:'cliente',path:NX.xpPath?NX.xpPath(f):pathOf(f),actions:acts,onClose:function(){var r=route();if(r==='arquivos')arquivos();else if(r==='inicio')inicio();},
     onComment:nivel()==='consulta'?null:function(x,t){logCli('Comentou documento',x.titulo);x.coments=x.coments||[];x.coments.push({em:new Date().toISOString(),de:'cliente',autor:who,texto:t});hist(x,'Comentário');db.messages.push({id:NX.uid(),cliente:S.cid,de:'cliente',autor:who,texto:'Comentou no documento "'+x.titulo+'": '+t,em:new Date().toISOString(),lida:false});persist();}});}
@@ -154,22 +155,29 @@ function calendario(){
 }
 function mensagens(){
   db.messages.forEach(function(m){if(m.cliente===S.cid&&m.de==='equipe')m.lida=true;});persist();
-  var ms=db.messages.filter(function(m){return m.cliente===S.cid;}).sort(function(a,b){return a.em<b.em?-1:1;});
+  var ms=db.messages.filter(function(m){return m.cliente===S.cid;}).sort(function(a,b){return a.em<b.em?-1:1;}),ro=nivel()==='consulta';
   shell('mensagens',head('Mensagens','Fale com a equipe da NEXIO. Respondemos em horário comercial.')+'<section class="card"><div class="chat" id="chat">'+
-  (ms.length?ms.map(function(m){return '<div class="msg '+(m.de==='cliente'?'me':'them')+'">'+e(m.texto)+'<small>'+(m.de==='equipe'?e(m.autor)+' · NEXIO':'Você')+' · '+NX.ftime(m.em)+'</small></div>';}).join(''):'<p class="empty">Envie sua primeira mensagem.</p>')+
-  '</div><form class="chat-form" id="cf"><label class="sr" for="ct">Mensagem</label><input id="ct" placeholder="Escreva sua mensagem…" required><button class="btn b-blue">Enviar</button></form></section>');
+  (ms.length?ms.map(function(m){return NX.msgHTML(m,m.de==='cliente',m.de==='equipe'?e(m.autor||'')+' · NEXIO':'Você');}).join(''):'<p class="empty">Envie sua primeira mensagem.</p>')+
+  '</div><form class="chat-form" id="cf"><label class="sr" for="ct">Mensagem</label><input id="ct" placeholder="Escreva sua mensagem…"><div class="chat-tools">'+(ro?'':'<label class="btn b-line" title="Anexar arquivo ou imagem" style="display:inline-flex;flex-direction:row;margin:0">📎<span class="sr">Anexar arquivo ou imagem</span><input type="file" id="cfa" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.xml,.zip" style="display:none"></label>')+'<button class="btn b-blue">Enviar</button></div></form></section>');
   var ch=document.getElementById('chat');ch.scrollTop=ch.scrollHeight;
+  ch.onclick=function(ev){var b=ev.target.closest('[data-anx]');if(!b)return;var f=db.files.filter(function(x){return x.id===b.getAttribute('data-anx');})[0];if(!f){NX.toast('Arquivo não disponível.');return;}hist(f,'Baixado');persist();NX.download(f);};
   document.getElementById('cf').onsubmit=function(ev){ev.preventDefault();var t=document.getElementById('ct').value.trim();if(!t)return;db.messages.push({id:NX.uid(),cliente:S.cid,de:'cliente',autor:meU().nome,texto:t,em:new Date().toISOString(),lida:false});persist();mensagens();};
+  var fa=document.getElementById('cfa');if(fa)fa.onchange=function(ev){var fs=[].slice.call(ev.target.files),n=0,who=meU().nome,tx=document.getElementById('ct').value.trim();if(!fs.length)return;
+    fs.forEach(function(file){NX.readFile(file,function(r){var img=/^image\//.test(file.type),f={id:NX.uid(),cliente:S.cid,setor:'Enviados pelo cliente',folder:null,tipo:img?'Imagem':'Documento',titulo:r.nome.replace(/\.[^.]+$/,''),comp:NX.ym(),venc:'',valor:0,status:'recebido',cal:false,de:'cliente',por:who,nome:r.nome,data:r.data,size:r.size,criado:NX.today(),visto:false};
+      hist(f,'Enviado pelo cliente na conversa');db.files.push(f);db.messages.push({id:NX.uid(),cliente:S.cid,de:'cliente',autor:who,texto:(img?'🖼️ ':'📎 ')+r.nome+(tx&&n===0?' — '+tx:''),anexo:{id:f.id,nome:r.nome,img:img},em:new Date().toISOString(),lida:false});
+      if(++n===fs.length){logCli('Enviou anexo na conversa',fs.length+' arquivo(s)');if(persist()!==false){NX.toast(fs.length+' anexo(s) enviado(s).');mensagens();}}});});};
 }
 /* ---------- NOTAS FISCAIS (simulação) ---------- */
-var SERV=[['04.01','Medicina e biomedicina'],['04.12','Odontologia'],['04.08','Fisioterapia, terapia ocupacional e fonoaudiologia'],['04.16','Psicologia'],['04.09','Terapias de qualquer espécie'],['04.03','Hospitais, clínicas, laboratórios e congêneres'],['17.01','Assessoria ou consultoria'],['17.19','Contabilidade'],['01.07','Suporte técnico em informática'],['outro','Outro serviço']];
+var SERV=[];(function(){var st=document.createElement('style');st.textContent=NX.MSG_CSS||'';document.head.appendChild(st);})();
+function servCli(){var c=me(),l=(c.nfServ&&c.nfServ.length)?c.nfServ:((c.trib||{}).lc116?[(c.trib||{}).lc116]:NX.servPorCnae((c.cnae||'')+','+(c.cnaes||'')));return l.map(function(k){return [k,NX.servNome(k)];});}
+var SERV0=[['04.01','Medicina e biomedicina'],['04.12','Odontologia'],['04.08','Fisioterapia, terapia ocupacional e fonoaudiologia'],['04.16','Psicologia'],['04.09','Terapias de qualquer espécie'],['04.03','Hospitais, clínicas, laboratórios e congêneres'],['17.01','Assessoria ou consultoria'],['17.19','Contabilidade'],['01.07','Suporte técnico em informática'],['outro','Outro serviço']];
 function onlyDig(s){return String(s||'').replace(/\D/g,'');}
 function fmtDoc(d){d=onlyDig(d);return d.length===14?d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5'):d.length===11?d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/,'$1.$2.$3-$4'):d;}
 function myNotas(){db.notas=db.notas||[];return db.notas.filter(function(n){return n.cliente===S.cid;}).sort(function(a,b){return a.num<b.num?1:-1;});}
 function tomadores(){var seen={},out=[];myNotas().forEach(function(n){var k=onlyDig(n.tom.doc);if(k&&!seen[k]){seen[k]=1;out.push(n.tom);}});return out;}
 function notas(){
   var ns=myNotas(),mes=NX.ym(),tot=ns.filter(function(n){return n.status==='autorizada'&&n.emissao.slice(0,7)===mes;}).reduce(function(s,n){return s+n.valor;},0);
-  var toms=tomadores();
+  var toms=tomadores();SERV=servCli();
   shell('notas',head('Notas fiscais','Emita notas fiscais de serviço (NFS-e) e acompanhe as notas emitidas.')+
   '<div class="kpis"><div class="kpi main"><span>Faturado no mês</span><strong>'+NX.brl(tot)+'</strong></div><div class="kpi"><span>Notas emitidas no mês</span><strong>'+ns.filter(function(n){return n.emissao.slice(0,7)===mes&&n.status==='autorizada';}).length+'</strong></div><div class="kpi"><span>Total de notas</span><strong>'+ns.length+'</strong></div></div>'+
   (me().cert?'':'<section class="card" style="border-left:5px solid var(--warn)"><b>Certificado digital não enviado.</b> <span class="help">Na versão real, a emissão exige o certificado A1. '+(nivel()==='titular'?'<a href="#/config">Enviar agora em Configurações</a>.':'Peça ao Titular para enviar em Configurações.')+'</span></section>')+'<section class="card"><h2>Emitir nova nota</h2><form id="nf"><div class="grid">'+
@@ -178,7 +186,7 @@ function notas(){
   '<label>Nome / razão social<input name="nome" id="tnome" required></label>'+
   '<label>E-mail do tomador<input name="email" id="temail" type="email" placeholder="Para enviar a nota"></label>'+
   '<label>Município do tomador<input name="mun" id="tmun" placeholder="Ex.: São Paulo/SP"></label>'+
-  '<label style="grid-column:1/-1">Serviço (item da LC 116)<select name="serv">'+SERV.map(function(s){return '<option value="'+s[0]+'"'+((me().trib||{}).lc116===s[0]?' selected':'')+'>'+(s[0]==='outro'?'':s[0]+' – ')+s[1]+'</option>';}).join('')+'</select></label>'+
+  (SERV.length?'<label style="grid-column:1/-1">Serviço (item da LC 116)<select name="serv">'+SERV.map(function(s){return '<option value="'+s[0]+'"'+((me().trib||{}).lc116===s[0]?' selected':'')+'>'+s[0]+' – '+s[1]+'</option>';}).join('')+'</select></label>':'<p class="help" style="grid-column:1/-1;color:var(--bad)">Nenhum serviço cadastrado para a sua empresa. Fale com a NEXIO para liberar os serviços conforme os seus CNAEs.</p>')+
   '<label style="grid-column:1/-1">Descrição do serviço<textarea name="desc" required placeholder="Ex.: Consulta médica realizada em 10/11/2026">'+e((me().nfCfg||{}).desc||'')+'</textarea></label>'+
   '<label>Valor do serviço (R$)<input name="valor" id="nval" required inputmode="decimal" placeholder="0,00"></label>'+
   '<label>Competência<input name="comp" type="date" value="'+NX.today()+'" required></label>'+
@@ -195,7 +203,7 @@ function notas(){
   f.onsubmit=function(ev){ev.preventDefault();var fd=new FormData(f),d=onlyDig(fd.get('doc'));
     if(d.length!==11&&d.length!==14){NX.toast('CPF ou CNPJ do tomador inválido.');return;}
     var v=num(fd.get('valor'));if(!(v>0)){NX.toast('Informe o valor do serviço.');return;}
-    var sv=SERV.filter(function(s){return s[0]===fd.get('serv');})[0],ret=!!fd.get('ret'),al=ret?num(fd.get('aliq')):0;
+    if(!SERV.length){NX.toast('Nenhum serviço liberado para emissão. Fale com a NEXIO.');return;}var sv=SERV.filter(function(s){return s[0]===fd.get('serv');})[0]||SERV[0],ret=!!fd.get('ret'),al=ret?num(fd.get('aliq')):0;
     if(!confirm('Emitir nota de '+NX.brl(v)+' para '+fd.get('nome')+'?'))return;
     var c=me(),Tr=c.trib||{},seq=(db.notas||[]).filter(function(n){return n.cliente===S.cid;}).length+1,cfg=c.nfCfg||(c.nfCfg={serie:'1',proximo:seq,desc:'',copia:'',enviarTomador:true});
     var cM=codMun(Tr,c),dP=onlyDig(c.doc),nD=+cfg.proximo||seq,sr=String(cfg.serie||'1'),now=new Date(),off=-now.getTimezoneOffset(),dh=new Date(now.getTime()+off*6e4).toISOString().slice(0,19)+(off<0?'-':'+')+String(Math.floor(Math.abs(off)/60)).padStart(2,'0')+':'+String(Math.abs(off)%60).padStart(2,'0');

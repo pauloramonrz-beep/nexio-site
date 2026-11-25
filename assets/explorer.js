@@ -108,7 +108,7 @@
             '<td class="sm">' + (f.de === 'equipe' ? (f.visto ? viewsCell(f) : '<span class="xp-no">Não</span>') : '—') + '</td>' +
             (eq ? '<td>' + (sh ? '<span title="Compartilhado com o cliente">' + SHARE + '</span>' : '<span title="Restrito à equipe">' + LOCK + '</span>') + '</td>' : '') +
             '<td class="sm">' + NX.fdate(f.venc) + '</td><td class="sm">' + (nc ? '<span class="xp-c">' + BUBBLE + nc + '</span>' : '<span style="color:var(--line)">' + BUBBLE + '</span>') + '</td>' +
-            '<td class="sm">' + e(NX.uploader(f, db)) + '</td><td class="sm">' + NX.fcomp(compOf(f)) + '</td><td><span class="tag ' + s.c + '">' + s.t + '</span></td>' + (o.onEdit ? '<td class="xp-act" style="white-space:nowrap"><button class="btn b-text" data-ed="' + f.id + '" title="Editar dados e situação">Editar</button>' + (o.onDelete ? '<button class="btn b-text" data-del="' + f.id + '" style="color:var(--bad)" title="Excluir">Excluir</button>' : '') + '</td>' : '') + '</tr>';
+            '<td class="sm">' + e(NX.uploader(f, db)) + '</td><td class="sm">' + NX.fcomp(compOf(f)) + '</td><td><span class="tag ' + s.c + '">' + s.t + '</span>' + (o.onGuia && f.tipo === 'Guia' ? '<button class="btn b-text" data-guia="' + f.id + '" style="display:block;padding:2px 0;min-height:0;font-size:12px">' + (f.status === 'pago' ? 'Marcar não paga' : 'Marcar como paga') + '</button>' : '') + '</td>' + (o.onEdit ? '<td class="xp-act" style="white-space:nowrap"><button class="btn b-text" data-ed="' + f.id + '" title="Editar dados e situação">Editar</button>' + (o.onDelete ? '<button class="btn b-text" data-del="' + f.id + '" style="color:var(--bad)" title="Excluir">Excluir</button>' : '') + '</td>' : '') + '</tr>';
         }).join('') +
         (!subs.length && !pageList.length ? '<tr><td colspan="10" class="empty">' + (L.comp || L.fid ? 'Pasta vazia. Use “Upload” ou arraste arquivos para cá.' : 'Selecione uma pasta.') + '</td></tr>' : '') + '</tbody></table></div>';
     }
@@ -134,6 +134,7 @@
       if ((a = t.getAttribute('data-view'))) { st.view = a; try { localStorage.setItem('nx_xpview', a); } catch (x) {} re(); return; }
       if ((a = t.getAttribute('data-pg'))) { st.page = +a; re(); return; }
       if (t.hasAttribute('data-clr')) { st.q = ''; st.vis = 'todos'; re(); return; }
+      if ((a = t.getAttribute('data-guia')) && o.onGuia) { var fg = db.files.filter(function (x) { return x.id === a; })[0]; if (fg) o.onGuia(fg, re); return; }
       if ((a = t.getAttribute('data-ed')) && o.onEdit) { var fe = db.files.filter(function (x) { return x.id === a; })[0]; if (fe) o.onEdit(fe, re); return; }
       if ((a = t.getAttribute('data-del')) && o.onDelete) { var fd = db.files.filter(function (x) { return x.id === a; })[0]; if (fd) o.onDelete(fd, re); return; }
       if ((a = t.getAttribute('data-open'))) { var f = db.files.filter(function (x) { return x.id === a; })[0]; if (f) o.onOpen(f, pathOf(f)); }
