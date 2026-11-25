@@ -94,12 +94,14 @@
     }).join('') + '</ol></div>';
   };
   /* DANFSe oficial do Portal Nacional; se indisponível, oferece a Consulta Pública oficial e o espelho NEXIO */
-  N.abrirOficial = function (empresa, n, espelho) {
+  N.abrirOficial = function (empresa, n, espelho, logo) {
     var w = window.open('about:blank', '_blank');
+    /* com logomarca do cliente: monta direto do XML oficial, no layout nacional, com a logo */
+    if (logo) { N.abrirDanfseXml(empresa, n, w, logo).catch(function () { N.abrirOficial(empresa, n, espelho); if (w) w.close(); }); return; }
     if (w) w.document.write('<p style="font-family:sans-serif;padding:24px">Carregando o DANFSe da NFS-e…</p>');
     N.danfse(empresa, n.amb, n.chave).then(function (b) { var u = URL.createObjectURL(new Blob([b], { type: 'application/pdf' })); if (w) w.location = u; else location.href = u; })
       .catch(function () {
-        N.abrirDanfseXml(empresa, n, w).catch(function () {
+        N.abrirDanfseXml(empresa, n, w, logo).catch(function () {
         if (w) w.close();
         N.janela('DANFSe oficial indisponível agora', '<p>O Portal Nacional não entregou o PDF oficial desta nota neste momento' + (n.amb === 'producao' ? '' : ' (no ambiente de testes da Receita o DANFSe oficial costuma ficar indisponível)') + '.</p><p class="help">Você pode baixar o DANFSe oficial direto na Consulta Pública do Portal Nacional informando a chave de acesso abaixo, ou abrir o espelho gerado pela NEXIO a partir do XML oficial.</p><p style="font-family:monospace;word-break:break-all;background:var(--bg,#f5f7fb);padding:8px 10px;border-radius:8px">' + esc(n.chave) + '</p>',
           [{ t: 'Copiar chave', fn: function () { try { navigator.clipboard.writeText(n.chave); } catch (e) {} return false; } },
@@ -142,7 +144,7 @@
     var ret = { '1': 'Não retido', '2': 'Retido pelo tomador', '3': 'Retido pelo intermediário' }[x.tpRet] || '-';
     return '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>DANFSe ' + esc(x.nNFSe) + '</title><style>@page{size:A4;margin:8mm}body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:0;font-size:8pt}.d{border:1px solid #000;position:relative;max-width:194mm;margin:0 auto}header{display:grid;grid-template-columns:1.2fr 2fr 1fr;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid #000}header .t{text-align:center}header .t b{font-size:12pt;display:block}.qr{justify-self:end;width:24mm;height:24mm}.qr svg{width:100%;height:100%}section{border-top:1px solid #000;padding:3px 0}section:first-of-type{border-top:0}h3{margin:0;padding:1px 6px;font-size:7.5pt;text-transform:uppercase}.g{display:grid;grid-template-columns:repeat(4,1fr)}.c{padding:2px 6px}.c b{display:block;font-size:6.5pt;font-weight:400;text-transform:uppercase;color:#333}.c span{font-size:8pt;font-weight:700;word-break:break-word}.ch{font-family:monospace;font-size:9.5pt;font-weight:700;letter-spacing:.5px}.wm{position:absolute;top:38%;left:0;right:0;text-align:center;font-size:46pt;font-weight:700;color:rgba(200,0,0,.18);transform:rotate(-22deg);pointer-events:none}.bar{max-width:194mm;margin:6px auto;display:flex;gap:8px;justify-content:flex-end;font-family:sans-serif}@media print{.bar{display:none}}</style></head><body>' +
       '<div class="bar"><button onclick="print()">Imprimir / salvar PDF</button></div><div class="d">' + (canc ? '<div class="wm">CANCELADA</div>' : teste ? '<div class="wm">SEM VALOR FISCAL</div>' : '') +
-      '<header><div><b style="font-size:13pt;color:#1351b4">NFS-e</b><br>Nota Fiscal de Serviço eletrônica</div><div class="t"><b>DANFSe v1.0</b>Documento Auxiliar da NFS-e' + (teste ? '<br><span style="color:#b00;font-weight:700">AMBIENTE DE PRODUÇÃO RESTRITA — SEM VALOR FISCAL</span>' : '') + '</div><div class="qr">' + qrSvg + '</div></header>' +
+      '<header><div>' + (sit && sit.logo ? '<img src="' + esc(sit.logo) + '" alt="" style="max-height:20mm;max-width:52mm;display:block;margin-bottom:3px">' + '<b style="font-size:9pt;color:#1351b4">NFS-e</b> <span style="font-size:7pt">Nota Fiscal de Serviço eletrônica</span>' : '<b style="font-size:13pt;color:#1351b4">NFS-e</b><br>Nota Fiscal de Serviço eletrônica') + '</div><div class="t"><b>DANFSe v1.0</b>Documento Auxiliar da NFS-e' + (teste ? '<br><span style="color:#b00;font-weight:700">AMBIENTE DE PRODUÇÃO RESTRITA — SEM VALOR FISCAL</span>' : '') + '</div><div class="qr">' + qrSvg + '</div></header>' +
       bl('Chave de acesso da NFS-e', '<div class="c" style="grid-column:span 4"><span class="ch">' + ch.replace(/(\d{4})/g, '$1 ').trim() + '</span></div>') +
       '<section><div class="g">' + c('Número da NFS-e', x.nNFSe) + c('Competência da NFS-e', fdt(x.dCompet)) + c('Data e hora da emissão da NFS-e', fdt(x.dhProc, 1)) + c('Número da DPS', x.nDPS) + c('Série da DPS', x.serie) + c('Data e hora da emissão da DPS', fdt(x.dhEmi, 1)) + c('Situação', canc ? 'Cancelada' + (sit.cancelada.em ? ' em ' + fdt(sit.cancelada.em) : '') : 'Autorizada') + c('Local de emissão', x.xLocEmi) + '</div></section>' +
       bl('Emitente da NFS-e — Prestador do serviço', pes(x.emit) + c('Município', x.xLocEmi) + c('Simples Nacional na data de competência', sn, 2) + c('Regime de apuração tributária pelo SN', x.opSimpNac === '3' ? 'Regime de apuração dos tributos federais e municipal pelo SN' : '-')) +
@@ -156,11 +158,24 @@
       bl('Informações complementares', c('', (x.xInfComp ? x.xInfComp + ' — ' : '') + 'A autenticidade desta NFS-e pode ser verificada pela leitura do QR Code ou na Consulta Pública do Portal Nacional (www.nfse.gov.br/ConsultaPublica), com a chave de acesso.', 4)) +
       '</div></body></html>';
   };
-  N.abrirDanfseXml = function (empresa, n, w) {
+  N.abrirDanfseXml = function (empresa, n, w, logo) {
     var pegar = n.xml && n.xml.indexOf('<NFSe') > -1 ? Promise.resolve({ nfseXml: n.xml, cancelada: n.status === 'cancelada' || n.status === 'substituida' ? { em: n.canceladaEm } : null }) : N.consultarNfse(empresa, n.amb, n.chave).then(function (r) { if (r.nfseXml) n.xml = r.nfseXml; return r; });
     return Promise.all([pegar, carregarQR()]).then(function (R) { var r = R[0]; if (!r.nfseXml) throw new Error('XML oficial indisponível.');
-      var h = N.danfseHTML(r.nfseXml, { chave: n.chave, cancelada: r.cancelada || (n.status !== 'autorizada' ? { em: n.canceladaEm } : null) });
+      var h = N.danfseHTML(r.nfseXml, { chave: n.chave, logo: logo || '', cancelada: r.cancelada || (n.status !== 'autorizada' ? { em: n.canceladaEm } : null) });
       w = w || window.open('about:blank', '_blank'); if (!w) { var u = URL.createObjectURL(new Blob([h], { type: 'text/html' })); location.href = u; return; } w.document.open(); w.document.write(h); w.document.close(); });
+  };
+  /* logomarca: reduz para no máximo 600x240 px (fica nítida na impressão e leve para guardar) */
+  N.lerLogo = function (file) {
+    return new Promise(function (ok, erro) {
+      if (!file || !/^image\/(png|jpe?g|webp|svg\+xml)$/.test(file.type)) return erro(new Error('Envie a logomarca em PNG, JPG, WEBP ou SVG.'));
+      if (file.size > 5 * 1024 * 1024) return erro(new Error('A imagem passa de 5 MB.'));
+      var fr = new FileReader(); fr.onerror = function () { erro(new Error('Não consegui ler a imagem.')); };
+      fr.onload = function () { var im = new Image(); im.onerror = function () { erro(new Error('Imagem inválida.')); };
+        im.onload = function () { var k = Math.min(1, 600 / im.width, 240 / im.height), cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(im.width * k)); cv.height = Math.max(1, Math.round(im.height * k));
+          cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height); var u = cv.toDataURL('image/png'); if (u.length > 350000) u = cv.toDataURL('image/webp', 0.9); ok(u); };
+        im.src = fr.result; };
+      fr.readAsDataURL(file);
+    });
   };
   /* ---------- ZIP (sem compressão) para o lote de XMLs ---------- */
   var CRC = (function () { var t = [], c, n, k; for (n = 0; n < 256; n++) { c = n; for (k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();

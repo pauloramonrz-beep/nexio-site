@@ -215,13 +215,21 @@ function montar_dps(array $emp, array $d, string $amb, int $nDPS): array {
     '</infDPS></DPS>';
   return ['xml' => $xml, 'id' => $id];
 }
-function erros_sefin(array $j): array {
-  $l = $j['erros'] ?? $j['Erros'] ?? $j['mensagens'] ?? [];
-  if (!is_array($l)) $l = [];
+function erros_sefin(array $j, string $bruto = ''): array {
+  // a Sefin responde em formatos diferentes (erros/Erros/erro/Erro, lista ou objeto): junta tudo
+  $l = [];
+  foreach (['erros', 'Erros', 'erro', 'Erro', 'mensagens', 'Mensagens', 'alertas'] as $k) {
+    if (!isset($j[$k])) continue; $v = $j[$k];
+    if (is_array($v) && (isset($v['Codigo']) || isset($v['codigo']) || isset($v['Descricao']) || isset($v['descricao']))) $v = [$v];
+    if (is_array($v)) $l = array_merge($l, $v); elseif (is_string($v)) $l[] = ['descricao' => $v];
+  }
   $out = [];
-  foreach ($l as $e) $out[] = trim(($e['Codigo'] ?? $e['codigo'] ?? '') . ' — ' . ($e['Descricao'] ?? $e['descricao'] ?? '') . (!empty($e['Complemento'] ?? $e['complemento'] ?? '') ? ' (' . ($e['Complemento'] ?? $e['complemento']) . ')' : ''), ' —');
+  foreach ($l as $e) { if (is_string($e)) { $out[] = $e; continue; } if (!is_array($e)) continue;
+    $out[] = trim(($e['Codigo'] ?? $e['codigo'] ?? '') . ' — ' . ($e['Descricao'] ?? $e['descricao'] ?? $e['mensagem'] ?? '') . (!empty($e['Complemento'] ?? $e['complemento'] ?? '') ? ' (' . ($e['Complemento'] ?? $e['complemento']) . ')' : ''), ' —'); }
   if (!$out && !empty($j['message'])) $out[] = (string) $j['message'];
-  return $out;
+  if (!$out && !empty($j['title'])) $out[] = (string) $j['title'] . (!empty($j['detail']) ? ': ' . $j['detail'] : '');
+  if (!$out && $bruto !== '') $out[] = 'Resposta da Receita: ' . mb_substr(trim(strip_tags($bruto)), 0, 300);
+  return array_values(array_filter($out));
 }
 
 /* ---------------- rotas ---------------- */
@@ -285,7 +293,7 @@ if ($acao === 'emitir') {
   }
   $semResposta = $r['code'] === 0 || $r['code'] >= 500 || in_array($r['code'], [408, 429], true);
   falha($r['code'] ?: 502, $semResposta ? ($r['code'] ? 'A Receita está indisponível no momento (HTTP ' . $r['code'] . ').' : 'Não consegui falar com a Receita: ' . $r['erro']) : 'A Receita recusou a nota.',
-    ['erros' => erros_sefin($j), 'http' => $r['code'], 'nDPS' => $nDPS, 'idDPS' => $dps['id'], 'pendente' => $semResposta, 'dpsXml' => $assinado]);
+    ['erros' => erros_sefin($j, (string) $r['body']), 'http' => $r['code'], 'nDPS' => $nDPS, 'idDPS' => $dps['id'], 'pendente' => $semResposta, 'dpsXml' => $assinado]);
 }
 
 if ($acao === 'consultar_dps') {
@@ -319,8 +327,8 @@ if ($acao === 'cancelar') {
   $r = http('POST', $CFG['sefin'][$amb] . '/nfse/' . $ch . '/eventos', ['Content-Type: application/json', 'Accept: application/json'], json_encode(['pedidoRegistroEventoXmlGZipB64' => gz64($assinado)]), pem_tmp($c));
   $j = json_decode($r['body'], true) ?: [];
   if ($r['code'] === 201 || $r['code'] === 200) resp(200, ['ok' => true, 'eventoXml' => ungz64((string) ($j['eventoXmlGZipB64'] ?? ''))]);
-  $er = erros_sefin($j); $fora = (bool) preg_grep('/^E0822\b/', $er);
-  falha($r['code'] ?: 502, $fora ? 'O prazo para cancelar esta nota já acabou (regra da prefeitura no Sistema Nacional).' : 'A Receita recusou o cancelamento.', ['erros' => $er, 'http' => $r['code'], 'foraDoPrazo' => $fora]);
+  $er = erros_sefin($j, (string) $r['body']); $fora = (bool) preg_grep('/^E0822\b/', $er);
+  falha($r['code'] ?: 502, $fora ? 'O prazo para cancelar esta nota já acabou (regra da prefeitura no Sistema Nacional).' : 'A Receita recusou o cancelamento' . ($r['code'] ? ' (HTTP ' . $r['code'] . ')' : '') . '.', ['erros' => $er, 'http' => $r['code'], 'foraDoPrazo' => $fora]);
 }
 
 if ($acao === 'consultar_nfse') {
