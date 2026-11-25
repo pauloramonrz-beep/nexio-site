@@ -66,7 +66,7 @@ function head(t,sub){return '<div class="page-h"><div><h1>'+t+'</h1>'+(sub?'<p>'
 function guiaRow(f){var s=NX.statusOf(f);return '<div class="list-item"><div><b>'+e(f.titulo)+(!f.visto&&f.de==='equipe'?'<span class="dot" aria-label="novo"></span>':'')+'</b><small>'+(f.venc?'Vence em '+NX.fdate(f.venc)+' · ':'')+'Competência '+NX.fcomp(f.comp)+'</small></div><div class="row" style="align-items:center"><strong>'+(f.valor?NX.brl(f.valor):'')+'</strong><span class="tag '+s.c+'">'+s.t+'</span><button class="btn b-line" data-dl="'+f.id+'" style="min-height:38px">Ver</button></div></div>';}
 
 function eventosMes(m){var ev=NX.obligationsFor(db,S.cid,m).map(function(o){return {data:o.data,titulo:o.titulo};});
-  myFiles().filter(visivel).forEach(function(f){if(f.venc&&f.venc.slice(0,7)===m){var s=NX.statusOf(f);ev.push({data:f.venc,titulo:(f.tipo==='Guia'?'Guia: ':'Vence: ')+f.titulo,cls:s.c==='ok'?'ok':s.c==='bad'?'bad':''});}});
+  myFiles().filter(visivel).forEach(function(f){if(f.venc&&f.cal!==false&&f.venc.slice(0,7)===m){var s=NX.statusOf(f);ev.push({data:f.venc,titulo:(f.tipo==='Guia'?'Guia: ':'Vence: ')+f.titulo,cls:s.c==='ok'?'ok':s.c==='bad'?'bad':''});}});
   var norm=function(s){return s.toLowerCase().replace(/^(guia|vence): /,'').replace(/[^a-z0-9]/g,'');};
   var guias=ev.filter(function(x){return /^(Guia|Vence): /.test(x.titulo);});
   return ev.filter(function(x){if(/^(Guia|Vence): /.test(x.titulo))return true;var k=norm(x.titulo);return !guias.some(function(g){return g.data===x.data&&(norm(g.titulo).indexOf(k)>-1||k.indexOf(norm(g.titulo))>-1);});});}
@@ -123,11 +123,10 @@ function arquivos(){
     var f={id:NX.uid(),cliente:S.cid,setor:pl.setor,folder:pl.folder,tipo:'Documento',titulo:r.nome.replace(/\.[^.]+$/,''),comp:pl.comp,venc:'',valor:0,status:'recebido',de:'cliente',por:who,nome:r.nome,data:r.data,size:r.size,criado:NX.today(),visto:false};
     hist(f,'Enviado pelo cliente');db.files.push(f);logCli('Enviou documento',f.titulo);
     if(++n===tot&&persist()!==false){if(!L.fid&&!L.comp){S.xp.L={setor:'Enviados pelo cliente',ano:NX.ym().slice(0,4),comp:NX.ym()};}re();NX.toast(tot+' documento(s) enviado(s) para a NEXIO.');}});});}
-  NX.explorer(document.getElementById('xpRoot'),{db:db,cliente:S.cid,role:'cliente',st:S.xp,rootLabel:'Meus documentos',uploadSetor:'Enviados pelo cliente',
+  NX.explorer(document.getElementById('xpRoot'),{db:db,cliente:S.cid,role:'cliente',st:S.xp,rootLabel:'Meus documentos',uploadSetor:'Enviados pelo cliente',showAll:true,flat:['Societário'],
     setores:['Fiscal','Departamento Pessoal','Contábil','Financeiro','Societário','Certidões','Notas fiscais','Enviados pelo cliente'].filter(function(s){var v=setoresNivel();return !v||v.indexOf(s)>-1;}),readonly:nivel()==='consulta',
     setorOf:setorOf,visible:visivel,
     onOpen:function(f){openDoc(f);},
-    onNewFolder:function(L,re){if(NX.newFolder(db,S.cid,L,who)){persist();re();NX.toast('Pasta criada.');}},
     onUpload:function(L,re){var inp=document.createElement('input');inp.type='file';inp.multiple=true;inp.onchange=function(){if(inp.files.length)send([].slice.call(inp.files),L,re);};inp.click();},
     onDropFiles:send});
 }
