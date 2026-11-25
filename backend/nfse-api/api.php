@@ -195,7 +195,12 @@ function montar_dps(array $emp, array $d, string $amb, int $nDPS): array {
   }
   $tribMun = '<tribMun><tribISSQN>1</tribISSQN><tpRetISSQN>' . ($ret ? 2 : 1) . '</tpRetISSQN>' . (($ret || $op === 1) && $pAliq > 0 ? '<pAliq>' . number_format($pAliq, 2, '.', '') . '</pAliq>' : '') . '</tribMun>';
   $pSN = round((float) ($d['pTotTribSN'] ?? 0), 2);
-  $tot = $op === 3 && $pSN > 0 ? '<totTrib><pTotTribSN>' . number_format($pSN, 2, '.', '') . '</pTotTribSN></totTrib>' : '<totTrib><indTotTrib>0</indTotTrib></totTrib>';
+  if ($op === 3 && $pSN <= 0) {
+    // ME/EPP: a Receita exige pTotTribSN; sem RBT12, usa a alíquota da 1ª faixa do anexo
+    $faixa1 = ['I' => 4.00, 'II' => 4.50, 'III' => 6.00, 'IV' => 4.50, 'V' => 15.50];
+    $pSN = $faixa1[strtoupper((string) ($T['anexo'] ?? 'III'))] ?? 6.00;
+  }
+  $tot = $op === 3 ? '<totTrib><pTotTribSN>' . number_format($pSN, 2, '.', '') . '</pTotTribSN></totTrib>' : '<totTrib><indTotTrib>0</indTotTrib></totTrib>';
   $fone = dig($I['telefone'] ?? ''); $email = trim((string) ($I['email'] ?? ''));
   $xml = '<DPS xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.00"><infDPS Id="' . $id . '">' .
     '<tpAmb>' . ($amb === 'producao' ? 1 : 2) . '</tpAmb><dhEmi>' . $dhEmi . '</dhEmi><verAplic>' . xe($CFG['verAplic']) . '</verAplic><serie>' . $serie . '</serie><nDPS>' . $nDPS . '</nDPS><dCompet>' . $dComp . '</dCompet><tpEmit>1</tpEmit><cLocEmi>' . $cMun . '</cLocEmi>' .
