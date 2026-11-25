@@ -45,7 +45,7 @@
       var out = [];
       if (!l.fid) {
         if (!l.setor) {
-          o.setores.forEach(function (s) { var n = files.filter(function (f) { return setorOf(f) === s; }).length; if (n || o.role === 'equipe') out.push({ t: 's', label: s, L: { setor: s }, n: n, lock: o.restritos && o.restritos.indexOf(s) > -1 }); });
+          o.setores.forEach(function (s) { var n = files.filter(function (f) { return setorOf(f) === s; }).length; if (n || o.role === 'equipe' || s === o.uploadSetor) out.push({ t: 's', label: s, L: { setor: s }, n: n, lock: o.restritos && o.restritos.indexOf(s) > -1 }); });
         } else if (!l.ano) {
           var an = {}; files.forEach(function (f) { if (setorOf(f) === l.setor) an[compOf(f).slice(0, 4)] = 1; });
           Object.keys(an).sort().reverse().forEach(function (a) { out.push({ t: 'a', label: a, L: { setor: l.setor, ano: a }, n: files.filter(function (f) { return inside(f, { setor: l.setor, ano: a }); }).length }); });
@@ -96,8 +96,8 @@
         pageList.map(function (f) { return '<button class="xp-tile" data-open="' + f.id + '"><span class="xp-bigf">' + ftIcon(f) + '</span><b>' + e(f.titulo) + '</b><small>' + (f.venc ? 'Vence ' + NX.fdate(f.venc) : NX.fcomp(compOf(f))) + (f.de === 'equipe' && !f.visto ? ' · <span style="color:var(--warn)">não visualizado</span>' : '') + '</small></button>'; }).join('') + '</div>' +
         (!subs.length && !pageList.length ? '<p class="empty">Pasta vazia.</p>' : '');
     } else {
-      body = '<div class="tbl"><table class="xp-t"><thead><tr><th style="width:52px">Tipo</th>' + th('nome', 'Nome') + (flat ? '<th>Pasta</th>' : '') + th('visto', 'Visualizado') + (eq ? '<th>Compart.</th>' : '') + th('venc', 'Vencimento') + th('com', 'Coment.') + th('por', 'Anexado por') + th('comp', 'Compet.') + '<th>Situação</th></tr></thead><tbody>' +
-        subs.map(function (c) { return '<tr class="xp-frow" data-nav="' + e(key(c.L)) + '" tabindex="0"><td>' + FOLD + '</td><td colspan="' + (eq ? 8 : 7) + '"><b>' + e(c.label) + '</b> <small class="help" style="display:inline">· ' + c.n + ' item(ns)' + (c.por ? ' · criada por ' + e(c.por) : '') + '</small></td></tr>'; }).join('') +
+      body = '<div class="tbl"><table class="xp-t"><thead><tr><th style="width:52px">Tipo</th>' + th('nome', 'Nome') + (flat ? '<th>Pasta</th>' : '') + th('visto', 'Visualizado') + (eq ? '<th>Compart.</th>' : '') + th('venc', 'Vencimento') + th('com', 'Coment.') + th('por', 'Anexado por') + th('comp', 'Compet.') + '<th>Situação</th>' + (o.onEdit ? '<th><span class="sr">Ações</span></th>' : '') + '</tr></thead><tbody>' +
+        subs.map(function (c) { return '<tr class="xp-frow" data-nav="' + e(key(c.L)) + '" tabindex="0"><td>' + FOLD + '</td><td colspan="' + ((eq ? 8 : 7) + (o.onEdit ? 1 : 0)) + '"><b>' + e(c.label) + '</b> <small class="help" style="display:inline">· ' + c.n + ' item(ns)' + (c.por ? ' · criada por ' + e(c.por) : '') + '</small></td></tr>'; }).join('') +
         pageList.map(function (f) {
           var s = NX.statusOf(f), v = firstView(f), nc = (f.coments || []).length, sh = f.shared != null ? f.shared : !(o.restritos && o.restritos.indexOf(setorOf(f)) > -1);
           return '<tr><td>' + ftIcon(f) + '</td><td class="name"><button data-open="' + f.id + '">' + e(f.titulo) + '</button>' + (f.de === 'equipe' && !f.visto ? '<span class="dot" aria-label="não visualizado"></span>' : '') + '<small>' + e(f.nome) + (f.size ? ' · ' + NX.fsize(f.size) : '') + '</small></td>' +
@@ -105,7 +105,7 @@
             '<td class="sm">' + (f.de === 'equipe' ? (f.visto ? '<span class="xp-ok">' + EYE + (v ? NX.fdate(v.em.slice(0, 10)) : 'Sim') + '</span>' : '<span class="xp-no">Não</span>') : '—') + '</td>' +
             (eq ? '<td>' + (sh ? '<span title="Compartilhado com o cliente">' + SHARE + '</span>' : '<span title="Restrito à equipe">' + LOCK + '</span>') + '</td>' : '') +
             '<td class="sm">' + NX.fdate(f.venc) + '</td><td class="sm">' + (nc ? '<span class="xp-c">' + BUBBLE + nc + '</span>' : '<span style="color:var(--line)">' + BUBBLE + '</span>') + '</td>' +
-            '<td class="sm">' + e(NX.uploader(f, db)) + '</td><td class="sm">' + NX.fcomp(compOf(f)) + '</td><td><span class="tag ' + s.c + '">' + s.t + '</span></td></tr>';
+            '<td class="sm">' + e(NX.uploader(f, db)) + '</td><td class="sm">' + NX.fcomp(compOf(f)) + '</td><td><span class="tag ' + s.c + '">' + s.t + '</span></td>' + (o.onEdit ? '<td class="xp-act" style="white-space:nowrap"><button class="btn b-text" data-ed="' + f.id + '" title="Editar dados e situação">Editar</button>' + (o.onDelete ? '<button class="btn b-text" data-del="' + f.id + '" style="color:var(--bad)" title="Excluir">Excluir</button>' : '') + '</td>' : '') + '</tr>';
         }).join('') +
         (!subs.length && !pageList.length ? '<tr><td colspan="10" class="empty">' + (L.comp || L.fid ? 'Pasta vazia. Use “Upload” ou arraste arquivos para cá.' : 'Selecione uma pasta.') + '</td></tr>' : '') + '</tbody></table></div>';
     }
@@ -114,7 +114,7 @@
     el.innerHTML = '<div class="xp">' +
       '<aside class="xp-tree" aria-label="Pastas"><div class="xp-node' + (!L.setor && !L.fid ? ' sel' : '') + '" style="padding-left:4px"><span class="xp-tg"></span><button class="xp-nm" data-nav="root"><b>' + e(o.rootLabel || 'Documentos') + '</b></button></div><ul>' + tree({}, 1) + '</ul></aside>' +
       '<section class="xp-main"><div class="xp-bar"><div class="row" style="align-items:center;gap:8px">' +
-      (o.readonly ? '<span class="help">Somente consulta</span>' : '<button class="btn b-line" id="xpNew">+ Nova pasta</button><button class="btn b-blue" id="xpUp">Upload</button>') + (o.onMass ? '<button class="btn b-line" id="xpMass">Upload em massa</button>' : '') +
+      (o.readonly ? '<span class="help">Somente consulta</span>' : '<button class="btn b-line" id="xpNew">+ Nova pasta</button><button class="btn b-blue" id="xpUp">' + (o.role === 'cliente' ? 'Enviar documentos' : 'Upload') + '</button>') + (o.onMass ? '<button class="btn b-line" id="xpMass">Upload em massa</button>' : '') +
       '</div><div class="row" style="align-items:center;gap:8px">' + seg('vis', [['todos', 'Todos'], ['nao', 'Não visualizados'], ['sim', 'Visualizados']], st.vis) +
       '<label class="sr" for="xpq">Pesquisar</label><input id="xpq" class="xp-q" placeholder="Pesquisar…" value="' + e(st.q) + '">' + seg('view', [['tabela', '☰'], ['icones', '▦']], st.view) + '</div></div>' +
       '<div class="xp-crumbs">' + crumbs + '</div><div class="xp-body" id="xpBody">' + body + '</div>' + foot + '</section></div>';
@@ -131,6 +131,8 @@
       if ((a = t.getAttribute('data-view'))) { st.view = a; try { localStorage.setItem('nx_xpview', a); } catch (x) {} re(); return; }
       if ((a = t.getAttribute('data-pg'))) { st.page = +a; re(); return; }
       if (t.hasAttribute('data-clr')) { st.q = ''; st.vis = 'todos'; re(); return; }
+      if ((a = t.getAttribute('data-ed')) && o.onEdit) { var fe = db.files.filter(function (x) { return x.id === a; })[0]; if (fe) o.onEdit(fe, re); return; }
+      if ((a = t.getAttribute('data-del')) && o.onDelete) { var fd = db.files.filter(function (x) { return x.id === a; })[0]; if (fd) o.onDelete(fd, re); return; }
       if ((a = t.getAttribute('data-open'))) { var f = db.files.filter(function (x) { return x.id === a; })[0]; if (f) o.onOpen(f, pathOf(f)); }
     };
     el.querySelectorAll('tr[data-nav]').forEach(function (r) { r.onkeydown = function (ev) { if (ev.key === 'Enter') r.click(); }; });

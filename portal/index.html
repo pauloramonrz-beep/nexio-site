@@ -117,13 +117,13 @@ function inside(f,L){ // arquivo está dentro da localização L (recursivo)?
   return (!L.setor||setorOf(f)===L.setor)&&(!L.ano||compOf(f).slice(0,4)===L.ano)&&(!L.comp||compOf(f)===L.comp);}
 S.xp=S.xp||{};
 function arquivos(){
-  shell('arquivos',head('Documentos','Suas guias, relatórios e documentos. Clique em um documento para visualizar.')+'<div id="xpRoot"></div>');
+  shell('arquivos',head('Documentos','Suas guias, relatórios e documentos. Para enviar arquivos para a NEXIO, clique em “Enviar documentos” ou arraste os arquivos para cá; eles ficam em “Enviados pelo cliente”.')+'<div id="xpRoot"></div>');
   var who=meU().nome;
   function send(files,L,re){var n=0,tot=files.length;files.forEach(function(file){NX.readFile(file,function(r){var pl=NX.placeFor(db,L,'Enviados pelo cliente');
     var f={id:NX.uid(),cliente:S.cid,setor:pl.setor,folder:pl.folder,tipo:'Documento',titulo:r.nome.replace(/\.[^.]+$/,''),comp:pl.comp,venc:'',valor:0,status:'recebido',de:'cliente',por:who,nome:r.nome,data:r.data,size:r.size,criado:NX.today(),visto:false};
     hist(f,'Enviado pelo cliente');db.files.push(f);logCli('Enviou documento',f.titulo);
     if(++n===tot&&persist()!==false){if(!L.fid&&!L.comp){S.xp.L={setor:'Enviados pelo cliente',ano:NX.ym().slice(0,4),comp:NX.ym()};}re();NX.toast(tot+' documento(s) enviado(s) para a NEXIO.');}});});}
-  NX.explorer(document.getElementById('xpRoot'),{db:db,cliente:S.cid,role:'cliente',st:S.xp,rootLabel:'Meus documentos',
+  NX.explorer(document.getElementById('xpRoot'),{db:db,cliente:S.cid,role:'cliente',st:S.xp,rootLabel:'Meus documentos',uploadSetor:'Enviados pelo cliente',
     setores:['Fiscal','Departamento Pessoal','Contábil','Financeiro','Societário','Certidões','Notas fiscais','Enviados pelo cliente'].filter(function(s){var v=setoresNivel();return !v||v.indexOf(s)>-1;}),readonly:nivel()==='consulta',
     setorOf:setorOf,visible:visivel,
     onOpen:function(f){openDoc(f);},

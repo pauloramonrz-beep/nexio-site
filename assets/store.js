@@ -94,6 +94,7 @@
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   var fsize = function (b) { return !b ? '' : b < 1024 * 1024 ? Math.round(b / 1024) + ' KB' : (b / 1048576).toFixed(1) + ' MB'; };
   function statusOf(f) {
+    if (f.situacao) return { t: f.situacao, c: ({ 'Concluído': 'ok', 'Pendente': 'warn', 'Em análise': 'info', 'Substituído': 'info', 'Cancelado': 'bad' })[f.situacao] || 'info' };
     if (f.tipo === 'Nota fiscal') return { t: 'Nota emitida', c: 'ok' };
     if (f.tipo !== 'Guia') return f.de === 'cliente' ? { t: 'Enviado pelo cliente', c: 'info' } : { t: 'Disponível', c: 'info' };
     if (f.status === 'pago') return { t: 'Pago', c: 'ok' };
