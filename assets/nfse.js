@@ -2,7 +2,7 @@
 (function () {
   var N = window.NXN = {
     /* endereço do serviço publicado na hospedagem (api.php). Vazio = emissão real desligada */
-    URL: '',
+    URL: 'https://api.nexioic.com.br/nfse/api.php',
     AMBIENTES: { simulacao: 'Simulação (sem validade)', restrita: 'Testes na Receita (produção restrita)', producao: 'Produção (nota real)' }
   };
   N.ativo = function () { return !!N.URL; };

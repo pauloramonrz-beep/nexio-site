@@ -5,7 +5,7 @@ Arquivos desta pasta vão para a hospedagem PHP (HostGator). O portal do cliente
 ## Instalação (uma vez)
 1. No cPanel, em **MultiPHP Manager**, deixe o domínio escolhido com **PHP 8.1 ou mais novo**.
 2. No **Gerenciador de Arquivos**, dentro de `public_html` do domínio, crie a pasta `nfse-api` e envie `api.php` e `.htaccess`.
-3. Abra `https://SEU-DOMINIO/nfse-api/api.php?acao=status`. Todos os itens precisam aparecer como `true`.
+3. Publicado em `https://api.nexioic.com.br/nfse/api.php` (subdomínio na hospedagem rqcontabilidade.com.br). Teste com `?acao=status`. Todos os itens precisam aparecer como `true`.
 4. Na primeira chamada o serviço cria, **fora** do `public_html`, a pasta `nexio_nfse_dados` com:
    - `chave.bin` — chave de criptografia do cofre (não apague: sem ela os certificados não abrem);
    - `certs/` — certificados A1 dos clientes, criptografados (AES-256-GCM);
