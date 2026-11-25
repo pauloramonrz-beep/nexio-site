@@ -1052,17 +1052,17 @@ function syncClientes(cb){NXA.sb.from('empresas').select('*').eq('ativo',true).o
   R.sync=Date.now();persist();cb&&cb();});}
 
 function editStaff(s,adm){var self=s.id===S.user.id,podeNivel=adm&&!self;
-  openDlg('<h2>Editar dados de '+e(s.nome)+'</h2><div class="grid"><label style="grid-column:1/-1">Nome completo<input name="nome" value="'+e(s.nome)+'" required></label><label>Cargo / função<input name="cargo" value="'+e(s.cargo||'')+'" placeholder="Ex.: Contador, Analista fiscal"></label><label>Telefone / WhatsApp<input name="tel" value="'+e(s.tel||'')+'" placeholder="(11) 90000-0000"></label>'+
+  openDlg('<h2>Editar dados de '+e(s.nome)+'</h2><div class="grid"><label style="grid-column:1/-1">Nome completo<input name="nome" value="'+e(s.nome)+'" required></label><label>Cargo / função<input name="cargo" value="'+e(s.cargo||'')+'" placeholder="Ex.: Contador, Analista fiscal"></label><label>Telefone / WhatsApp<input name="tel" value="'+e(s.tel||'')+'" placeholder="(11) 90000-0000"></label>'+'<label style="grid-column:1/-1">Google Agenda (e-mail ou ID da agenda)<input name="gcal" value="'+e(s.gcal||'')+'" placeholder="ex.: nome@gmail.com"></label>'+
     (adm?'<label>Nível<select name="nivel"'+(podeNivel?'':' disabled')+'>'+Object.keys(NX.NIV_EQ).map(function(k){return '<option value="'+k+'"'+(s.nivel===k?' selected':'')+'>'+NX.NIV_EQ[k].nome+'</option>';}).join('')+'</select></label><label>Setor<select name="setor"><option value="">Todos</option>'+SETORES.filter(function(x){return x!=='Enviados pelo cliente';}).map(function(x){return '<option'+(s.setor===x?' selected':'')+'>'+x+'</option>';}).join('')+'</select></label>':'')+
     '<label style="grid-column:1/-1">E-mail de acesso<input value="'+e(s.email)+'" disabled></label></div><p class="help">O e-mail é o login da pessoa e não pode ser trocado por aqui.'+(self&&adm?' Você não pode alterar o seu próprio nível.':'')+'</p>',
   function(fd){var nome=String(fd.get('nome')||'').trim();if(!nome){NX.toast('Informe o nome.');return false;}
     var ex=Object.assign({},s);['id','nome','email','nivel','ativo','real'].forEach(function(k){delete ex[k];});
-    ex.cargo=String(fd.get('cargo')||'').trim();ex.tel=String(fd.get('tel')||'').trim();
+    ex.cargo=String(fd.get('cargo')||'').trim();ex.tel=String(fd.get('tel')||'').trim();ex.gcal=String(fd.get('gcal')||'').trim();
     var up={nome:nome};
     if(adm){var se=fd.get('setor')||'';ex.setor=se;up.setor_eq=se||null;if(podeNivel)up.nivel_eq=fd.get('nivel');}
     up.extra=ex;
     NXA.sb.from('perfis').update(up).eq('id',s.id).then(function(r){if(r.error){NX.toast('Erro ao salvar: '+r.error.message);return;}
-      s.nome=nome;s.cargo=ex.cargo;s.tel=ex.tel;if(adm){s.setor=ex.setor;if(podeNivel)s.nivel=up.nivel_eq;}
+      s.nome=nome;s.cargo=ex.cargo;s.tel=ex.tel;s.gcal=ex.gcal;if(adm){s.setor=ex.setor;if(podeNivel)s.nivel=up.nivel_eq;}
       persist();NXA.acesso('Editou dados da equipe',s.email);NX.toast('Dados atualizados.');NXS.atualizar(function(){render();});});});}
 /* ---------- EQUIPE (real) ---------- */
 function rEquipe(){var me=staffBy(S.user.id)||{},adm=me.nivel==='admin';
