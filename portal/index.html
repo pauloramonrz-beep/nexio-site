@@ -21,12 +21,13 @@
 <style>#printArea{display:none}@media print{body>*:not(#printArea){display:none!important}#printArea{display:block;padding:10mm}}</style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>window.NX_REAL=true;</script>
-<script src="/assets/store.js?v=202611251803"></script>
-<script src="/assets/auth.js?v=202611251803"></script>
-<script src="/assets/sync.js?v=202611251803"></script>
-<script src="/assets/blog.js?v=202611251803"></script>
-<script src="/assets/explorer.js?v=202611251803"></script>
-<script src="/assets/nfse.js?v=202611251803"></script>
+<script src="/assets/store.js?v=202611251835"></script>
+<script src="/assets/auth.js?v=202611251835"></script>
+<script src="/assets/sync.js?v=202611251835"></script>
+<script src="/assets/blog.js?v=202611251835"></script>
+<script src="/assets/explorer.js?v=202611251835"></script>
+<script src="/assets/relatorios.js?v=202611251835"></script>
+<script src="/assets/nfse.js?v=202611251835"></script>
 <script>
 (function(){
 NX.realMode=true;NX.useKey('nexio_cli_vazio');var db=NX.load(), e=NX.esc, S={cid:null,month:NX.ym(),filtro:'todos'};
@@ -199,7 +200,8 @@ function notas(){
   '</div><div class="row between" style="margin-top:16px;align-items:center"><p class="help" id="nliq">Valor líquido: R$ 0,00</p><button class="btn b-blue" type="submit">Emitir nota fiscal</button></div>'+
   '<p class="help" style="margin-top:8px"><b>Em implantação:</b> a nota é montada no padrão do Emissor Nacional (DPS v1.00 e DANFSe), mas não é assinada nem enviada à Sefin Nacional.</p></form></section>'+
   '<section class="card"><h2>Notas emitidas</h2><div class="tbl"><table><thead><tr><th>Nº</th><th>Emissão</th><th>Tomador</th><th>Serviço</th><th>Valor</th><th>Situação</th><th><span class="sr">Ações</span></th></tr></thead><tbody>'+
-  (ns.length?ns.map(function(n){return '<tr><td><b>'+n.num+'</b></td><td>'+NX.fdate(n.emissao)+'</td><td>'+e(n.tom.nome)+'<small style="display:block;color:var(--muted)">'+e(fmtDoc(n.tom.doc))+'</small></td><td>'+e(n.serv)+'</td><td>'+NX.brl(n.valor)+'</td><td>'+NXN.tag(n)+(n.corrigidaPor?'<small style="display:block;color:var(--muted);font-size:12px">corrigida na nota nº '+e((db.notas.filter(function(x){return x.id===n.corrigidaPor;})[0]||{}).num||'')+'</small>':'')+(n.chave&&n.real&&n.status!=='rejeitada'&&n.status!=='pendente'?'<small style="display:block;color:var(--muted);font-size:11px;word-break:break-all">'+n.chave+'</small>':'')+'</td><td style="white-space:nowrap">'+(n.status==='autorizada'||n.status==='cancelada'||n.status==='substituida'?'<button class="btn b-text" data-pdf="'+n.id+'">'+(n.real?'DANFSe oficial':'PDF')+'</button><button class="btn b-text" data-xml="'+n.id+'">XML</button>'+(n.status==='autorizada'&&n.real?'<button class="btn b-text" data-nt="sit|'+n.id+'">Atualizar situação</button><button class="btn b-text" data-nt="subst|'+n.id+'">Substituir</button>':'')+(n.status==='autorizada'?'<button class="btn b-danger" data-cancel="'+n.id+'">Cancelar</button>':''):NXN.acoes(n))+'</td></tr>';}).join(''):'<tr><td colspan="7" class="empty">Nenhuma nota emitida ainda.</td></tr>')+'</tbody></table></div></section>');
+  (ns.length?ns.map(function(n){return '<tr><td><b>'+n.num+'</b></td><td>'+NX.fdate(n.emissao)+'</td><td>'+e(n.tom.nome)+'<small style="display:block;color:var(--muted)">'+e(fmtDoc(n.tom.doc))+'</small></td><td>'+e(n.serv)+'</td><td>'+NX.brl(n.valor)+'</td><td>'+NXN.tag(n)+(n.corrigidaPor?'<small style="display:block;color:var(--muted);font-size:12px">corrigida na nota nº '+e((db.notas.filter(function(x){return x.id===n.corrigidaPor;})[0]||{}).num||'')+'</small>':'')+(n.chave&&n.real&&n.status!=='rejeitada'&&n.status!=='pendente'?'<small style="display:block;color:var(--muted);font-size:11px;word-break:break-all">'+n.chave+'</small>':'')+'</td><td style="white-space:nowrap">'+(n.status==='autorizada'||n.status==='cancelada'||n.status==='substituida'?'<button class="btn b-text" data-pdf="'+n.id+'">'+(n.real?'DANFSe oficial':'PDF')+'</button><button class="btn b-text" data-xml="'+n.id+'">XML</button>'+(n.status==='autorizada'&&n.real?'<button class="btn b-text" data-nt="sit|'+n.id+'">Atualizar situação</button><button class="btn b-text" data-nt="subst|'+n.id+'">Substituir</button>':'')+(n.status==='autorizada'?'<button class="btn b-danger" data-cancel="'+n.id+'">Cancelar</button>':''):NXN.acoes(n))+'</td></tr>';}).join(''):'<tr><td colspan="7" class="empty">Nenhuma nota emitida ainda.</td></tr>')+'</tbody></table></div></section><section class="card"><h2>Relatório mensal e XML em lote</h2><div id="nfrel"></div></section>');
+  NXN.painelRelatorio(document.getElementById('nfrel'),{notas:myNotas,nomeDe:function(){return me().nome;},salvar:persist,titulo:me().nome});
   var f=document.getElementById('nf');
   function liq(){var v=num(document.getElementById('nval').value),r=document.getElementById('nret').checked,a=num(document.getElementById('nal').value);document.getElementById('lal').style.display=r?'':'none';document.getElementById('nliq').textContent='Valor líquido: '+NX.brl(r?v-v*a/100:v)+(r?' (ISS retido: '+NX.brl(v*a/100)+')':'');}
   f.oninput=liq;f.onchange=liq;
