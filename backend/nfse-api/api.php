@@ -320,9 +320,10 @@ if ($acao === 'cancelar') {
   $mot = trim((string) ($entrada['motivo'] ?? '')); if (mb_strlen($mot) < 15) falha(422, 'Descreva o motivo do cancelamento (mínimo de 15 caracteres).');
   $cod = in_array((int) ($entrada['codigo'] ?? 1), [1, 2, 9], true) ? (int) $entrada['codigo'] : 1;
   $c = cert_empresa($emp['id']); $docP = dig($emp['documento']);
-  $id = 'PRE' . $ch . '101101' . '001';
-  $xml = '<pedRegEvento xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.00"><infPedReg Id="' . $id . '"><tpAmb>' . ($amb === 'producao' ? 1 : 2) . '</tpAmb><verAplic>' . xe($CFG['verAplic']) . '</verAplic><dhEvento>' . date('Y-m-d\TH:i:sP', time() - 60) . '</dhEvento>' .
-    (strlen($docP) === 11 ? '<CPFAutor>' . $docP . '</CPFAutor>' : '<CNPJAutor>' . $docP . '</CNPJAutor>') . '<chNFSe>' . $ch . '</chNFSe><nPedRegEvento>1</nPedRegEvento><e101101><xDesc>Cancelamento de NFS-e</xDesc><cMotivo>' . $cod . '</cMotivo><xMotivo>' . xe(mb_substr($mot, 0, 255)) . '</xMotivo></e101101></infPedReg></pedRegEvento>';
+  // leiaute atual (v1.01): Id = "PRE" + chave (50) + tipo do evento (6) = 59 posições; nPedRegEvento não existe mais
+  $id = 'PRE' . $ch . '101101';
+  $xml = '<pedRegEvento xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.01"><infPedReg Id="' . $id . '"><tpAmb>' . ($amb === 'producao' ? 1 : 2) . '</tpAmb><verAplic>' . xe($CFG['verAplic']) . '</verAplic><dhEvento>' . date('Y-m-d\TH:i:sP', time() - 60) . '</dhEvento>' .
+    (strlen($docP) === 11 ? '<CPFAutor>' . $docP . '</CPFAutor>' : '<CNPJAutor>' . $docP . '</CNPJAutor>') . '<chNFSe>' . $ch . '</chNFSe><e101101><xDesc>Cancelamento de NFS-e</xDesc><cMotivo>' . $cod . '</cMotivo><xMotivo>' . xe(mb_substr($mot, 0, 255)) . '</xMotivo></e101101></infPedReg></pedRegEvento>';
   $assinado = assinar($xml, 'infPedReg', $c);
   $r = http('POST', $CFG['sefin'][$amb] . '/nfse/' . $ch . '/eventos', ['Content-Type: application/json', 'Accept: application/json'], json_encode(['pedidoRegistroEventoXmlGZipB64' => gz64($assinado)]), pem_tmp($c));
   $j = json_decode($r['body'], true) ?: [];
