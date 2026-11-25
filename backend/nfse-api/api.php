@@ -234,7 +234,7 @@ if ($acao === 'cert_status') {
   $f = arq_cert($emp['id']);
   if (!is_file($f)) resp(200, ['ok' => true, 'tem' => false]);
   $d = json_decode(decifra((string) file_get_contents($f)), true);
-  resp(200, ['ok' => true, 'tem' => true, 'nome' => $d['meta']['nome'] ?? '', 'validade' => $d['meta']['validade'] ?? '', 'titular' => $d['meta']['cn'] ?? '', 'enviado_em' => $d['meta']['em'] ?? '']);
+  resp(200, ['ok' => true, 'tem' => true, 'nome' => 'Certificado A1 – ' . ($d['meta']['cn'] ?? ''), 'validade' => $d['meta']['validade'] ?? '', 'titular' => $d['meta']['cn'] ?? '', 'enviado_em' => $d['meta']['em'] ?? '']);
 }
 
 if ($acao === 'cert') {
@@ -246,7 +246,7 @@ if ($acao === 'cert') {
   $docEmp = dig($emp['documento']);
   if ($c['doc'] && $c['doc'] !== $docEmp && substr($c['doc'], 0, 8) !== substr($docEmp, 0, 8)) falha(422, 'Este certificado é de outro CPF/CNPJ (' . $c['doc'] . ') e não da empresa (' . $docEmp . ').');
   if ($c['validade'] < date('Y-m-d')) falha(422, 'Este certificado está vencido desde ' . date('d/m/Y', strtotime($c['validade'])) . '.');
-  $meta = ['nome' => basename((string) $_FILES['arquivo']['name']), 'cn' => $c['cn'], 'validade' => $c['validade'], 'emissor' => $c['emissor'], 'em' => date('c'), 'por' => $u['email']];
+  $meta = ['nome' => 'Certificado A1 – ' . ($c['cn'] ?: $docEmp), 'cn' => $c['cn'], 'validade' => $c['validade'], 'emissor' => $c['emissor'], 'em' => date('c'), 'por' => $u['email']];
   file_put_contents(arq_cert($emp['id']), cifra(json_encode(['pfx' => base64_encode($pfx), 'senha' => $senha, 'meta' => $meta])));
   @chmod(arq_cert($emp['id']), 0600);
   resp(200, ['ok' => true] + $meta);
