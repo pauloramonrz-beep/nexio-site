@@ -27,6 +27,7 @@
 <script src="/assets/fin-export.js"></script>
 <script src="/assets/blog.js"></script>
 <script src="/assets/relatorios.js"></script>
+<script src="/assets/nfse.js"></script>
 <script>
 (function(){
 var db=NX.load(), e=NX.esc, S={sel:null,tab:'arquivos',month:NX.ym(),user:null};
@@ -315,7 +316,7 @@ function snapFicha(c){var T=c.trib||{},I=c.insc||{},o={},L={nome:'Razão social'
   [['regime','Regime tributário'],['anexo','Anexo do Simples'],['rbt12','RBT12'],['folha12','Folha 12 meses'],['iss','Alíquota ISS'],['lc116','Item LC 116'],['codmun','Código tributação municipal'],['mun','Município do ISS'],['ibge','Código IBGE']].forEach(function(x){o[x[1]]=String(T[x[0]]==null?'':T[x[0]]);});
   [['fatorR','Fator R'],['issRet','ISS retido'],['uniprof','ISS fixo uniprofissional']].forEach(function(x){o[x[1]]=T[x[0]]?'Sim':'Não';});
   o['Sócios']=(c.socios||[]).map(function(s){return s.nome+(s.part?' '+s.part+'%':'')+(s.adm?' (adm.)':'');}).join('; ');
-  o['Serviços da nota fiscal']=(c.nfServ||[]).join(', ');
+  o['Serviços da nota fiscal']=(c.nfServ||[]).join(', ');o['Emissão de NFS-e']=(window.NXN&&NXN.AMBIENTES[c.nfAmb||'simulacao'])||'';
   o['Licenças']=(c.licencas||[]).map(function(l){return l.tipo+(l.numero?' nº '+l.numero:'')+(l.validade?' até '+NX.fdate(l.validade):'');}).join('; ');
   return o;}
 function tabFicha(c,el){c.trib=c.trib||{regime:/MEI/.test(c.plano||'')?'MEI':/PF/.test(c.plano||'')?'PF':'SN',anexo:'III',fatorR:true,rbt12:0,folha12:0,iss:2,issRet:false,lc116:'04.01',mun:'',uniprof:false};c.licencas=c.licencas||[];c.socios=c.socios||[];c.insc=c.insc||{};
@@ -338,7 +339,7 @@ function tabFicha(c,el){c.trib=c.trib||{regime:/MEI/.test(c.plano||'')?'MEI':/PF
     inp('iss','Alíquota ISS (%)',String(T.iss).replace('.',','),null,' inputmode="decimal"')+'<label style="flex-direction:row;align-items:center;gap:8px;color:var(--ink);align-self:end;min-height:44px"><input type="checkbox" name="issRet" '+(T.issRet?'checked':'')+' style="width:auto;min-height:auto">ISS normalmente retido pelo tomador</label>'+
     '<label style="flex-direction:row;align-items:center;gap:8px;color:var(--ink);align-self:end;min-height:44px"><input type="checkbox" name="uniprof" '+(T.uniprof?'checked':'')+' style="width:auto;min-height:auto">ISS fixo (sociedade uniprofissional)</label>'+
     inp('lc116','Item LC 116 padrão das notas',T.lc116)+inp('codmun','Código de tributação municipal',T.codmun)+inp('mun','Município de incidência do ISS',T.mun)+inp('ibge','Código IBGE do município',T.ibge,null,' placeholder="Manaus: 1302603"')+'</div><div id="tcalc" style="margin-top:12px"></div>')+
-  sec('Serviços da nota fiscal','<p class="help" style="margin:0 0 10px">Só os serviços marcados aparecem para o cliente emitir nota no portal. Use os CNAEs da empresa como base.</p><div id="nfsl" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px 14px">'+NX.LC116.map(function(x){var on=(c.nfServ||[]).indexOf(x[0])>-1;return '<label style="flex-direction:row;align-items:flex-start;gap:8px;color:var(--ink);font-weight:500"><input type="checkbox" name="nfs" value="'+x[0]+'" '+(on?'checked':'')+' style="width:auto;min-height:auto;margin-top:3px">'+x[0]+' – '+e(x[1])+'</label>';}).join('')+'</div><button type="button" class="btn b-line" id="nfsug" style="margin-top:10px">Sugerir pelos CNAEs</button>')+
+  sec('Serviços da nota fiscal','<label style="max-width:420px;margin-bottom:12px">Emissão de NFS-e no portal<select name="nfAmb">'+Object.keys(NXN.AMBIENTES).map(function(k){return '<option value="'+k+'"'+((c.nfAmb||'simulacao')===k?' selected':'')+'>'+NXN.AMBIENTES[k]+'</option>';}).join('')+'</select></label>'+(NXN.ativo()?'':'<p class="help" style="margin:0 0 10px;color:var(--warn)">O serviço de emissão ainda não está publicado: enquanto isso, todas as notas ficam em simulação.</p>')+'<p class="help" style="margin:0 0 10px">Só os serviços marcados aparecem para o cliente emitir nota no portal. Use os CNAEs da empresa como base.</p><div id="nfsl" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px 14px">'+NX.LC116.map(function(x){var on=(c.nfServ||[]).indexOf(x[0])>-1;return '<label style="flex-direction:row;align-items:flex-start;gap:8px;color:var(--ink);font-weight:500"><input type="checkbox" name="nfs" value="'+x[0]+'" '+(on?'checked':'')+' style="width:auto;min-height:auto;margin-top:3px">'+x[0]+' – '+e(x[1])+'</label>';}).join('')+'</div><button type="button" class="btn b-line" id="nfsug" style="margin-top:10px">Sugerir pelos CNAEs</button>')+
   sec('Licenciamentos e certificados','<div id="lics">'+c.licencas.map(licRow).join('')+'</div><button type="button" class="btn b-line" id="addl">+ Adicionar licença</button>'+
     '<p class="help" style="margin-top:10px">Certificado digital: '+(cert?'<b>'+e(cert.nome)+'</b> · válido até <b>'+NX.fdate(cert.validade)+'</b> <span class="tag '+NX.licStatus(cert.validade).c+'">'+NX.licStatus(cert.validade).t+'</span> · enviado por '+e(cert.por)+' em '+NX.fdate(cert.em.slice(0,10)):'ainda não enviado pelo cliente (ele envia em Portal › Configurações).')+'</p>')+
   sec('Sócios','<div id="socs">'+c.socios.map(socRow).join('')+'</div><button type="button" class="btn b-line" id="adds2">+ Adicionar sócio</button>')+
@@ -356,7 +357,7 @@ function tabFicha(c,el){c.trib=c.trib||{regime:/MEI/.test(c.plano||'')?'MEI':/PF
   f.addEventListener('click',function(ev){if(ev.target.classList.contains('rm-row'))ev.target.parentNode.remove();});
   f.onsubmit=function(ev){ev.preventDefault();var fd=new FormData(f),n=function(k){return parseFloat(String(fd.get(k)||'').replace(/\./g,'').replace(',','.'))||0;},antes=snapFicha(c);
     ['nome','fantasia','doc','abertura','natureza','porte','cnae','cnaes','endereco','cidade','plano','resp','email','tel','obsint'].forEach(function(k){c[k]=fd.get(k);});
-    c.nfServ=fd.getAll('nfs');
+    c.nfServ=fd.getAll('nfs');c.nfAmb=fd.get('nfAmb')||'simulacao';
     c.insc={ie:fd.get('ie'),im:fd.get('im'),nire:fd.get('nire'),ccm:fd.get('ccm'),conselho:fd.get('conselho'),suframa:fd.get('suframa')};
     c.trib={regime:fd.get('regime'),anexo:fd.get('anexo'),fatorR:!!fd.get('fatorR'),rbt12:n('rbt12'),folha12:n('folha12'),iss:n('iss'),issRet:!!fd.get('issRet'),uniprof:!!fd.get('uniprof'),lc116:fd.get('lc116'),codmun:fd.get('codmun'),mun:fd.get('mun'),ibge:fd.get('ibge')};
     c.licencas=[].slice.call(f.querySelectorAll('.lic')).map(function(r){var g=function(p){return r.querySelector('[name^="'+p+'"]').value;};return {tipo:g('lt'),numero:g('ln'),orgao:g('lo'),emissao:g('le'),validade:g('lv')};});

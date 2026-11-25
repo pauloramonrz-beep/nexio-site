@@ -1,0 +1,8 @@
+Options -Indexes
+<FilesMatch "^(config\.local\.php|LEIA-ME\.md)$">
+  Require all denied
+</FilesMatch>
+# repassa o cabeçalho Authorization para o PHP (necessário em algumas hospedagens)
+RewriteEngine On
+RewriteCond %{HTTP:Authorization} .
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
