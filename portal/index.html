@@ -21,12 +21,12 @@
 <style>#printArea{display:none}@media print{body>*:not(#printArea){display:none!important}#printArea{display:block;padding:10mm}}</style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>window.NX_REAL=true;</script>
-<script src="/assets/store.js?v=202611251051"></script>
-<script src="/assets/auth.js?v=202611251051"></script>
-<script src="/assets/sync.js?v=202611251051"></script>
-<script src="/assets/blog.js?v=202611251051"></script>
-<script src="/assets/explorer.js?v=202611251051"></script>
-<script src="/assets/nfse.js?v=202611251051"></script>
+<script src="/assets/store.js?v=202611251103"></script>
+<script src="/assets/auth.js?v=202611251103"></script>
+<script src="/assets/sync.js?v=202611251103"></script>
+<script src="/assets/blog.js?v=202611251103"></script>
+<script src="/assets/explorer.js?v=202611251103"></script>
+<script src="/assets/nfse.js?v=202611251103"></script>
 <script>
 (function(){
 NX.realMode=true;NX.useKey('nexio_cli_vazio');var db=NX.load(), e=NX.esc, S={cid:null,month:NX.ym(),filtro:'todos'};
@@ -329,7 +329,7 @@ function certPersist(c){if(!(window.NXS&&NXS.somenteLeitura)){persist();return;}
 var CERTCHK={};
 function config(){if(NXN.ativo()&&!CERTCHK[S.cid]){CERTCHK[S.cid]=1;NXN.certStatus(S.cid).then(function(r){var c=me(),antes=JSON.stringify(c.cert||null);
     if(r.tem){c.cert=Object.assign({},c.cert||{},{nome:r.nome,validade:r.validade,titular:r.titular,cofre:true,autoriza:true,em:(c.cert&&c.cert.em)||r.enviado_em||new Date().toISOString(),por:(c.cert&&c.cert.por)||''});}else if(c.cert&&c.cert.cofre){delete c.cert;}
-    if(JSON.stringify(c.cert||null)!==antes){certPersist(c);if(route()==='config')config();}}).catch(function(){});}if(['titular','financeiro'].indexOf(nivel())<0){shell('config',head('Configurações','Privacidade e seus dados.')+privacidadeHTML());bindPrivacidade();return;}var c=me(),T=c.trib||{},r=NX.calcSimples(T),tit=nivel()==='titular',cert=c.cert,np=c.notifPref||{portal:true,email:true,whats:false},nf=c.nfCfg||{serie:'1',proximo:(db.notas||[]).filter(function(n){return n.cliente===S.cid;}).length+1,desc:'',copia:'',enviarTomador:true};
+    if(JSON.stringify(c.cert||null)!==antes){certPersist(c);var fo=document.getElementById('cf'),mexeu=fo&&((fo.senha&&fo.senha.value)||(fo.arq&&fo.arq.files.length));if(route()==='config'&&!mexeu)config();}}).catch(function(){});}if(['titular','financeiro'].indexOf(nivel())<0){shell('config',head('Configurações','Privacidade e seus dados.')+privacidadeHTML());bindPrivacidade();return;}var c=me(),T=c.trib||{},r=NX.calcSimples(T),tit=nivel()==='titular',cert=c.cert,np=c.notifPref||{portal:true,email:true,whats:false},nf=c.nfCfg||{serie:'1',proximo:(db.notas||[]).filter(function(n){return n.cliente===S.cid;}).length+1,desc:'',copia:'',enviarTomador:true};
   var kv=function(k,v){return '<dt>'+k+'</dt><dd>'+(v||'—')+'</dd>';};
   shell('config',head('Configurações','Dados da empresa, tributação, certificado digital, notas fiscais e avisos.')+
   '<div class="cols"><section class="card"><h2>Dados da empresa</h2><dl class="kv">'+kv('Razão social',e(c.nome))+kv('Nome fantasia',e(c.fantasia))+kv('CNPJ / CPF',e(c.doc))+kv('CNAE principal',e(c.cnae))+kv('Município',e(c.cidade))+kv('Inscrição municipal',e((c.insc||{}).im))+kv('Inscrição estadual',e((c.insc||{}).ie))+kv('Plano NEXIO',e(c.plano))+'</dl><p class="help" style="margin-top:10px">Algum dado errado? <a href="#/mensagens">Avise a NEXIO</a>.</p></section>'+
