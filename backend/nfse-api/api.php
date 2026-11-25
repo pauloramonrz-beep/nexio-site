@@ -195,6 +195,9 @@ function montar_dps(array $emp, array $d, string $amb, int $nDPS): array {
   }
   $tribMun = '<tribMun><tribISSQN>1</tribISSQN><tpRetISSQN>' . ($ret ? 2 : 1) . '</tpRetISSQN>' . (($ret || $op === 1) && $pAliq > 0 ? '<pAliq>' . number_format($pAliq, 2, '.', '') . '</pAliq>' : '') . '</tribMun>';
   $pSN = round((float) ($d['pTotTribSN'] ?? 0), 2);
+  // substituição: a nova nota cancela a anterior automaticamente (cMotivo 01..99 conforme leiaute)
+  $subst = ''; $sb = (array) ($d['subst'] ?? []);
+  if (strlen(dig($sb['chave'] ?? '')) === 50) $subst = '<subst><chSubstda>' . dig($sb['chave']) . '</chSubstda><cMotivo>' . str_pad((string) max(1, min(99, (int) ($sb['cMotivo'] ?? 99))), 2, '0', STR_PAD_LEFT) . '</cMotivo>' . ((int) ($sb['cMotivo'] ?? 99) === 99 ? '<xMotivo>' . xe(mb_substr(trim((string) ($sb['xMotivo'] ?? 'Substituição da NFS-e')), 0, 255)) . '</xMotivo>' : '') . '</subst>';
   if ($op === 3 && $pSN <= 0) {
     // ME/EPP: a Receita exige pTotTribSN; sem RBT12, usa a alíquota da 1ª faixa do anexo
     $faixa1 = ['I' => 4.00, 'II' => 4.50, 'III' => 6.00, 'IV' => 4.50, 'V' => 15.50];
@@ -203,7 +206,7 @@ function montar_dps(array $emp, array $d, string $amb, int $nDPS): array {
   $tot = $op === 3 ? '<totTrib><pTotTribSN>' . number_format($pSN, 2, '.', '') . '</pTotTribSN></totTrib>' : '<totTrib><indTotTrib>0</indTotTrib></totTrib>';
   $fone = dig($I['telefone'] ?? ''); $email = trim((string) ($I['email'] ?? ''));
   $xml = '<DPS xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.00"><infDPS Id="' . $id . '">' .
-    '<tpAmb>' . ($amb === 'producao' ? 1 : 2) . '</tpAmb><dhEmi>' . $dhEmi . '</dhEmi><verAplic>' . xe($CFG['verAplic']) . '</verAplic><serie>' . $serie . '</serie><nDPS>' . $nDPS . '</nDPS><dCompet>' . $dComp . '</dCompet><tpEmit>1</tpEmit><cLocEmi>' . $cMun . '</cLocEmi>' .
+    '<tpAmb>' . ($amb === 'producao' ? 1 : 2) . '</tpAmb><dhEmi>' . $dhEmi . '</dhEmi><verAplic>' . xe($CFG['verAplic']) . '</verAplic><serie>' . $serie . '</serie><nDPS>' . $nDPS . '</nDPS><dCompet>' . $dComp . '</dCompet><tpEmit>1</tpEmit><cLocEmi>' . $cMun . '</cLocEmi>' . $subst .
     '<prest><' . $tpP . '>' . $docP . '</' . $tpP . '>' . (!empty($I['im']) ? '<IM>' . xe(dig($I['im']) ?: $I['im']) . '</IM>' : '') . (strlen($fone) >= 10 ? '<fone>' . $fone . '</fone>' : '') . ($email ? '<email>' . xe($email) . '</email>' : '') .
     '<regTrib><opSimpNac>' . $op . '</opSimpNac>' . ($op === 3 ? '<regApTribSN>1</regApTribSN>' : '') . '<regEspTrib>' . (!empty($T['uniprof']) ? 4 : 0) . '</regEspTrib></regTrib></prest>' .
     '<toma><' . $tpT . '>' . $docT . '</' . $tpT . '><xNome>' . xe(trim((string) ($tom['nome'] ?? ''))) . '</xNome>' . $endXml . (strlen(dig($tom['fone'] ?? '')) >= 10 ? '<fone>' . dig($tom['fone']) . '</fone>' : '') . (!empty($tom['email']) ? '<email>' . xe($tom['email']) . '</email>' : '') . '</toma>' .
@@ -268,7 +271,8 @@ if ($acao === 'emitir') {
   $amb = ($entrada['ambiente'] ?? '') === 'producao' ? 'producao' : 'restrita';
   $d = (array) ($entrada['dps'] ?? []);
   $c = cert_empresa($emp['id']);
-  $nDPS = proximo_ndps($emp['id'], (string) ($d['serie'] ?? '1'), $amb, max(1, (int) ($d['nDPS'] ?? 1)));
+  // reenvio de envio não confirmado: usa o MESMO número de DPS, para a Receita nunca gerar nota em duplicidade
+  $nDPS = !empty($entrada['reusar']) && (int) ($d['nDPS'] ?? 0) > 0 ? (int) $d['nDPS'] : proximo_ndps($emp['id'], (string) ($d['serie'] ?? '1'), $amb, max(1, (int) ($d['nDPS'] ?? 1)));
   $dps = montar_dps($emp, $d, $amb, $nDPS);
   $assinado = assinar($dps['xml'], 'infDPS', $c);
   if (!empty($entrada['somente_xml'])) resp(200, ['ok' => true, 'teste' => true, 'idDPS' => $dps['id'], 'nDPS' => $nDPS, 'dpsXml' => $assinado]);
@@ -279,7 +283,26 @@ if ($acao === 'emitir') {
     $nNFSe = ''; if ($nfse && preg_match('/<nNFSe>(\d+)<\/nNFSe>/', $nfse, $m)) $nNFSe = $m[1];
     resp(200, ['ok' => true, 'ambiente' => $amb, 'chave' => $j['chaveAcesso'] ?? '', 'idDPS' => $j['idDps'] ?? $j['idDPS'] ?? $dps['id'], 'nDPS' => $nDPS, 'nNFSe' => $nNFSe, 'dhProc' => $j['dataHoraProcessamento'] ?? '', 'alertas' => $j['alertas'] ?? [], 'nfseXml' => $nfse, 'dpsXml' => $assinado]);
   }
-  falha($r['code'] ?: 502, $r['code'] ? 'A Receita recusou a nota.' : 'Não consegui falar com a Receita: ' . $r['erro'], ['erros' => erros_sefin($j), 'http' => $r['code'], 'nDPS' => $nDPS, 'dpsXml' => $assinado]);
+  $semResposta = $r['code'] === 0 || $r['code'] >= 500 || in_array($r['code'], [408, 429], true);
+  falha($r['code'] ?: 502, $semResposta ? ($r['code'] ? 'A Receita está indisponível no momento (HTTP ' . $r['code'] . ').' : 'Não consegui falar com a Receita: ' . $r['erro']) : 'A Receita recusou a nota.',
+    ['erros' => erros_sefin($j), 'http' => $r['code'], 'nDPS' => $nDPS, 'idDPS' => $dps['id'], 'pendente' => $semResposta, 'dpsXml' => $assinado]);
+}
+
+if ($acao === 'consultar_dps') {
+  $emp = empresa_permitida($u, (string) ($entrada['empresa'] ?? ''), ['titular', 'financeiro', 'notas']);
+  $amb = ($entrada['ambiente'] ?? '') === 'producao' ? 'producao' : 'restrita';
+  $id = preg_replace('/[^A-Z0-9]/', '', strtoupper((string) ($entrada['idDPS'] ?? '')));
+  if (strlen($id) !== 45 || strpos($id, 'DPS') !== 0) falha(422, 'Identificador da DPS inválido.');
+  $c = cert_empresa($emp['id']); $m = pem_tmp($c);
+  $r = http('GET', $CFG['sefin'][$amb] . '/dps/' . $id, ['Accept: application/json'], null, $m);
+  if ($r['code'] === 404) resp(200, ['ok' => true, 'encontrada' => false]);
+  $j = json_decode($r['body'], true) ?: [];
+  $ch = dig($j['chaveAcesso'] ?? '');
+  if (($r['code'] !== 200 && $r['code'] !== 201) || strlen($ch) !== 50) falha($r['code'] ?: 502, $r['code'] ? 'A Receita não respondeu a consulta (HTTP ' . $r['code'] . ').' : 'Não consegui falar com a Receita: ' . $r['erro'], ['erros' => erros_sefin($j), 'pendente' => true]);
+  $r2 = http('GET', $CFG['sefin'][$amb] . '/nfse/' . $ch, ['Accept: application/json'], null, $m);
+  $j2 = json_decode($r2['body'], true) ?: []; $nfse = ungz64((string) ($j2['nfseXmlGZipB64'] ?? ''));
+  $nNFSe = ''; if ($nfse && preg_match('/<nNFSe>(\d+)<\/nNFSe>/', $nfse, $mm)) $nNFSe = $mm[1];
+  resp(200, ['ok' => true, 'encontrada' => true, 'chave' => $ch, 'nNFSe' => $nNFSe, 'nfseXml' => $nfse, 'idDPS' => $id]);
 }
 
 if ($acao === 'cancelar') {
@@ -296,14 +319,43 @@ if ($acao === 'cancelar') {
   $r = http('POST', $CFG['sefin'][$amb] . '/nfse/' . $ch . '/eventos', ['Content-Type: application/json', 'Accept: application/json'], json_encode(['pedidoRegistroEventoXmlGZipB64' => gz64($assinado)]), pem_tmp($c));
   $j = json_decode($r['body'], true) ?: [];
   if ($r['code'] === 201 || $r['code'] === 200) resp(200, ['ok' => true, 'eventoXml' => ungz64((string) ($j['eventoXmlGZipB64'] ?? ''))]);
-  falha($r['code'] ?: 502, 'A Receita recusou o cancelamento.', ['erros' => erros_sefin($j), 'http' => $r['code']]);
+  $er = erros_sefin($j); $fora = (bool) preg_grep('/^E0822\b/', $er);
+  falha($r['code'] ?: 502, $fora ? 'O prazo para cancelar esta nota já acabou (regra da prefeitura no Sistema Nacional).' : 'A Receita recusou o cancelamento.', ['erros' => $er, 'http' => $r['code'], 'foraDoPrazo' => $fora]);
+}
+
+if ($acao === 'consultar_nfse') {
+  // situação oficial da NFS-e na Receita: XML autorizado + se já foi cancelada (inclusive fora do portal)
+  $emp = empresa_permitida($u, (string) ($entrada['empresa'] ?? ''), ['titular', 'financeiro', 'notas', 'rh', 'consulta']);
+  $amb = ($entrada['ambiente'] ?? '') === 'producao' ? 'producao' : 'restrita';
+  $ch = dig($entrada['chave'] ?? ''); if (strlen($ch) !== 50) falha(422, 'Chave de acesso inválida.');
+  $m = pem_tmp(cert_empresa($emp['id']));
+  $r = http('GET', $CFG['sefin'][$amb] . '/nfse/' . $ch, ['Accept: application/json'], null, $m);
+  if ($r['code'] === 404) falha(404, 'A Receita não encontrou nota com essa chave neste ambiente.', ['http' => 404]);
+  $j = json_decode($r['body'], true) ?: [];
+  if ($r['code'] !== 200) falha($r['code'] ?: 502, $r['code'] ? 'A Receita não respondeu a consulta (HTTP ' . $r['code'] . ').' : 'Não consegui falar com a Receita: ' . $r['erro'], ['erros' => erros_sefin($j), 'pendente' => true]);
+  $nfse = ungz64((string) ($j['nfseXmlGZipB64'] ?? ''));
+  if ($nfse && strpos($nfse, dig($emp['documento'])) === false) falha(403, 'Essa nota não pertence a esta empresa.');
+  $nNFSe = ''; if ($nfse && preg_match('/<nNFSe>(\d+)<\/nNFSe>/', $nfse, $mm)) $nNFSe = $mm[1];
+  $canc = null;
+  foreach (['101101' => 'Cancelamento', '105102' => 'Cancelamento por substituição', '305101' => 'Cancelamento deferido por análise fiscal'] as $tp => $nome) {
+    $e = http('GET', $CFG['sefin'][$amb] . '/nfse/' . $ch . '/eventos/' . $tp . '/1', ['Accept: application/json'], null, $m);
+    if ($e['code'] === 200) { $je = json_decode($e['body'], true) ?: []; $xe = ungz64((string) ($je['eventoXmlGZipB64'] ?? $je['eventoXml'] ?? ''));
+      $dh = ''; if ($xe && preg_match('/<dhEvento>([^<]+)<\/dhEvento>/', $xe, $md)) $dh = $md[1];
+      $mot = ''; if ($xe && preg_match('/<xMotivo>([^<]*)<\/xMotivo>/', $xe, $mx)) $mot = html_entity_decode($mx[1], ENT_XML1, 'UTF-8');
+      $canc = ['tipo' => $nome, 'em' => $dh, 'motivo' => $mot]; break; }
+  }
+  resp(200, ['ok' => true, 'chave' => $ch, 'nNFSe' => $nNFSe, 'nfseXml' => $nfse, 'cancelada' => $canc]);
 }
 
 if ($acao === 'danfse') {
   $emp = empresa_permitida($u, (string) ($_GET['empresa'] ?? ''), ['titular', 'financeiro', 'notas', 'rh', 'consulta']);
   $amb = ($_GET['ambiente'] ?? '') === 'producao' ? 'producao' : 'restrita';
   $ch = dig($_GET['chave'] ?? ''); if (strlen($ch) !== 50) falha(422, 'Chave de acesso inválida.');
-  $r = http('GET', $CFG['adn'][$amb] . '/danfse/' . $ch, ['Accept: application/pdf'], null, pem_tmp(cert_empresa($emp['id'])));
+  $m = pem_tmp(cert_empresa($emp['id'])); $r = ['code' => 0, 'body' => ''];
+  foreach (['/danfse/', '/contribuintes/danfse/'] as $cam) {  // DANFSe oficial gerado pelo Portal Nacional (ADN)
+    $r = http('GET', $CFG['adn'][$amb] . $cam . $ch, ['Accept: application/pdf'], null, $m);
+    if ($r['code'] === 200 && strpos($r['body'], '%PDF') === 0) break;
+  }
   if ($r['code'] === 200 && strpos($r['body'], '%PDF') === 0) { header('Content-Type: application/pdf'); header('Content-Disposition: inline; filename="DANFSe_' . $ch . '.pdf"'); echo $r['body']; exit; }
   falha(404, 'DANFSe oficial indisponível no momento.', ['http' => $r['code']]);
 }

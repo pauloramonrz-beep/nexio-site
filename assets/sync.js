@@ -25,7 +25,7 @@ function msgToRow(m){return {id:m.id,empresa_id:m.cliente,de:m.de==='cliente'?'c
 function notFromRow(r){return Object.assign({},r.meta||{},{id:r.id,cliente:r.empresa_id,ev:r.evento,titulo:r.titulo,texto:r.texto,link:r.link,canais:r.canais||['portal'],lida:r.lida,em:r.em});}
 function notToRow(n){return {id:n.id,empresa_id:n.cliente,evento:n.ev||'aviso',titulo:n.titulo||'Aviso',texto:n.texto||null,link:n.link||null,canais:n.canais&&n.canais.length?n.canais:['portal'],lida:!!n.lida,em:n.em||new Date().toISOString(),meta:omit(n,['id','cliente','ev','titulo','texto','link','canais','lida','em'])};}
 function notaFromRow(r){return Object.assign({},r.meta||{},{id:r.id,cliente:r.empresa_id,status:r.meta&&r.meta.status||r.situacao});}
-function notaToRow(n){return {id:n.id,empresa_id:n.cliente,serie:n.serie||null,n_dps:n.nDPS||null,chave:/^\d{50}$/.test(n.chave||'')?n.chave:null,situacao:n.status||'simulada',tomador:n.tom||{},servico:{serv:n.serv,desc:n.desc,cTrib:n.cTrib},valores:{valor:n.valor,iss:n.iss,aliq:n.aliqISS},emitida_em:n.dhEmi||new Date().toISOString(),meta:omit(n,['id','cliente'])};}
+function notaToRow(n){var fin=n.status==='autorizada'||n.status==='cancelada';return {id:n.id,empresa_id:n.cliente,serie:(n.real?(n.amb==='producao'?'P':'R'):'S')+(n.serie||'1'),n_dps:fin&&n.nDPS?+n.nDPS:-parseInt(String(n.id).replace(/[^0-9a-f]/gi,'').slice(0,12)||'1',16),chave:/^\d{50}$/.test(n.chave||'')?n.chave:null,situacao:n.status||'simulada',tomador:n.tom||{},servico:{serv:n.serv,desc:n.desc,cTrib:n.cTrib},valores:{valor:n.valor,iss:n.iss,aliq:n.aliqISS},emitida_em:n.dhEmi||new Date().toISOString(),meta:omit(n,['id','cliente'])};}
 function lgFromRow(r){return Object.assign({},r.meta||{},{id:r.id,cliente:r.empresa_id,usuario:r.usuario_id,tipo:r.tipo,texto:r.texto,prazo:r.prazo,status:r.status,resposta:r.resposta,em:r.em});}
 function lgToRow(r,novo){var o={id:r.id,empresa_id:r.cliente||null,tipo:r.tipo,texto:r.texto,prazo:data(r.prazo),status:r.status||'aberta',resposta:r.resposta||null,respondida_em:r.concluida||null,meta:omit(r,['id','cliente','usuario','tipo','texto','prazo','status','resposta'])};if(!novo)delete o.texto;return o;}
 function incFromRow(r){return Object.assign({},r.meta||{},{id:r.id});}
@@ -82,11 +82,17 @@ function subir(f,interno){var empresa=interno?NXS.interno:(f.cliente||NXS.empres
   var path=empresa+'/'+(NXS.modo==='cliente'?'cliente/':'')+f.id+'-'+NXA.nomeSeguro(f.nome||'arquivo');
   var p=f.data.split(','),mime=(p[0].match(/:(.*?);/)||[])[1]||'application/octet-stream',bin=atob(p[1]),u=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
   return sb().storage.from('documentos').upload(path,new Blob([u],{type:mime}),{contentType:mime,upsert:true}).then(function(r){if(chk(r,'envio do arquivo '+(f.nome||'')))return null;return path;});}
-NX.beforeSave=function(db){if(!NX.realMode||!NXS.modo||NXS.somenteLeitura)return;
+NX.beforeSave=function(db){if(!NX.realMode||!NXS.modo)return;
+  /* equipe vendo o portal do cliente: nada é gravado, EXCETO as notas fiscais (uma nota emitida nunca pode sumir) */
+  if(NXS.somenteLeitura){if(!db.notas)return;clearTimeout(NXS.timer);var so={notas:JSON.parse(JSON.stringify(db.notas))};NXS.timer=setTimeout(function(){NXS.fila=NXS.fila.then(function(){return pushNotas(so.notas);}).catch(function(e){console.error(e);});},600);return;}
   [['files',false],['office',true]].forEach(function(x){(db[x[0]]||[]).forEach(function(f){if(f.data&&!f.storage_path&&!NXS.pend[f.id]){NXS.pend[f.id]={data:f.data,interno:x[1]};}});});
   clearTimeout(NXS.timer);var snapDb=JSON.parse(JSON.stringify(db,function(k,v){return k==='data'&&typeof v==='string'&&v.indexOf('data:')===0?undefined:v;}));
   NXS.timer=setTimeout(function(){NXS.empurrar(snapDb);},600);};
 NXS.empurrar=function(db){NXS.fila=NXS.fila.then(function(){return push(db);}).catch(function(e){console.error(e);});return NXS.fila;};
+function pushNotas(notas){var old=NXS.snap.notas=NXS.snap.notas||{},ops=[];
+  (notas||[]).forEach(function(n){if(!n||!isUuid(n.id))return;var row=notaToRow(n),st=S(row);if(old[n.id]===st)return;var novo=!old[n.id];
+    ops.push((novo?sb().from('nfse').insert(row):sb().from('nfse').update(omit(row,['id'])).eq('id',n.id)).then(function(r){if(r.error&&novo&&/duplicate|23505/.test(r.error.code+r.error.message))return sb().from('nfse').update(omit(row,['id'])).eq('id',n.id);return r;}).then(function(r){if(!chk(r,'gravar nota'))old[n.id]=st;}));});
+  return Promise.all(ops);}
 function push(db){var L=linhas(db),old=NXS.snap,ops=[];
   /* uploads pendentes */
   var ups=Object.keys(NXS.pend).map(function(id){var p=NXS.pend[id],arr=p.interno?db.office:db.files,f=(arr||[]).filter(function(x){return x.id===id;})[0];if(!f){delete NXS.pend[id];return Promise.resolve();}
@@ -105,6 +111,7 @@ function push(db){var L=linhas(db),old=NXS.snap,ops=[];
         else q=novo?sb().from(t).insert(row):sb().from(t).update(omit(row,['id'])).eq('id',id);
         ops.push(q.then(function(r){if(!chk(r,'gravar '+k)){old[k]=old[k]||{};old[k][id]=s;}}));});
       Object.keys(prev).forEach(function(id){if(cur[id])return;
+        if(k==='notas'){if(window.console)console.warn('NEXIO: notas fiscais nunca são apagadas do banco ('+id+').');return;}
         var q;if(k==='clients')q=sb().from(t).update({ativo:false}).eq('id',id);
         else if(k==='files'||k==='office'){var path=(JSON.parse(prev[id])||{}).storage_path;q=sb().from(t).delete().eq('id',id).then(function(r){if(!r.error&&path)sb().storage.from('documentos').remove([path]);return r;});}
         else q=sb().from(t).delete().eq('id',id);
