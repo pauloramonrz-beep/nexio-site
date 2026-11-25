@@ -20,14 +20,14 @@
 <dialog id="dlg"><form method="dialog" id="dlgForm"></form></dialog>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="/assets/store.js?v=202611251840"></script>
-<script src="/assets/auth.js?v=202611251840"></script>
-<script src="/assets/sync.js?v=202611251840"></script>
-<script src="/assets/explorer.js?v=202611251840"></script>
-<script src="/assets/fin-export.js?v=202611251840"></script>
-<script src="/assets/blog.js?v=202611251840"></script>
-<script src="/assets/relatorios.js?v=202611251840"></script>
-<script src="/assets/nfse.js?v=202611251840"></script>
+<script src="/assets/store.js?v=202611251850"></script>
+<script src="/assets/auth.js?v=202611251850"></script>
+<script src="/assets/sync.js?v=202611251850"></script>
+<script src="/assets/explorer.js?v=202611251850"></script>
+<script src="/assets/fin-export.js?v=202611251850"></script>
+<script src="/assets/blog.js?v=202611251850"></script>
+<script src="/assets/relatorios.js?v=202611251850"></script>
+<script src="/assets/nfse.js?v=202611251850"></script>
 <script>
 (function(){
 var db=NX.load(), e=NX.esc, S={sel:null,tab:'arquivos',month:NX.ym(),user:null};
@@ -132,11 +132,11 @@ function clientes(id){
   var el=document.getElementById('det');
   if(!S.sel){el.innerHTML='<p class="empty">Selecione um cliente na lista ou cadastre um novo.</p>';return;}
   var c=cli(S.sel);
-  var tabs=[['dados','Ficha do cliente'],['usuarios','Usuários do cliente'],['obrigacoes','Seleção de obrigações']].filter(function(t){return t[0]==='usuarios'?can('clientesEdit'):t[0]==='arquivos'?can('docs'):t[0]==='obrigacoes'?can('obrig'):t[0]==='dados'?can('clientesEdit'):true;});if(!tabs.some(function(t){return t[0]===S.tab;}))S.tab=tabs[0][0];
+  var tabs=[['dados','Ficha do cliente'],['usuarios','Usuários do cliente'],['obrigacoes','Seleção de obrigações'],['historico','Histórico de alterações'+((c.alteracoes||[]).length?' ('+c.alteracoes.length+')':'')]].filter(function(t){return t[0]==='historico'?can('clientesEdit'):t[0]==='usuarios'?can('clientesEdit'):t[0]==='arquivos'?can('docs'):t[0]==='obrigacoes'?can('obrig'):t[0]==='dados'?can('clientesEdit'):true;});if(!tabs.some(function(t){return t[0]===S.tab;}))S.tab=tabs[0][0];
   el.innerHTML='<div class="row between" style="margin-bottom:12px"><div><h2 style="margin:0">'+e(c.nome)+'</h2><p class="help">'+e(c.doc)+' · '+e(c.plano)+' · '+e(c.resp)+'</p></div></div>'+
   '<div class="tabs" role="tablist">'+tabs.map(function(t){return '<button role="tab" data-t="'+t[0]+'" aria-selected="'+(S.tab===t[0])+'">'+t[1]+'</button>';}).join('')+'</div><div id="tabc"></div>';
   el.querySelectorAll('[data-t]').forEach(function(b){b.onclick=function(){S.tab=b.getAttribute('data-t');clientes(S.sel);};});
-  ({arquivos:tabArquivos,obrigacoes:tabObrig,mensagens:tabMsgs,dados:tabFicha,usuarios:(S.user&&S.user.real)?function(c,el){rUsuarios({id:c.id,razao_social:c.nome},el);}:tabUsers})[S.tab](c,document.getElementById('tabc'));
+  ({arquivos:tabArquivos,obrigacoes:tabObrig,mensagens:tabMsgs,dados:tabFicha,historico:tabHistorico,usuarios:(S.user&&S.user.real)?function(c,el){rUsuarios({id:c.id,razao_social:c.nome},el);}:tabUsers})[S.tab](c,document.getElementById('tabc'));
 }
 /* ---------- DOCUMENTOS (espelhado no Onvio Documentos) ---------- */
 var SETORES=['Fiscal','Departamento Pessoal','Contábil','Financeiro','Societário','Certidões','Notas fiscais','Enviados pelo cliente','Administrativo (interno)'];
@@ -319,6 +319,12 @@ function snapFicha(c){var T=c.trib||{},I=c.insc||{},o={},L={nome:'Razão social'
   o['Serviços da nota fiscal']=(c.nfServ||[]).join(', ');o['Emissão de NFS-e']=(window.NXN&&NXN.AMBIENTES[c.nfAmb||'simulacao'])||'';
   o['Licenças']=(c.licencas||[]).map(function(l){return l.tipo+(l.numero?' nº '+l.numero:'')+(l.validade?' até '+NX.fdate(l.validade):'');}).join('; ');
   return o;}
+var HST={q:'',campo:''};
+function tabHistorico(c,el){var L=(c.alteracoes||[]).slice().reverse(),campos={};L.forEach(function(a){(a.campos||[]).forEach(function(m){campos[m[0]]=1;});});
+  el.innerHTML='<section class="card"><h2>Histórico de alterações</h2><p class="help" style="margin:0 0 12px">Quem alterou, quando e o que mudou no cadastro do cliente.</p><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:12px"><label>Buscar<input id="hsq" placeholder="Pessoa, campo ou valor" value="'+e(HST.q)+'"></label><label>Campo<select id="hsc"><option value="">Todos</option>'+Object.keys(campos).sort().map(function(k){return '<option'+(HST.campo===k?' selected':'')+'>'+e(k)+'</option>';}).join('')+'</select></label></div><div id="hsl"></div></section>';
+  var draw=function(){var q=HST.q.toLowerCase(),l=L.filter(function(a){var cs=a.campos||[];if(HST.campo&&!cs.some(function(m){return m[0]===HST.campo;}))return false;if(!q)return true;return JSON.stringify([a.ev,a.por,cs]).toLowerCase().indexOf(q)>-1;});
+    document.getElementById('hsl').innerHTML=l.length?l.map(function(a){var cs=(a.campos||[]).filter(function(m){return !HST.campo||m[0]===HST.campo;});return '<div class="list-item" style="display:block"><div class="row between"><b>'+e(a.ev||'Alteração')+'</b><small>'+e(a.por||'—')+' · '+NX.ftime(a.em)+'</small></div>'+(cs.length?'<ul style="margin:6px 0 0;padding-left:18px;font-size:14px">'+cs.map(function(m){return '<li><b>'+e(m[0])+':</b> '+(m[1]?'<s style="color:var(--muted)">'+e(m[1])+'</s> → ':'')+e(m[2]||'(vazio)')+'</li>';}).join('')+'</ul>':'')+'</div>';}).join(''):'<p class="empty">'+(L.length?'Nada encontrado com esse filtro.':'Nenhuma alteração registrada ainda.')+'</p>';};
+  draw();document.getElementById('hsq').oninput=function(ev){HST.q=ev.target.value;draw();};document.getElementById('hsc').onchange=function(ev){HST.campo=ev.target.value;draw();};}
 function tabFicha(c,el){c.trib=c.trib||{regime:/MEI/.test(c.plano||'')?'MEI':/PF/.test(c.plano||'')?'PF':'SN',anexo:'III',fatorR:true,rbt12:0,folha12:0,iss:2,issRet:false,lc116:'04.01',mun:'',uniprof:false};c.licencas=c.licencas||[];c.socios=c.socios||[];c.insc=c.insc||{};
   var T=c.trib,inp=function(n,l,v,ty,ex){return '<label>'+l+'<input name="'+n+'" value="'+e(v==null?'':v)+'"'+(ty?' type="'+ty+'"':'')+(ex||'')+'></label>';};
   var sel=function(n,l,opts,v){return '<label>'+l+'<select name="'+n+'">'+opts.map(function(o){return '<option value="'+o[0]+'"'+(String(v)===String(o[0])?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></label>';};
@@ -344,7 +350,7 @@ function tabFicha(c,el){c.trib=c.trib||{regime:/MEI/.test(c.plano||'')?'MEI':/PF
     '<p class="help" style="margin-top:10px">Certificado digital: '+(cert?'<b>'+e(cert.nome)+'</b> · válido até <b>'+NX.fdate(cert.validade)+'</b> <span class="tag '+NX.licStatus(cert.validade).c+'">'+NX.licStatus(cert.validade).t+'</span> · enviado por '+e(cert.por)+' em '+NX.fdate(cert.em.slice(0,10)):'ainda não enviado pelo cliente (ele envia em Portal › Configurações).')+'</p>')+
   sec('Sócios','<div id="socs">'+c.socios.map(socRow).join('')+'</div><button type="button" class="btn b-line" id="adds2">+ Adicionar sócio</button>')+
   sec('Observações internas','<label class="sr" for="obsint">Observações</label><textarea id="obsint" name="obsint">'+e(c.obsint||'')+'</textarea>')+
-  sec('Histórico de alterações','<p class="help" style="margin:0 0 8px">Quem alterou, quando e o que mudou no cadastro.</p>'+((c.alteracoes||[]).length?(c.alteracoes||[]).slice().reverse().slice(0,60).map(function(a){return '<div class="list-item" style="display:block"><div class="row between"><b>'+e(a.ev||'Alteração')+'</b><small>'+e(a.por||'—')+' · '+NX.ftime(a.em)+'</small></div>'+((a.campos||[]).length?'<ul style="margin:6px 0 0;padding-left:18px;font-size:14px">'+a.campos.map(function(m){return '<li><b>'+e(m[0])+':</b> '+(m[1]?'<s style="color:var(--muted)">'+e(m[1])+'</s> → ':'')+e(m[2]||'(vazio)')+'</li>';}).join('')+'</ul>':'')+'</div>';}).join(''):'<p class="empty">Nenhuma alteração registrada ainda.</p>'))+
+
   '<div class="row between"><button class="btn b-blue">Salvar ficha</button><button type="button" class="btn b-danger" id="rmc">Excluir cliente</button></div></form>';
   var f=document.getElementById('ff'),li=c.licencas.length,si=c.socios.length;
   function calc(){var fd=new FormData(f),n=function(k){return parseFloat(String(fd.get(k)||'').replace(/\./g,'').replace(',','.'))||0;};

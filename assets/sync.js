@@ -83,8 +83,10 @@ function subir(f,interno){var empresa=interno?NXS.interno:(f.cliente||NXS.empres
   var p=f.data.split(','),mime=(p[0].match(/:(.*?);/)||[])[1]||'application/octet-stream',bin=atob(p[1]),u=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
   return sb().storage.from('documentos').upload(path,new Blob([u],{type:mime}),{contentType:mime,upsert:true}).then(function(r){if(chk(r,'envio do arquivo '+(f.nome||'')))return null;return path;});}
 NX.beforeSave=function(db){if(!NX.realMode||!NXS.modo)return;
-  /* equipe vendo o portal do cliente: nada é gravado, EXCETO as notas fiscais (uma nota emitida nunca pode sumir) */
-  if(NXS.somenteLeitura){if(!db.notas)return;clearTimeout(NXS.timer);var so={notas:JSON.parse(JSON.stringify(db.notas))};NXS.timer=setTimeout(function(){NXS.fila=NXS.fila.then(function(){return pushNotas(so.notas);}).catch(function(e){console.error(e);});},600);return;}
+  /* notas fiscais são gravadas NA HORA (sem esperar), em qualquer modo — inclusive com a equipe vendo o portal do cliente.
+     Assim uma nota emitida/cancelada nunca se perde nem é sobrescrita por uma atualização automática da tela. */
+  if(db.notas){var so=JSON.parse(JSON.stringify(db.notas));NXS.fila=NXS.fila.then(function(){return pushNotas(so);}).catch(function(e){console.error(e);});}
+  if(NXS.somenteLeitura)return;
   [['files',false],['office',true]].forEach(function(x){(db[x[0]]||[]).forEach(function(f){if(f.data&&!f.storage_path&&!NXS.pend[f.id]){NXS.pend[f.id]={data:f.data,interno:x[1]};}});});
   clearTimeout(NXS.timer);var snapDb=JSON.parse(JSON.stringify(db,function(k,v){return k==='data'&&typeof v==='string'&&v.indexOf('data:')===0?undefined:v;}));
   NXS.timer=setTimeout(function(){NXS.empurrar(snapDb);},600);};
