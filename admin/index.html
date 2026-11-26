@@ -20,14 +20,14 @@
 <dialog id="dlg"><form method="dialog" id="dlgForm"></form></dialog>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="/assets/store.js?v=202611261906"></script>
-<script src="/assets/auth.js?v=202611261906"></script>
-<script src="/assets/sync.js?v=202611261906"></script>
-<script src="/assets/explorer.js?v=202611261906"></script>
-<script src="/assets/fin-export.js?v=202611261906"></script>
-<script src="/assets/blog.js?v=202611261906"></script>
-<script src="/assets/relatorios.js?v=202611261906"></script>
-<script src="/assets/nfse.js?v=202611261906"></script>
+<script src="/assets/store.js?v=202611261909"></script>
+<script src="/assets/auth.js?v=202611261909"></script>
+<script src="/assets/sync.js?v=202611261909"></script>
+<script src="/assets/explorer.js?v=202611261909"></script>
+<script src="/assets/fin-export.js?v=202611261909"></script>
+<script src="/assets/blog.js?v=202611261909"></script>
+<script src="/assets/relatorios.js?v=202611261909"></script>
+<script src="/assets/nfse.js?v=202611261909"></script>
 <script>
 (function(){
 var db=NX.load(), e=NX.esc, S={sel:null,tab:'arquivos',month:NX.ym(),user:null};
@@ -1993,11 +1993,12 @@ EX.financeiro=function(){var pd=finPadrao();['per','base','mes','ano','de','ate'
    '<label>Considerar a data de<select id="fpbase">'+[['venc','Vencimento'],['pago','Pagamento / recebimento'],['comp','Competência']].map(function(x){return '<option value="'+x[0]+'"'+(FIN.base===x[0]?' selected':'')+'>'+x[1]+'</option>';}).join('')+'</select></label>'+
    (finEhPadrao()?'':'<button class="btn b-text" id="fppad">Voltar ao padrão (mês atual)</button>')+'</div><p class="help" style="margin:0 0 14px">Mostrando: <b>'+pl+'</b>'+(FIN.base==='pago'?' · só contas já baixadas':'')+'</p>';
   shell('financeiro',head('Financeiro da NEXIO','Contas a pagar e a receber da própria NEXIO. As faturas de honorários entram sozinhas em Contas a receber.','<span class="row" style="gap:8px"><button class="btn b-line" id="fnr">+ Conta a receber</button><button class="btn b-blue" id="fnp">+ Conta a pagar</button></span>')+
-    '<section class="card" style="margin-bottom:14px">'+ctl+'<div class="row" style="gap:12px;flex-wrap:wrap">'+kpi('A receber',NX.brl(finSoma(R.filter(function(l){return !l.pago;}))),'var(--blue2)','recebido: '+NX.brl(rec))+kpi('A pagar',NX.brl(finSoma(P.filter(function(l){return !l.pago;}))),'var(--bad)','pago: '+NX.brl(pag))+kpi('Saldo realizado',NX.brl(rec-pag),rec-pag>=0?'var(--ok)':'var(--bad)')+kpi('Resultado previsto',NX.brl(finSoma(R)-finSoma(P)),finSoma(R)-finSoma(P)>=0?'var(--ok)':'var(--bad)')+kpi('Vencidas no período',venc.length+' · '+NX.brl(finSoma(venc)),venc.length?'var(--bad)':'inherit','a receber '+NX.brl(finSoma(venc.filter(function(l){return l.tipo==='receber';})))+' · a pagar '+NX.brl(finSoma(venc.filter(function(l){return l.tipo==='pagar';}))))+'</div>'+
-    (vAnt.length?'<p class="help" style="margin:10px 0 0;color:var(--bad)">Há '+vAnt.length+' conta(s) vencida(s) antes deste período ('+NX.brl(finSoma(vAnt))+'). <a href="#" id="fnant">Ver o mês mais antigo</a></p>':'')+'</section>'+
-    '<section class="card"><div class="tabs" role="tablist" style="margin-bottom:14px">'+tabs.map(function(x){return '<button role="tab" data-fnt="'+x[0]+'" aria-selected="'+(FIN.tab===x[0])+'">'+x[1]+'</button>';}).join('')+'</div><div id="fnc"></div></section>');
+    '<div class="tabs" role="tablist" style="margin-bottom:14px">'+tabs.map(function(x){return '<button role="tab" data-fnt="'+x[0]+'" aria-selected="'+(FIN.tab===x[0])+'">'+x[1]+'</button>';}).join('')+'</div>'+
+    (FIN.tab==='cats'?'':'<section class="card" style="margin-bottom:14px">'+ctl+'<div class="row" style="gap:12px;flex-wrap:wrap">'+kpi('A receber',NX.brl(finSoma(R.filter(function(l){return !l.pago;}))),'var(--blue2)','recebido: '+NX.brl(rec))+kpi('A pagar',NX.brl(finSoma(P.filter(function(l){return !l.pago;}))),'var(--bad)','pago: '+NX.brl(pag))+kpi('Saldo realizado',NX.brl(rec-pag),rec-pag>=0?'var(--ok)':'var(--bad)')+kpi('Resultado previsto',NX.brl(finSoma(R)-finSoma(P)),finSoma(R)-finSoma(P)>=0?'var(--ok)':'var(--bad)')+kpi('Vencidas no período',venc.length+' · '+NX.brl(finSoma(venc)),venc.length?'var(--bad)':'inherit','a receber '+NX.brl(finSoma(venc.filter(function(l){return l.tipo==='receber';})))+' · a pagar '+NX.brl(finSoma(venc.filter(function(l){return l.tipo==='pagar';}))))+'</div>'+
+    (vAnt.length?'<p class="help" style="margin:10px 0 0;color:var(--bad)">Há '+vAnt.length+' conta(s) vencida(s) antes deste período ('+NX.brl(finSoma(vAnt))+'). <a href="#" id="fnant">Ver o mês mais antigo</a></p>':'')+'</section>')+
+    '<section class="card"><div id="fnc"></div></section>');
   var $=function(id){return document.getElementById(id);},go=function(){EX.financeiro();};
-  $('fpper').onchange=function(ev){FIN.per=ev.target.value;go();};$('fpbase').onchange=function(ev){FIN.base=ev.target.value;go();};
+  if($('fpper')){$('fpper').onchange=function(ev){FIN.per=ev.target.value;go();};}if($('fpbase'))$('fpbase').onchange=function(ev){FIN.base=ev.target.value;go();};
   if($('fnm')){$('fnm').onchange=function(ev){if(ev.target.value){FIN.mes=ev.target.value;go();}};$('fnmp').onclick=function(){FIN.mes=NX.shiftMonth(FIN.mes,-1);go();};$('fnmn').onclick=function(){FIN.mes=NX.shiftMonth(FIN.mes,1);go();};}
   if($('fpde')){$('fpde').onchange=function(ev){if(ev.target.value){FIN.de=ev.target.value;if(FIN.ate<FIN.de)FIN.ate=FIN.de;go();}};$('fpate').onchange=function(ev){if(ev.target.value){FIN.ate=ev.target.value;if(FIN.de>FIN.ate)FIN.de=FIN.ate;go();}};}
   if($('fpano')){$('fpano').onchange=function(ev){if(+ev.target.value>2000){FIN.ano=String(ev.target.value);go();}};$('fnap').onclick=function(){FIN.ano=String(+FIN.ano-1);go();};$('fnan').onclick=function(){FIN.ano=String(+FIN.ano+1);go();};}
