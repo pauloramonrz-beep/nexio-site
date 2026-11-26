@@ -195,6 +195,20 @@ function montar_dps(array $emp, array $d, string $amb, int $nDPS): array {
   }
   $tribMun = '<tribMun><tribISSQN>1</tribISSQN><tpRetISSQN>' . ($ret ? 2 : 1) . '</tpRetISSQN>' . (($ret || $op === 1) && $pAliq > 0 ? '<pAliq>' . number_format($pAliq, 2, '.', '') . '</pAliq>' : '') . '</tribMun>';
   $pSN = round((float) ($d['pTotTribSN'] ?? 0), 2);
+  // Reforma tributária (NT SE/CGNFS-e 004): grupo IBSCBS no fim da infDPS; exige o código NBS do serviço e muda a DPS para a versão 1.01
+  $ibscbs = ''; $ib = (array) ($d['ibscbs'] ?? []);
+  if ($ib) {
+    $cInd = dig($ib['cIndOp'] ?? ''); $cst = dig($ib['CST'] ?? ''); $cct = dig($ib['cClassTrib'] ?? ''); $nbs = dig($d['cNBS'] ?? '');
+    $erros = [];
+    if (strlen($nbs) !== 9) $erros[] = 'Código NBS do serviço (9 dígitos) não informado.';
+    if (strlen($cInd) !== 6) $erros[] = 'Indicador da operação do IBS/CBS (cIndOp, 6 dígitos) não informado.';
+    if (strlen($cst) !== 3) $erros[] = 'CST do IBS/CBS (3 dígitos) não informado.';
+    if (strlen($cct) !== 6 || substr($cct, 0, 3) !== $cst) $erros[] = 'Classificação tributária do IBS/CBS (cClassTrib) inválida: os 3 primeiros dígitos devem ser o CST.';
+    if ($erros) falha(422, 'Dados de IBS/CBS incompletos na ficha do cliente.', ['erros' => $erros]);
+    $tomaCpf = strlen(dig($d['tomador']['doc'] ?? '')) === 11;
+    $ibscbs = '<IBSCBS><finNFSe>0</finNFSe><indFinal>' . (isset($ib['indFinal']) ? ((int) $ib['indFinal'] ? 1 : 0) : ($tomaCpf ? 1 : 0)) . '</indFinal><cIndOp>' . $cInd . '</cIndOp><indDest>0</indDest>' .
+      '<valores><trib><gIBSCBS><CST>' . $cst . '</CST><cClassTrib>' . $cct . '</cClassTrib></gIBSCBS></trib></valores></IBSCBS>';
+  }
   // substituição: a nova nota cancela a anterior automaticamente (cMotivo 01..99 conforme leiaute)
   $subst = ''; $sb = (array) ($d['subst'] ?? []);
   if (strlen(dig($sb['chave'] ?? '')) === 50) $subst = '<subst><chSubstda>' . dig($sb['chave']) . '</chSubstda><cMotivo>' . str_pad((string) max(1, min(99, (int) ($sb['cMotivo'] ?? 99))), 2, '0', STR_PAD_LEFT) . '</cMotivo>' . ((int) ($sb['cMotivo'] ?? 99) === 99 ? '<xMotivo>' . xe(mb_substr(trim((string) ($sb['xMotivo'] ?? 'Substituição da NFS-e')), 0, 255)) . '</xMotivo>' : '') . '</subst>';
@@ -212,7 +226,8 @@ function montar_dps(array $emp, array $d, string $amb, int $nDPS): array {
     '<toma><' . $tpT . '>' . $docT . '</' . $tpT . '><xNome>' . xe(trim((string) ($tom['nome'] ?? ''))) . '</xNome>' . $endXml . (strlen(dig($tom['fone'] ?? '')) >= 10 ? '<fone>' . dig($tom['fone']) . '</fone>' : '') . (!empty($tom['email']) ? '<email>' . xe($tom['email']) . '</email>' : '') . '</toma>' .
     '<serv><locPrest><cLocPrestacao>' . (dig($d['cLocPrestacao'] ?? '') ?: $cMun) . '</cLocPrestacao></locPrest><cServ><cTribNac>' . $cTrib . '</cTribNac>' . (!empty($d['cTribMun']) ? '<cTribMun>' . xe(dig($d['cTribMun'])) . '</cTribMun>' : '') . '<xDescServ>' . xe(mb_substr($desc, 0, 2000)) . '</xDescServ>' . (!empty($d['cNBS']) ? '<cNBS>' . dig($d['cNBS']) . '</cNBS>' : '') . '</cServ></serv>' .
     '<valores><vServPrest><vServ>' . number_format($vServ, 2, '.', '') . '</vServ></vServPrest><trib>' . $tribMun . $tot . '</trib></valores>' .
-    '</infDPS></DPS>';
+    $ibscbs . '</infDPS></DPS>';
+  if ($ibscbs !== '') $xml = str_replace('<DPS xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.00">', '<DPS xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.01">', $xml);
   return ['xml' => $xml, 'id' => $id];
 }
 function erros_sefin(array $j, string $bruto = ''): array {

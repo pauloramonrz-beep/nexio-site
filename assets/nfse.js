@@ -127,7 +127,11 @@
       vServ: num(g(vD, 'vServ')), vDesc: num(g(vD, 'vDescIncond')) || 0, tribISSQN: tm ? g(tm, 'tribISSQN') : '', tpRet: tm ? g(tm, 'tpRetISSQN') : '', pAliq: num(tm ? g(tm, 'pAliq') : ''),
       vBC: num(g(vInf, 'vBC')), pAliqAplic: num(g(vInf, 'pAliqAplic')), vISSQN: num(g(vInf, 'vISSQN')), vTotRet: num(g(vInf, 'vTotalRet')) || 0, vLiq: num(g(vInf, 'vLiq')),
       vRetIRRF: tf ? num(g(tf, 'vRetIRRF')) : null, vRetCP: tf ? num(g(tf, 'vRetCP')) : null, vRetCSLL: tf ? num(g(tf, 'vRetCSLL')) : null, vPis: tf ? num(g(tf, 'vPis')) : null, vCofins: tf ? num(g(tf, 'vCofins')) : null,
-      pTotTribSN: tt ? num(g(tt, 'pTotTribSN')) : null, xInfComp: g(dps, 'xInfComp') };
+      pTotTribSN: tt ? num(g(tt, 'pTotTribSN')) : null, xInfComp: g(dps, 'xInfComp'),
+      ibs: (function () { var gi = kid(dps, 'IBSCBS'); if (!gi) return null; var ni = kid(inf, 'IBSCBS');
+        return { cIndOp: g(gi, 'cIndOp'), CST: g(gi, 'CST'), cClassTrib: g(gi, 'cClassTrib'), indFinal: g(gi, 'indFinal'), cNBS: g(dps, 'cNBS'),
+          vBC: ni ? num(g(ni, 'vBC')) : null, vIBS: ni ? num(g(ni, 'vIBSTot') || g(ni, 'vIBS')) : null, vCBS: ni ? num(g(ni, 'vCBS')) : null,
+          pIBSUF: ni ? num(g(ni, 'pIBSUF')) : null, pIBSMun: ni ? num(g(ni, 'pIBSMun')) : null, pCBS: ni ? num(g(ni, 'pCBS')) : null }; })() };
   };
   var brl = function (v) { return v == null ? '-' : 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
   var fdoc = function (d) { d = String(d || '').replace(/\D/g, ''); return d.length === 14 ? d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5') : d.length === 11 ? d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : (d || '-'); };
@@ -154,6 +158,7 @@
       bl('Tributação municipal', c('Tributação do ISSQN', trib) + c('Município de incidência do ISSQN', x.xLocIncid || x.xLocPrest) + c('Regime especial de tributação', x.regEsp && x.regEsp !== '0' ? x.regEsp : 'Nenhum') + c('Valor do serviço', brl(x.vServ)) + c('Desconto incondicionado', brl(x.vDesc)) + c('BC ISSQN', brl(x.vBC)) + c('Alíquota aplicada', x.pAliqAplic != null ? x.pAliqAplic.toFixed(2).replace('.', ',') + '%' : '-') + c('Retenção do ISSQN', ret) + c('ISSQN apurado', brl(x.vISSQN))) +
       bl('Tributação federal', c('IRRF', brl(x.vRetIRRF)) + c('Contribuição previdenciária - retida', brl(x.vRetCP)) + c('Contribuições sociais - retidas', brl(x.vRetCSLL)) + c('PIS / COFINS', x.vPis == null && x.vCofins == null ? '-' : brl((x.vPis || 0) + (x.vCofins || 0)))) +
       bl('Valor total da NFS-e', c('Valor do serviço', brl(x.vServ)) + c('Desconto incondicionado', brl(x.vDesc)) + c('Total das retenções', brl(x.vTotRet)) + c('Valor líquido da NFS-e', brl(x.vLiq))) +
+      (x.ibs ? bl('IBS e CBS (reforma tributária)', c('Indicador da operação', x.ibs.cIndOp) + c('CST / classificação', x.ibs.CST + ' / ' + x.ibs.cClassTrib) + c('Código NBS', x.ibs.cNBS ? x.ibs.cNBS.replace(/(\d)(\d{4})(\d{2})(\d{2})/, '$1.$2.$3.$4') : '-') + c('Uso ou consumo pessoal', x.ibs.indFinal === '1' ? 'Sim' : 'Não') + c('Base de cálculo', brl(x.ibs.vBC)) + c('IBS', x.ibs.vIBS == null ? '-' : brl(x.ibs.vIBS)) + c('CBS', x.ibs.vCBS == null ? '-' : brl(x.ibs.vCBS)) + c('Alíquotas (UF / Mun. / CBS)', [x.ibs.pIBSUF, x.ibs.pIBSMun, x.ibs.pCBS].map(function (v) { return v == null ? '-' : String(v).replace('.', ',') + '%'; }).join(' / '))) : '') +
       bl('Totais aproximados dos tributos', c('Simples Nacional', x.pTotTribSN != null ? x.pTotTribSN.toFixed(2).replace('.', ',') + '%' : '-', 4)) +
       bl('Informações complementares', c('', (x.xInfComp ? x.xInfComp + ' — ' : '') + 'A autenticidade desta NFS-e pode ser verificada pela leitura do QR Code ou na Consulta Pública do Portal Nacional (www.nfse.gov.br/ConsultaPublica), com a chave de acesso.', 4)) +
       '</div></body></html>';

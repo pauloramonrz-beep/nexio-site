@@ -21,13 +21,13 @@
 <style>#printArea{display:none}@media print{body>*:not(#printArea){display:none!important}#printArea{display:block;padding:10mm}}</style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>window.NX_REAL=true;</script>
-<script src="/assets/store.js?v=202611261555"></script>
-<script src="/assets/auth.js?v=202611261555"></script>
-<script src="/assets/sync.js?v=202611261555"></script>
-<script src="/assets/blog.js?v=202611261555"></script>
-<script src="/assets/explorer.js?v=202611261555"></script>
-<script src="/assets/relatorios.js?v=202611261555"></script>
-<script src="/assets/nfse.js?v=202611261555"></script>
+<script src="/assets/store.js?v=202611261823"></script>
+<script src="/assets/auth.js?v=202611261823"></script>
+<script src="/assets/sync.js?v=202611261823"></script>
+<script src="/assets/blog.js?v=202611261823"></script>
+<script src="/assets/explorer.js?v=202611261823"></script>
+<script src="/assets/relatorios.js?v=202611261823"></script>
+<script src="/assets/nfse.js?v=202611261823"></script>
 <script>
 (function(){
 NX.realMode=true;NX.useKey('nexio_cli_vazio');var db=NX.load(), e=NX.esc, S={cid:null,month:NX.ym(),filtro:'todos'};
@@ -301,6 +301,8 @@ function emitirReal(fd,d,v,sv,ret,al,amb){var c=me(),Tr=c.trib||{},cfg=c.nfCfg||
   var btn=document.querySelector('#nf button[type=submit]');
   var dps={serie:String(cfg.serie||'1'),nDPS:+cfg.proximo||1,dCompet:fd.get('comp'),tomador:{doc:d,nome:fd.get('nome'),email:fd.get('email'),end:{cep:fd.get('cep'),cMun:fd.get('tibge'),xLgr:fd.get('lgr'),nro:fd.get('nro'),xBairro:fd.get('bairro')}},
     cTribNac:cTribNac(sv[0]),cTribMun:Tr.codmun||'',xDescServ:fd.get('desc'),vServ:v,ret:ret,pAliq:ret?al:(num(fd.get('aliq'))||Tr.iss||0),pTotTribSN:sn?+sn.aliq.toFixed(2):0};
+  var ibx=NX.ibsDps(c.nfIbs,sv[0],fd.get('comp'));if(ibx&&ibx.erro){NXN.janela('Falta configurar o IBS/CBS',NXN.explicar({tipo:'rejeitada',msg:ibx.erro,erros:[]}).replace(' Nenhuma nota foi gerada — a tentativa ficou registrada para você corrigir ou tentar de novo.',''),[],'var(--warn)');return;}
+  if(ibx){dps.cNBS=ibx.cNBS;dps.ibscbs=ibx.ibscbs;}
   if(NFC.subst){var cm=+((document.getElementById('nfsm')||{}).value||99),xd=((document.getElementById('nfsd')||{}).value||'').trim();if(cm===99&&xd.length<15){NX.toast('Descreva o motivo da substituição (mínimo de 15 caracteres).');return;}dps.subst={chave:NFC.subst.chave,cMotivo:cm,xMotivo:xd||NXN.MOTIVOS_SUBST[cm]};}
   var n={id:NX.uid(),cliente:S.cid,real:true,amb:amb,num:'—',chave:'',emissao:NX.today(),dhEmi:new Date().toISOString(),comp:fd.get('comp'),status:'processando',serie:dps.serie,nDPS:dps.nDPS,cMun:codMun(Tr,c),munNome:Tr.mun||c.cidade||'Manaus/AM',regime:Tr.regime||'SN',uniprof:!!Tr.uniprof,pSN:sn?sn.aliq:0,aliqISS:dps.pAliq,cTrib:dps.cTribNac,cTribMun:dps.cTribMun,
     tom:{doc:d,nome:fd.get('nome'),email:fd.get('email'),mun:fd.get('mun')},serv:sv[0]+' – '+sv[1],desc:fd.get('desc'),valor:v,ret:ret,aliq:al,iss:ret?v*al/100:0,prest:{nome:c.nome,doc:c.doc,im:(c.insc||{}).im,email:c.email,tel:c.tel},dps:dps,tent:[],corrigeDe:NFC.id||null,substitui:NFC.subst?NFC.subst.id:null,
