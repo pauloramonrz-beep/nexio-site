@@ -214,3 +214,6 @@ button.xp-tg:hover{background:#E6ECFB}
 .chk.on{background:#00A36C;border-color:#00A36C;color:#fff}
 
 .app.min .logo img{width:44px!important}
+.xp-dropon{outline:2px dashed var(--blue2,#2344AC);outline-offset:-2px;background:var(--infob,#EEF3FF)!important;border-radius:8px}
+.xp-ck{width:auto!important;min-height:auto!important;vertical-align:middle;margin:0 4px 0 0;cursor:pointer}
+tr[draggable="true"]{cursor:grab}

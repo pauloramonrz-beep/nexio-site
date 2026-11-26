@@ -20,6 +20,7 @@
   NX.explorer = function (el, o) {
     var db = o.db, st = o.st;
     st.L = st.L || {}; st.exp = st.exp || { '|||': 1 }; st.vis = st.vis || 'todos'; st.q = st.q || ''; st.sort = st.sort || { k: 'comp', d: -1 }; st.page = st.page || 1;
+    st.sel = st.sel || { f: {}, d: {} };
     st.view = st.view || (function () { try { return localStorage.getItem('nx_xpview') || 'tabela'; } catch (x) { return 'tabela'; } })();
     var L = st.L, re = function () { NX.explorer(el, o); };
     var files = db.files.filter(function (f) { return f.cliente === o.cliente && o.visible(f); });
@@ -64,7 +65,7 @@
         var k = key(c.L), open = !!st.exp[k], sel = k === key(L), kids = children(c.L);
         return '<li><div class="xp-node' + (sel ? ' sel' : '') + '" style="padding-left:' + (depth * 14 + 4) + 'px">' +
           (kids.length ? '<button class="xp-tg" data-tg="' + e(k) + '" aria-label="' + (open ? 'Recolher' : 'Expandir') + ' ' + e(c.label) + '">' + (open ? '−' : '+') + '</button>' : '<span class="xp-tg"></span>') +
-          '<button class="xp-nm" data-nav="' + e(k) + '">' + FOLD + '<span>' + e(c.label) + '</span>' + (c.t === 's' && o.role === 'equipe' ? (c.lock ? LOCK : SHARE) : '') + '<small>' + c.n + '</small></button></div>' +
+          '<button class="xp-nm" data-nav="' + e(k) + '" data-drop="' + e(k) + '">' + FOLD + '<span>' + e(c.label) + '</span>' + (c.t === 's' && o.role === 'equipe' ? (c.lock ? LOCK : SHARE) : '') + '<small>' + c.n + '</small></button></div>' +
           (open && kids.length ? '<ul>' + tree(c.L, depth + 1) + '</ul>' : '') + '</li>';
       }).join('');
     }
@@ -100,10 +101,10 @@
         (!subs.length && !pageList.length ? '<p class="empty">Pasta vazia.</p>' : '');
     } else {
       body = '<div class="tbl"><table class="xp-t"><thead><tr><th style="width:52px">Tipo</th>' + th('nome', 'Nome') + (flat ? '<th>Pasta</th>' : '') + th('visto', 'Visualizado') + (eq ? '<th>Compart.</th>' : '') + th('venc', 'Vencimento') + th('com', 'Coment.') + th('por', 'Anexado por') + th('comp', 'Compet.') + '<th>Situação</th>' + (o.onEdit ? '<th><span class="sr">Ações</span></th>' : '') + '</tr></thead><tbody>' +
-        subs.map(function (c) { return '<tr class="xp-frow" data-nav="' + e(key(c.L)) + '" tabindex="0"><td>' + FOLD + '</td><td colspan="' + ((eq ? 8 : 7) + (o.onEdit ? 1 : 0)) + '"><b>' + e(c.label) + '</b> <small class="help" style="display:inline">· ' + c.n + ' item(ns)' + (c.por ? ' · criada por ' + e(c.por) : '') + '</small></td></tr>'; }).join('') +
+        subs.map(function (c) { return '<tr class="xp-frow" data-nav="' + e(key(c.L)) + '" data-drop="' + e(key(c.L)) + '"' + (o.onMove && c.t === 'f' ? ' draggable="true" data-drag="d:' + c.L.fid + '"' : '') + ' tabindex="0"><td>' + (o.onMove && c.t === 'f' ? '<input type="checkbox" class="xp-ck" data-ckd="' + c.L.fid + '"' + (st.sel.d[c.L.fid] ? ' checked' : '') + ' aria-label="Selecionar pasta ' + e(c.label) + '"> ' : '') + FOLD + '</td><td colspan="' + ((eq ? 8 : 7) + (o.onEdit ? 1 : 0)) + '"><b>' + e(c.label) + '</b> <small class="help" style="display:inline">· ' + c.n + ' item(ns)' + (c.por ? ' · criada por ' + e(c.por) : '') + '</small></td></tr>'; }).join('') +
         pageList.map(function (f) {
           var s = NX.statusOf(f), v = firstView(f), nc = (f.coments || []).length, sh = f.shared != null ? f.shared : !(o.restritos && o.restritos.indexOf(setorOf(f)) > -1);
-          return '<tr><td>' + ftIcon(f) + '</td><td class="name"><button data-open="' + f.id + '">' + e(f.titulo) + '</button>' + (f.de === 'equipe' && !f.visto ? '<span class="dot" aria-label="não visualizado"></span>' : '') + '<small>' + e(f.nome) + (f.size ? ' · ' + NX.fsize(f.size) : '') + '</small></td>' +
+          return '<tr' + (o.onMove ? ' draggable="true" data-drag="f:' + f.id + '"' : '') + '><td>' + (o.onMove ? '<input type="checkbox" class="xp-ck" data-ckf="' + f.id + '"' + (st.sel.f[f.id] ? ' checked' : '') + ' aria-label="Selecionar ' + e(f.titulo) + '"> ' : '') + ftIcon(f) + '</td><td class="name"><button data-open="' + f.id + '">' + e(f.titulo) + '</button>' + (f.de === 'equipe' && !f.visto ? '<span class="dot" aria-label="não visualizado"></span>' : '') + '<small>' + e(f.nome) + (f.size ? ' · ' + NX.fsize(f.size) : '') + '</small></td>' +
             (flat ? '<td class="sm">' + e(pathOf(f)) + '</td>' : '') +
             '<td class="sm">' + (f.de === 'equipe' ? (f.visto ? viewsCell(f) : '<span class="xp-no">Não</span>') : '—') + '</td>' +
             (eq ? '<td>' + (sh ? '<span title="Compartilhado com o cliente">' + SHARE + '</span>' : '<span title="Restrito à equipe">' + LOCK + '</span>') + '</td>' : '') +
@@ -117,7 +118,7 @@
     el.innerHTML = '<div class="xp">' +
       '<aside class="xp-tree" aria-label="Pastas"><div class="xp-node' + (!L.setor && !L.fid ? ' sel' : '') + '" style="padding-left:4px"><span class="xp-tg"></span><button class="xp-nm" data-nav="root"><b>' + e(o.rootLabel || 'Documentos') + '</b></button></div><ul>' + tree({}, 1) + '</ul></aside>' +
       '<section class="xp-main"><div class="xp-bar"><div class="row" style="align-items:center;gap:8px">' +
-      (o.readonly ? '<span class="help">Somente consulta</span>' : (o.onNewFolder ? '<button class="btn b-line" id="xpNew">+ Nova pasta</button>' : '') + (L.fid && o.onFolderOps ? '<button class="btn b-line" id="xpRen">Renomear pasta</button><button class="btn b-line" id="xpDelF" style="color:var(--bad)">Excluir pasta</button>' : '') + '<button class="btn b-blue" id="xpUp">' + (o.role === 'cliente' ? 'Enviar documentos' : 'Upload') + '</button>') + (o.onMass ? '<button class="btn b-line" id="xpMass">Upload em massa</button>' : '') +
+      (o.readonly ? '<span class="help">Somente consulta</span>' : (o.onNewFolder ? '<button class="btn b-line" id="xpNew">+ Nova pasta</button>' : '') + (function(){var n=Object.keys(st.sel.f).length+Object.keys(st.sel.d).length;return o.onMove&&n?'<button class="btn b-blue" id="xpMove">Mover '+n+' item(ns) para…</button><button class="btn b-text" id="xpClr">Limpar seleção</button>':'';})() + (L.fid && o.onMove ? '<button class="btn b-line" id="xpMvF">Mover pasta</button>' : '') + (L.fid && o.onFolderOps ? '<button class="btn b-line" id="xpRen">Renomear pasta</button><button class="btn b-line" id="xpDelF" style="color:var(--bad)">Excluir pasta</button>' : '') + '<button class="btn b-blue" id="xpUp">' + (o.role === 'cliente' ? 'Enviar documentos' : 'Upload') + '</button>') + (o.onMass ? '<button class="btn b-line" id="xpMass">Upload em massa</button>' : '') +
       '</div><div class="row" style="align-items:center;gap:8px">' + seg('vis', [['todos', 'Todos'], ['nao', 'Não visualizados'], ['sim', 'Visualizados']], st.vis) +
       '<label class="sr" for="xpq">Pesquisar</label><input id="xpq" class="xp-q" placeholder="Pesquisar…" value="' + e(st.q) + '">' + seg('view', [['tabela', '☰'], ['icones', '▦']], st.view) + '</div></div>' +
       '<div class="xp-crumbs">' + crumbs + '</div><div class="xp-body" id="xpBody">' + body + '</div>' + foot + '</section></div>';
@@ -141,12 +142,68 @@
     };
     el.querySelectorAll('tr[data-nav]').forEach(function (r) { r.onkeydown = function (ev) { if (ev.key === 'Enter') r.click(); }; });
     var q = el.querySelector('#xpq'); q.oninput = function () { st.q = q.value; st.page = 1; clearTimeout(q._t); q._t = setTimeout(function () { re(); var y = el.querySelector('#xpq'); y.focus(); y.setSelectionRange(y.value.length, y.value.length); }, 350); };
+    /* seleção, mover e arrastar */
+    if (o.onMove) {
+      el.querySelectorAll('.xp-ck').forEach(function (c) { c.onclick = function (ev) { ev.stopPropagation(); var f = c.getAttribute('data-ckf'), d = c.getAttribute('data-ckd'); if (f) { if (c.checked) st.sel.f[f] = 1; else delete st.sel.f[f]; } if (d) { if (c.checked) st.sel.d[d] = 1; else delete st.sel.d[d]; } re(); }; });
+      var bm = el.querySelector('#xpMove'); if (bm) bm.onclick = function () { NX.xpMoveDlg(db, o, { f: Object.keys(st.sel.f), d: Object.keys(st.sel.d) }, function () { st.sel = { f: {}, d: {} }; re(); }); };
+      var bc = el.querySelector('#xpClr'); if (bc) bc.onclick = function () { st.sel = { f: {}, d: {} }; re(); };
+      var bf = el.querySelector('#xpMvF'); if (bf) bf.onclick = function () { NX.xpMoveDlg(db, o, { f: [], d: [L.fid] }, function () { re(); }); };
+      el.querySelectorAll('[data-drag]').forEach(function (r) { r.ondragstart = function (ev) { var v = r.getAttribute('data-drag'), sel = { f: Object.keys(st.sel.f), d: Object.keys(st.sel.d) }, p = v.split(':'); if (!(sel.f.indexOf(p[1]) > -1 || sel.d.indexOf(p[1]) > -1)) sel = p[0] === 'f' ? { f: [p[1]], d: [] } : { f: [], d: [p[1]] }; ev.dataTransfer.setData('text/nx-move', JSON.stringify(sel)); ev.dataTransfer.effectAllowed = 'move'; }; });
+      el.querySelectorAll('[data-drop]').forEach(function (t) {
+        t.ondragover = function (ev) { if ([].indexOf.call(ev.dataTransfer.types, 'text/nx-move') < 0) return; ev.preventDefault(); ev.stopPropagation(); t.classList.add('xp-dropon'); };
+        t.ondragleave = function () { t.classList.remove('xp-dropon'); };
+        t.ondrop = function (ev) { var raw = ev.dataTransfer.getData('text/nx-move'); if (!raw) return; ev.preventDefault(); ev.stopPropagation(); t.classList.remove('xp-dropon'); var p = t.getAttribute('data-drop').split('|'), dest = { setor: p[0] || null, ano: p[1] || null, comp: p[2] || null, fid: p[3] || null };
+          var r = NX.moveItems(db, JSON.parse(raw), dest, o); if (r.erro) { NX.toast(r.erro); return; } st.sel = { f: {}, d: {} }; o.onMove(r, re); };
+      });
+    }
     if (!o.readonly && o.onFolderOps && L.fid) { el.querySelector('#xpRen').onclick = function () { o.onFolderOps('rename', L.fid, re); }; el.querySelector('#xpDelF').onclick = function () { o.onFolderOps('delete', L.fid, function () { st.L = { setor: L.setor, ano: L.ano, comp: L.comp, fid: fById(L.fid) && fById(L.fid).parent.fid || null }; if (!st.L.fid) delete st.L.fid; re(); }); }; }
     if (!o.readonly) { if (o.onNewFolder) el.querySelector('#xpNew').onclick = function () { o.onNewFolder(st.L, re); }; el.querySelector('#xpUp').onclick = function () { o.onUpload(st.L, re); }; }
     if (o.onMass) el.querySelector('#xpMass').onclick = function () { o.onMass(st.L, re); };
     var bd = el.querySelector('.xp-main');
     bd.ondragover = function (ev) { ev.preventDefault(); bd.classList.add('over'); }; bd.ondragleave = function (ev) { if (!bd.contains(ev.relatedTarget)) bd.classList.remove('over'); };
     bd.ondrop = function (ev) { ev.preventDefault(); bd.classList.remove('over'); if (ev.dataTransfer.files.length && o.onDropFiles && !o.readonly) o.onDropFiles([].slice.call(ev.dataTransfer.files), st.L, re); };
+  };
+  /* destino em texto */
+  NX.xpPlaceName = function (db, cliente, d) {
+    var all = (db.folders || []).filter(function (x) { return x.cliente === cliente; }), by = function (id) { return all.filter(function (x) { return x.id === id; })[0]; };
+    if (d.fid) { var p = [], f = by(d.fid), last = null; while (f) { p.unshift(f.nome); last = f; f = f.parent.fid ? by(f.parent.fid) : null; } var r = last ? last.parent : {}; if (r.comp) p.unshift(MESES[+r.comp.slice(5) - 1]); if (r.ano) p.unshift(r.ano); if (r.setor) p.unshift(r.setor); return p.join(' › '); }
+    return [d.setor, d.ano, d.comp ? MESES[+d.comp.slice(5) - 1] : null].filter(Boolean).join(' › ') || 'Documentos';
+  };
+  /* move arquivos (sel.f) e pastas (sel.d) para o destino d = {setor, ano, comp, fid} */
+  NX.moveItems = function (db, sel, d, o) {
+    var all = (db.folders || []).filter(function (x) { return x.cliente === o.cliente; }), by = function (id) { return all.filter(function (x) { return x.id === id; })[0]; };
+    var isFlat = function (x) { return !!(o.flat && o.flat.indexOf(x) > -1); };
+    if (!d.setor && !d.fid) return { erro: 'Escolha um setor ou uma pasta de destino.' };
+    if (d.setor && !d.fid && !isFlat(d.setor) && (sel.d || []).length && !d.ano) {} // pasta solta no setor: ok
+    var root = d.fid ? (function () { var f = by(d.fid); while (f && f.parent.fid) f = by(f.parent.fid); return f ? f.parent : {}; })() : d;
+    var desc = function (fid, alvo) { var f = by(alvo); while (f) { if (f.id === fid) return true; f = f.parent.fid ? by(f.parent.fid) : null; } return false; };
+    for (var i = 0; i < (sel.d || []).length; i++) if (d.fid && desc(sel.d[i], d.fid)) return { erro: 'Não dá para mover uma pasta para dentro dela mesma.' };
+    var mf = [], md = [];
+    (sel.f || []).forEach(function (id) { var f = (db.files || []).filter(function (x) { return x.id === id; })[0]; if (!f) return; var antes = NX.xpPath ? NX.xpPath(f) : '';
+      f.folder = d.fid || null; if (root.setor) f.setor = root.setor; if (root.comp) f.comp = root.comp; else if (root.ano && String(f.comp || '').slice(0, 4) !== root.ano) f.comp = root.ano + '-' + String(f.comp || NX.ym()).slice(5, 7);
+      mf.push({ f: f, de: antes }); });
+    (sel.d || []).forEach(function (id) { var x = by(id); if (!x || id === d.fid) return; x.parent = { setor: d.setor || root.setor || null, ano: d.ano || null, comp: d.comp || null, fid: d.fid || null }; md.push(x); });
+    return { files: mf, folders: md, dest: d, destNome: NX.xpPlaceName(db, o.cliente, d) };
+  };
+  /* janela "Mover para…": árvore de destinos */
+  NX.xpMoveDlg = function (db, o, sel, done) {
+    var all = (db.folders || []).filter(function (x) { return x.cliente === o.cliente; }), files = (db.files || []).filter(function (f) { return f.cliente === o.cliente && o.visible(f); });
+    var isFlat = function (x) { return !!(o.flat && o.flat.indexOf(x) > -1); }, opts = [];
+    var compOf = function (f) { return String(f.comp || f.criado || NX.today()).slice(0, 7); };
+    var kids = function (pl, depth) { all.filter(function (x) { return [x.parent.setor || '', x.parent.ano || '', x.parent.comp || '', x.parent.fid || ''].join('|') === [pl.setor || '', pl.ano || '', pl.comp || '', pl.fid || ''].join('|') && (sel.d || []).indexOf(x.id) < 0; }).sort(function (a, b) { return a.nome < b.nome ? -1 : 1; })
+      .forEach(function (x) { var L2 = { setor: pl.setor, ano: pl.ano, comp: pl.comp, fid: x.id }; opts.push({ L: L2, t: x.nome, depth: depth, f: 1 }); kids(L2, depth + 1); }); };
+    o.setores.forEach(function (s) { opts.push({ L: { setor: s }, t: s, depth: 0 }); kids({ setor: s }, 1);
+      if (!isFlat(s)) { var an = {}, ms = {}; files.forEach(function (f) { if (o.setorOf(f) === s) { an[compOf(f).slice(0, 4)] = 1; ms[compOf(f)] = 1; } }); all.forEach(function (x) { if (x.parent.setor === s) { if (x.parent.ano) an[x.parent.ano] = 1; if (x.parent.comp) ms[x.parent.comp] = 1; } });
+        Object.keys(an).sort().reverse().forEach(function (a) { opts.push({ L: { setor: s, ano: a }, t: a, depth: 1 }); kids({ setor: s, ano: a }, 2); Object.keys(ms).filter(function (m) { return m.slice(0, 4) === a; }).sort().reverse().forEach(function (m) { opts.push({ L: { setor: s, ano: a, comp: m }, t: MESES[+m.slice(5) - 1], depth: 2 }); kids({ setor: s, ano: a, comp: m }, 3); }); }); } });
+    var nf = (sel.f || []).length, nd = (sel.d || []).length;
+    var d = document.getElementById('xp-mvdlg'); if (!d) { d = document.createElement('dialog'); d.id = 'xp-mvdlg'; d.style.cssText = 'border:0;border-radius:18px;padding:0;max-width:560px;width:calc(100% - 32px)'; document.body.appendChild(d); }
+    d.innerHTML = '<div style="padding:22px;display:flex;flex-direction:column;gap:10px"><h2 style="margin:0;font-size:20px">Mover ' + (nf ? nf + ' arquivo(s)' : '') + (nf && nd ? ' e ' : '') + (nd ? nd + ' pasta(s)' : '') + ' para…</h2><input id="xpmvq" placeholder="Filtrar pastas…"><div id="xpmvl" style="max-height:360px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px">' +
+      opts.map(function (x, i) { return '<label class="xp-mvopt" data-t="' + e(x.t.toLowerCase()) + '" style="display:flex;align-items:center;gap:8px;padding:5px 8px 5px ' + (8 + x.depth * 18) + 'px;border-radius:8px;cursor:pointer;color:var(--ink);font-weight:' + (x.depth ? 500 : 700) + '"><input type="radio" name="xpmv" value="' + i + '" style="width:auto;min-height:auto">' + FOLD + e(x.t) + '</label>'; }).join('') + '</div>' +
+      '<p class="help" style="margin:0">Ao mover arquivos para outro mês, a competência do arquivo passa a ser a desse mês.</p><div class="row" style="justify-content:flex-end;gap:8px"><button type="button" class="btn b-line" data-x>Cancelar</button><button type="button" class="btn b-blue" data-ok>Mover</button></div></div>';
+    d.querySelector('[data-x]').onclick = function () { d.close(); };
+    d.querySelector('#xpmvq').oninput = function (ev) { var q = ev.target.value.toLowerCase(); d.querySelectorAll('.xp-mvopt').forEach(function (l) { l.style.display = !q || l.getAttribute('data-t').indexOf(q) > -1 ? '' : 'none'; }); };
+    d.querySelector('[data-ok]').onclick = function () { var r = d.querySelector('[name=xpmv]:checked'); if (!r) { NX.toast('Escolha o destino.'); return; } var res = NX.moveItems(db, sel, opts[+r.value].L, o); if (res.erro) { NX.toast(res.erro); return; } d.close(); o.onMove(res, done); };
+    d.showModal();
   };
   /* opções de local para mover arquivos */
   NX.folderPlaces = function (db, cliente, setores, flat) {

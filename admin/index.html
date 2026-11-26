@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#0740EF">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/portal.css?v=202611251051">
+<link rel="stylesheet" href="/assets/portal.css?v=202611261844">
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" href="/assets/favicon-32.png">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
@@ -20,14 +20,14 @@
 <dialog id="dlg"><form method="dialog" id="dlgForm"></form></dialog>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="/assets/store.js?v=202611261823"></script>
-<script src="/assets/auth.js?v=202611261823"></script>
-<script src="/assets/sync.js?v=202611261823"></script>
-<script src="/assets/explorer.js?v=202611261823"></script>
-<script src="/assets/fin-export.js?v=202611261823"></script>
-<script src="/assets/blog.js?v=202611261823"></script>
-<script src="/assets/relatorios.js?v=202611261823"></script>
-<script src="/assets/nfse.js?v=202611261823"></script>
+<script src="/assets/store.js?v=202611261844"></script>
+<script src="/assets/auth.js?v=202611261844"></script>
+<script src="/assets/sync.js?v=202611261844"></script>
+<script src="/assets/explorer.js?v=202611261844"></script>
+<script src="/assets/fin-export.js?v=202611261844"></script>
+<script src="/assets/blog.js?v=202611261844"></script>
+<script src="/assets/relatorios.js?v=202611261844"></script>
+<script src="/assets/nfse.js?v=202611261844"></script>
 <script>
 (function(){
 var db=NX.load(), e=NX.esc, S={sel:null,tab:'arquivos',month:NX.ym(),user:null};
@@ -195,7 +195,9 @@ function tabArquivos(c,el,rr){RR=rr||function(){clientes(c.id);};
     NX.viewer(f,{db:db,me:'equipe',path:NX.xpPath(f),actions:acts,onClose:function(){draw();},onComment:function(x,t){x.coments=x.coments||[];x.coments.push({em:new Date().toISOString(),de:'equipe',autor:S.user.nome,texto:t});hist(x,'Comentário da equipe');persist();}});}
   function draw(){NX.explorer(el,{db:db,cliente:c.id,role:'equipe',st:st,flat:FLAT,onFolderOps:lvl()==='assistente'?null:function(op,fid,re){var x=(db.folders||[]).filter(function(y){return y.id===fid;})[0];if(!x)return;
       if(op==='rename'){var n=prompt('Novo nome da pasta:',x.nome);if(!n||!n.trim())return;var an=x.nome;x.nome=n.trim().slice(0,60);(c.pastas||[]).forEach(function(y){if(y.id===fid)y.nome=x.nome;});logEq('Renomeou pasta',an+' → '+x.nome,c.id);persist();re();NX.toast('Pasta renomeada.');return;}
-      var nf=db.files.filter(function(f){return f.folder===fid&&!f.deleted;}).length;if(!confirm('Excluir a pasta "'+x.nome+'"?'+(nf?' Os '+nf+' arquivo(s) dentro dela voltam para a pasta de cima.':'')))return;NX.deleteFolder(db,fid);c.pastas=(c.pastas||[]).filter(function(y){return y.id!==fid;});logEq('Excluiu pasta',x.nome,c.id);persist();re();NX.toast('Pasta excluída.');},onEdit:lvl()==='assistente'?null:function(f,re){setTimeout(function(){editDoc(f,re);},0);},onDelete:can('excluir')?function(f,re){delDoc(f,re);}:null,rootLabel:c.nome,setores:setoresVisiveis(),restritos:RESTRITOS,setorOf:setorOf,visible:function(f){return !f.deleted&&setoresVisiveis().indexOf(setorOf(f))>-1;},
+      var nf=db.files.filter(function(f){return f.folder===fid&&!f.deleted;}).length;if(!confirm('Excluir a pasta "'+x.nome+'"?'+(nf?' Os '+nf+' arquivo(s) dentro dela voltam para a pasta de cima.':'')))return;NX.deleteFolder(db,fid);c.pastas=(c.pastas||[]).filter(function(y){return y.id!==fid;});logEq('Excluiu pasta',x.nome,c.id);persist();re();NX.toast('Pasta excluída.');},onEdit:lvl()==='assistente'?null:function(f,re){setTimeout(function(){editDoc(f,re);},0);},onMove:lvl()==='assistente'?null:function(r,re){(r.folders||[]).forEach(function(x){(c.pastas||[]).forEach(function(y){if(y.id===x.id)y.parent=Object.assign({},x.parent);});});
+      (r.files||[]).forEach(function(m){hist(m.f,'Movido de '+(m.de||'—')+' para '+r.destNome);});
+      logEq('Moveu itens em Documentos',(r.files.length?r.files.length+' arquivo(s)':'')+(r.files.length&&r.folders.length?' e ':'')+(r.folders.length?r.folders.length+' pasta(s)':'')+' para '+r.destNome,c.id);persist();re();NX.toast('Movido para '+r.destNome+'.');},onDelete:can('excluir')?function(f,re){delDoc(f,re);}:null,rootLabel:c.nome,setores:setoresVisiveis(),restritos:RESTRITOS,setorOf:setorOf,visible:function(f){return !f.deleted&&setoresVisiveis().indexOf(setorOf(f))>-1;},
     onOpen:openF,
     onNewFolder:function(L,re){if(NX.newFolder(db,c.id,L,S.user.nome)){persist();re();NX.toast('Pasta criada.');}},
     onUpload:function(L){var pl=NX.placeFor(db,L,'Fiscal');fileDialog(c,{setor:pl.setor==='__custom'?null:pl.setor,comp:pl.comp,folder:pl.folder});},
