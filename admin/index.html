@@ -20,14 +20,14 @@
 <dialog id="dlg"><form method="dialog" id="dlgForm"></form></dialog>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="/assets/store.js?v=202611261846"></script>
-<script src="/assets/auth.js?v=202611261846"></script>
-<script src="/assets/sync.js?v=202611261846"></script>
-<script src="/assets/explorer.js?v=202611261846"></script>
-<script src="/assets/fin-export.js?v=202611261846"></script>
-<script src="/assets/blog.js?v=202611261846"></script>
-<script src="/assets/relatorios.js?v=202611261846"></script>
-<script src="/assets/nfse.js?v=202611261846"></script>
+<script src="/assets/store.js?v=202611261852"></script>
+<script src="/assets/auth.js?v=202611261852"></script>
+<script src="/assets/sync.js?v=202611261852"></script>
+<script src="/assets/explorer.js?v=202611261852"></script>
+<script src="/assets/fin-export.js?v=202611261852"></script>
+<script src="/assets/blog.js?v=202611261852"></script>
+<script src="/assets/relatorios.js?v=202611261852"></script>
+<script src="/assets/nfse.js?v=202611261852"></script>
 <script>
 (function(){
 var db=NX.load(), e=NX.esc, S={sel:null,tab:'arquivos',month:NX.ym(),user:null};
@@ -120,20 +120,29 @@ function painel(){
 }
 
 /* ---------- CLIENTES ---------- */
+/* código do cliente (ordem de cadastro) e situação ativo/inativo */
+function cliCod(c){return c&&c.codigo?String(c.codigo).padStart(4,'0'):'—';}
+function cliAtivo(c){return !c||c.situacaoCad!=='inativo';}
+function garantirCodigos(){var sem=db.clients.filter(function(c){return !c.codigo;});if(!sem.length)return false;var mx=db.clients.reduce(function(m,c){return Math.max(m,+c.codigo||0);},0);
+  sem.sort(function(a,b){var x=a.criadoEm||a.criado||'',y=b.criadoEm||b.criado||'';return x<y?-1:x>y?1:(a.nome<b.nome?-1:1);}).forEach(function(c){c.codigo=++mx;});return true;}
+var CLF={sit:'ativos'};
 function clientes(id){
   if(id&&!cli(id))id=null; S.sel=id||S.sel; if(S.sel&&!cli(S.sel))S.sel=null;
+  if(can('clientesEdit')&&garantirCodigos())persist();
   var list='<section class="card" style="flex:1 1 280px;max-width:360px"><div class="row between" style="margin-bottom:10px"><h2 style="margin:0">Clientes</h2><button class="btn b-blue" id="addc">+ Novo</button></div>'+
-  '<label class="sr" for="q">Buscar cliente</label><input id="q" placeholder="Buscar cliente…" style="margin-bottom:10px"><nav class="client-list" id="cl"></nav></section>';
+  '<div class="row" style="gap:6px;margin-bottom:8px;flex-wrap:wrap">'+[['ativos','Ativos'],['inativos','Inativos'],['todos','Todos']].map(function(x){var n=myClients().filter(function(c){return x[0]==='todos'||(x[0]==='ativos')===cliAtivo(c);}).length;return '<button class="btn '+(CLF.sit===x[0]?'b-blue':'b-line')+'" data-clf="'+x[0]+'" style="min-height:32px;padding:3px 10px;font-size:13px">'+x[1]+' ('+n+')</button>';}).join('')+'</div>'+
+  '<label class="sr" for="q">Buscar cliente</label><input id="q" placeholder="Buscar por nome, CNPJ ou nº…" style="margin-bottom:10px"><nav class="client-list" id="cl"></nav></section>';
   var det='<section class="card" style="flex:999 1 520px" id="det"></section>';
   shell('clientes',head('Clientes','Ficha cadastral, usuários do portal e obrigações de cada cliente.')+'<div class="cols">'+list+det+'</div>');
-  function drawList(q){q=(q||'').toLowerCase();document.getElementById('cl').innerHTML=myClients().filter(function(c){return !q||(c.nome+c.doc).toLowerCase().indexOf(q)>-1;}).map(function(c){var n=unread(c.id)+newDocs(c.id);return '<a href="#/clientes/'+c.id+'"'+(c.id===S.sel?' aria-current="true"':'')+'><span><b>'+e(c.nome)+'</b><small style="display:block;color:var(--muted);font-size:12px">'+e(c.plano)+'</small></span>'+(n?'<span class="tag info">'+n+' novo(s)</span>':'')+'</a>';}).join('')||'<p class="empty">Nenhum cliente.</p>';}
+  function drawList(q){q=(q||'').toLowerCase();document.getElementById('cl').innerHTML=myClients().filter(function(c){if(CLF.sit!=='todos'&&(CLF.sit==='ativos')!==cliAtivo(c))return false;return !q||(c.nome+c.doc+' '+cliCod(c)+' '+(c.codigo||'')).toLowerCase().indexOf(q)>-1;}).sort(function(a,b){return (+a.codigo||1e9)-(+b.codigo||1e9);}).map(function(c){var n=unread(c.id)+newDocs(c.id);return '<a href="#/clientes/'+c.id+'"'+(c.id===S.sel?' aria-current="true"':'')+(cliAtivo(c)?'':' style="opacity:.65"')+'><span><b><span style="color:var(--muted);font-weight:600;margin-right:6px">'+cliCod(c)+'</span>'+e(c.nome)+'</b><small style="display:block;color:var(--muted);font-size:12px">'+e(c.plano)+(cliAtivo(c)?'':' · <span class="tag bad" style="font-size:11px">Inativo</span>')+'</small></span>'+(n?'<span class="tag info">'+n+' novo(s)</span>':'')+'</a>';}).join('')||'<p class="empty">Nenhum cliente.</p>';}
   drawList();document.getElementById('q').oninput=function(ev){drawList(ev.target.value);};
+  root.querySelectorAll('[data-clf]').forEach(function(b){b.onclick=function(){CLF.sit=b.getAttribute('data-clf');clientes(S.sel);};});
   document.getElementById('addc').onclick=function(){clientDialog();};
   var el=document.getElementById('det');
   if(!S.sel){el.innerHTML='<p class="empty">Selecione um cliente na lista ou cadastre um novo.</p>';return;}
   var c=cli(S.sel);
   var tabs=[['dados','Ficha do cliente'],['usuarios','Usuários do cliente'],['obrigacoes','Seleção de obrigações'],['historico','Histórico de alterações'+((c.alteracoes||[]).length?' ('+c.alteracoes.length+')':'')]].filter(function(t){return t[0]==='historico'?can('clientesEdit'):t[0]==='usuarios'?can('clientesEdit'):t[0]==='arquivos'?can('docs'):t[0]==='obrigacoes'?can('obrig'):t[0]==='dados'?can('clientesEdit'):true;});if(!tabs.some(function(t){return t[0]===S.tab;}))S.tab=tabs[0][0];
-  el.innerHTML='<div class="row between" style="margin-bottom:12px"><div><h2 style="margin:0">'+e(c.nome)+'</h2><p class="help">'+e(c.doc)+' · '+e(c.plano)+' · '+e(c.resp)+'</p></div></div>'+
+  el.innerHTML='<div class="row between" style="margin-bottom:12px"><div><h2 style="margin:0"><span style="color:var(--muted);font-weight:600">Nº '+cliCod(c)+'</span> · '+e(c.nome)+' <span class="tag '+(cliAtivo(c)?'ok':'bad')+'" style="vertical-align:middle;font-size:12px">'+(cliAtivo(c)?'Ativo':'Inativo')+'</span></h2><p class="help">'+e(c.doc)+' · '+e(c.plano)+' · '+e(c.resp)+(cliAtivo(c)?'':' · inativo desde '+NX.fdate(String(c.inativoEm||'').slice(0,10))+(c.inativoMotivo?' ('+e(c.inativoMotivo)+')':''))+'</p></div></div>'+
   '<div class="tabs" role="tablist">'+tabs.map(function(t){return '<button role="tab" data-t="'+t[0]+'" aria-selected="'+(S.tab===t[0])+'">'+t[1]+'</button>';}).join('')+'</div><div id="tabc"></div>';
   el.querySelectorAll('[data-t]').forEach(function(b){b.onclick=function(){S.tab=b.getAttribute('data-t');clientes(S.sel);};});
   ({arquivos:tabArquivos,obrigacoes:tabObrig,mensagens:tabMsgs,dados:tabFicha,historico:tabHistorico,usuarios:(S.user&&S.user.real)?function(c,el){rUsuarios({id:c.id,razao_social:c.nome},el);}:tabUsers})[S.tab](c,document.getElementById('tabc'));
@@ -316,7 +325,7 @@ function snapFicha(c){var T=c.trib||{},I=c.insc||{},o={},L={nome:'Razão social'
   Object.keys(L).forEach(function(k){o[L[k]]=String(c[k]==null?'':c[k]);});
   [['ie','Inscrição estadual'],['im','Inscrição municipal'],['nire','NIRE'],['ccm','CCM'],['conselho','Registro no conselho'],['suframa','SUFRAMA']].forEach(function(x){o[x[1]]=String(I[x[0]]||'');});
   [['regime','Regime tributário'],['anexo','Anexo do Simples'],['rbt12','RBT12'],['folha12','Folha 12 meses'],['iss','Alíquota ISS'],['lc116','Item LC 116'],['codmun','Código tributação municipal'],['mun','Município do ISS'],['ibge','Código IBGE']].forEach(function(x){o[x[1]]=String(T[x[0]]==null?'':T[x[0]]);});
-  var IB=c.nfIbs||{};o['IBS/CBS na nota']={auto:'Automático (2027)',sim:'Sim',nao:'Não'}[IB.modo||'auto'];Object.keys(IB.serv||{}).forEach(function(k){var v=IB.serv[k];o['IBS/CBS '+k]=[v.nbs?'NBS '+NX.fmtNBS(v.nbs):'',v.ind?'cIndOp '+v.ind:'',v.cct?'cClassTrib '+v.cct:''].filter(Boolean).join(' · ');});
+  o['Nº do cliente']=String(c.codigo||'');o['Situação do cliente']=cliAtivo(c)?'Ativo':'Inativo'+(c.inativoMotivo?' ('+c.inativoMotivo+')':'');var IB=c.nfIbs||{};o['IBS/CBS na nota']={auto:'Automático (2027)',sim:'Sim',nao:'Não'}[IB.modo||'auto'];Object.keys(IB.serv||{}).forEach(function(k){var v=IB.serv[k];o['IBS/CBS '+k]=[v.nbs?'NBS '+NX.fmtNBS(v.nbs):'',v.ind?'cIndOp '+v.ind:'',v.cct?'cClassTrib '+v.cct:''].filter(Boolean).join(' · ');});
   [['fatorR','Fator R'],['issRet','ISS retido'],['uniprof','ISS fixo uniprofissional']].forEach(function(x){o[x[1]]=T[x[0]]?'Sim':'Não';});
   o['Sócios']=(c.socios||[]).map(function(s){return s.nome+(s.part?' '+s.part+'%':'')+(s.adm?' (adm.)':'');}).join('; ');
   o['Serviços da nota fiscal']=(c.nfServ||[]).join(', ');o['Emissão de NFS-e']=(window.NXN&&NXN.AMBIENTES[c.nfAmb||'simulacao'])||'';
@@ -336,7 +345,7 @@ function tabFicha(c,el){c.trib=c.trib||{regime:/MEI/.test(c.plano||'')?'MEI':/PF
   var socRow=function(s,i){return '<div class="soc" style="display:grid;grid-template-columns:2fr 1.2fr .7fr auto auto;gap:8px;align-items:end;margin-bottom:8px">'+inp('sn'+i,'Nome',s.nome)+inp('sc'+i,'CPF',s.cpf)+inp('sp'+i,'% capital',s.part)+'<label style="flex-direction:row;align-items:center;gap:6px;margin-bottom:10px;color:var(--ink)"><input type="checkbox" name="sa'+i+'" '+(s.adm?'checked':'')+' style="width:auto;min-height:auto">Administrador</label><button type="button" class="btn b-text rm-row" aria-label="Remover" style="color:var(--bad)">✕</button></div>';};
   var cert=c.cert;
   el.innerHTML='<form id="ff">'+
-  sec('Dados cadastrais','<div class="grid">'+inp('nome','Razão social / nome',c.nome)+inp('fantasia','Nome fantasia',c.fantasia)+inp('doc','CNPJ / CPF',c.doc)+inp('abertura','Data de abertura',c.abertura,'date')+
+  sec('Dados cadastrais','<div class="grid">'+'<label>Nº do cliente<input name="codigo" inputmode="numeric" value="'+e(c.codigo||'')+'"></label><label>Situação do cliente<select name="situacaoCad"><option value="ativo"'+(cliAtivo(c)?' selected':'')+'>Ativo</option><option value="inativo"'+(cliAtivo(c)?'':' selected')+'>Inativo</option></select></label><label style="grid-column:1/-1" id="inmot"'+(cliAtivo(c)?' hidden':'')+'>Motivo da inativação<input name="inativoMotivo" value="'+e(c.inativoMotivo||'')+'" placeholder="Ex.: encerrou o contrato, empresa baixada"></label>'+inp('nome','Razão social / nome',c.nome)+inp('fantasia','Nome fantasia',c.fantasia)+inp('doc','CNPJ / CPF',c.doc)+inp('abertura','Data de abertura',c.abertura,'date')+
     sel('natureza','Natureza jurídica',[['','—'],['MEI','Empresário individual (MEI)'],['EI','Empresário individual'],['SLU','Sociedade Limitada Unipessoal'],['LTDA','Sociedade Limitada'],['SS','Sociedade Simples'],['SA','Sociedade Anônima'],['PF','Pessoa física']],c.natureza)+
     sel('porte','Porte',[['','—'],['MEI','MEI'],['ME','ME'],['EPP','EPP'],['DEMAIS','Demais']],c.porte)+inp('cnae','CNAE principal',c.cnae,null,' placeholder="ex.: 8630-5/03"')+inp('cnaes','CNAEs secundários',c.cnaes)+
     inp('endereco','Endereço',c.endereco)+inp('cidade','Município / UF',c.cidade)+sel('plano','Plano NEXIO',['NEXIO SN START','NEXIO SN PRO','NEXIO SN SCALE','NEXIO SN MAX','NEXIO MEI START','NEXIO MEI PRO','NEXIO PF ESSENTIAL','NEXIO PF PREMIUM'].map(function(p){return [p,p];}),c.plano)+inp('resp','Responsável',c.resp)+inp('email','E-mail',c.email,'email')+inp('tel','Telefone',c.tel)+'</div>')+
@@ -367,6 +376,7 @@ function tabFicha(c,el){c.trib=c.trib||{regime:/MEI/.test(c.plano||'')?'MEI':/PF
   document.getElementById('nfsq').oninput=function(ev){var q=ev.target.value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');f.querySelectorAll('#nfsl label').forEach(function(l){l.style.display=!q||l.textContent.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').indexOf(q)>-1?'':'none';});};
   document.getElementById('nfsq').onkeydown=function(ev){if(ev.key==='Enter')ev.preventDefault();};
   var fcdl=document.getElementById('fcdl');if(fcdl)fcdl.onclick=function(){NXN.baixarCert(c.id,'Certificado_A1_'+String(c.doc||'').replace(/\D/g,'')+'.pfx').then(function(){logEq('Baixou o certificado digital do cliente','',c.id);}).catch(function(x){NX.toast(x.message);});};
+  var sci=f.querySelector('[name=situacaoCad]');if(sci)sci.onchange=function(){document.getElementById('inmot').hidden=sci.value!=='inativo';};
   var ibsDraw=function(){var box=document.getElementById('ibsl');if(!box)return;var cur={};box.querySelectorAll('[data-ibs]').forEach(function(i){var p=i.getAttribute('data-ibs').split('|');(cur[p[0]]=cur[p[0]]||{})[p[1]]=i.value;});
     var cfg=(c.nfIbs||{}).serv||{},sel=Array.prototype.map.call(f.querySelectorAll('[name=nfs]:checked'),function(x){return x.value;});
     if(!sel.length){box.innerHTML='<p class="help">Marque os serviços acima para configurar o IBS/CBS de cada um.</p>';return;}
@@ -383,6 +393,8 @@ function tabFicha(c,el){c.trib=c.trib||{regime:/MEI/.test(c.plano||'')?'MEI':/PF
   f.addEventListener('click',function(ev){if(ev.target.classList.contains('rm-row'))ev.target.parentNode.remove();});
   f.onsubmit=function(ev){ev.preventDefault();var fd=new FormData(f),n=function(k){return parseFloat(String(fd.get(k)||'').replace(/\./g,'').replace(',','.'))||0;},antes=snapFicha(c);
     ['nome','fantasia','doc','abertura','natureza','porte','cnae','cnaes','endereco','cidade','plano','resp','email','tel','obsint'].forEach(function(k){c[k]=fd.get(k);});
+    var cod=parseInt(fd.get('codigo'),10);if(cod&&cod!==+c.codigo){var dup=db.clients.filter(function(x){return x.id!==c.id&&+x.codigo===cod;})[0];if(dup){NX.toast('O nº '+String(cod).padStart(4,'0')+' já é do cliente '+dup.nome+'.');return;}c.codigo=cod;}
+    var sit=fd.get('situacaoCad')||'ativo';if(sit==='inativo'&&cliAtivo(c)){c.situacaoCad='inativo';c.inativoEm=new Date().toISOString();}else if(sit==='ativo'&&!cliAtivo(c)){c.situacaoCad='ativo';c.reativadoEm=new Date().toISOString();delete c.inativoEm;}c.inativoMotivo=sit==='inativo'?String(fd.get('inativoMotivo')||'').trim():'';
     c.nfServ=fd.getAll('nfs');c.nfAmb=fd.get('nfAmb')||'simulacao';(function(){var sv={};f.querySelectorAll('[data-ibs]').forEach(function(i){var p=i.getAttribute('data-ibs').split('|');(sv[p[0]]=sv[p[0]]||{})[p[1]]=p[1]==='nbs'?i.value.replace(/\D/g,''):i.value.replace(/\s/g,'');});c.nfIbs={modo:fd.get('ibsModo')||'auto',serv:Object.assign({},(c.nfIbs||{}).serv||{},sv)};})();c.nfPrazo=parseInt(fd.get('nfPrazo'),10)||'';
     c.insc={ie:fd.get('ie'),im:fd.get('im'),nire:fd.get('nire'),ccm:fd.get('ccm'),conselho:fd.get('conselho'),suframa:fd.get('suframa')};
     c.trib={regime:fd.get('regime'),anexo:fd.get('anexo'),fatorR:!!fd.get('fatorR'),rbt12:n('rbt12'),folha12:n('folha12'),iss:n('iss'),issRet:!!fd.get('issRet'),uniprof:!!fd.get('uniprof'),lc116:fd.get('lc116'),codmun:fd.get('codmun'),mun:fd.get('mun'),ibge:fd.get('ibge')};
@@ -896,7 +908,7 @@ function clientDialog(){var real=!!(window.NXS&&NXS.modo),docs=[],soc=[],extra={
   function(fd){var c={id:NX.uid(),criado:NX.today()};['nome','doc','fantasia','abertura','natureza','porte','cnae','cnaes','endereco','cidade','email','tel','plano','resp','senha'].forEach(function(k){var v=fd.get(k);if(v!=null&&v!=='')c[k]=v;});
     c.trib={regime:extra.regime||(/MEI/.test(c.plano)?'MEI':/PF/.test(c.plano)?'PF':'SN'),anexo:'III',fatorR:true,rbt12:0,folha12:0,iss:2,issRet:false,lc116:'04.01',mun:fd.get('cidade')||'',ibge:fd.get('ibge')||'',uniprof:false};c.socios=soc;c.licencas=[];c.insc={};c.nfServ=NX.servPorCnae((c.cnae||'')+','+(c.cnaes||''));
     c.alteracoes=[{em:new Date().toISOString(),por:S.user.nome,ev:'Cadastro criado'+(docs.length?' a partir de '+docs.length+' documento(s): '+docs.map(function(d){return d.nome;}).join(', '):'')+(extra.situacao?' · situação na Receita: '+extra.situacao:''),campos:[]}];
-    db.clients.push(c);
+    c.codigo=c.codigo||db.clients.reduce(function(m,x){return Math.max(m,+x.codigo||0);},0)+1;c.situacaoCad=c.situacaoCad||'ativo';db.clients.push(c);
     docs.forEach(function(d){var x={id:NX.uid(),cliente:c.id,setor:'Societário',folder:null,por:S.user.nome,tipo:'Documento',titulo:d.nome.replace(/\.[^.]+$/,''),comp:NX.ym(),venc:'',valor:0,status:'disponivel',cal:false,de:'equipe',nome:d.nome,data:d.data,size:d.size,criado:NX.today(),visto:false,shared:true};hist(x,'Anexado no cadastro do cliente');db.files.push(x);});
     logEq('Cadastrou cliente',c.nome+(docs.length?' ('+docs.length+' documento(s))':''),c.id);persist();S.sel=c.id;S.tab='ficha';location.hash='#/clientes/'+c.id;render();NX.toast('Cliente cadastrado'+(docs.length?' com '+docs.length+' documento(s) em Societário':'')+'.');});
   var msg=document.getElementById('cdMsg'),put=function(d){Object.keys(d).forEach(function(k){var i=document.getElementById('cd_'+k);if(i&&d[k]&&typeof d[k]!=='object')i.value=d[k];});
@@ -1681,9 +1693,9 @@ function dataEntre(d,F){d=String(d||'').slice(0,10);return (!F.di||d>=F.di)&&(!F
 var FPER=[{k:'de',t:'Competência de',tipo:'month'},{k:'ate',t:'Competência até',tipo:'month'}];
 var FCLI={k:'cli',t:'Cliente',tipo:'select',opts:cliOpts};
 var RELS=[
- {id:'clientes',t:'Clientes',d:'Cadastro dos clientes.',o:'paisagem',fil:[{k:'q',t:'Buscar (nome ou CNPJ)',tipo:'text'},{k:'plano',t:'Plano',tipo:'select',opts:function(){return [['','Todos']].concat(PLANOS_CAD.map(function(x){return [x,x];}));}},{k:'reg',t:'Regime',tipo:'select',opts:function(){return [['','Todos']].concat(Object.keys(NX.REGIMES).map(function(k){return [k,NX.REGIMES[k]];}));}},{k:'mun',t:'Município',tipo:'text'}],
-  f:function(F,ok){var l=myClients().filter(function(c){var T=c.trib||{};return (!F.q||(c.nome+' '+(c.doc||'')).toLowerCase().indexOf(F.q.toLowerCase())>-1)&&(!F.plano||c.plano===F.plano)&&(!F.reg||T.regime===F.reg)&&(!F.mun||String(c.cidade||T.mun||'').toLowerCase().indexOf(F.mun.toLowerCase())>-1);}).sort(function(a,b){return a.nome<b.nome?-1:1;});
-   ok({titulo:'Clientes',sub:'Cadastro',cols:[{t:'Razão social'},{t:'CNPJ / CPF'},{t:'Plano'},{t:'Regime'},{t:'Município / UF'},{t:'E-mail'},{t:'Telefone'},{t:'Responsável'}],rows:l.map(function(c){var T=c.trib||{};return [c.nome,c.doc||'',c.plano||'',NX.REGIMES[T.regime]||T.regime||'',c.cidade||T.mun||'',c.email||'',c.tel||'',c.resp||''];}),resumo:[['Clientes',String(l.length)]]});}},
+ {id:'clientes',t:'Clientes',d:'Cadastro dos clientes.',o:'paisagem',fil:[{k:'q',t:'Buscar (nome ou CNPJ)',tipo:'text'},{k:'plano',t:'Plano',tipo:'select',opts:function(){return [['','Todos']].concat(PLANOS_CAD.map(function(x){return [x,x];}));}},{k:'reg',t:'Regime',tipo:'select',opts:function(){return [['','Todos']].concat(Object.keys(NX.REGIMES).map(function(k){return [k,NX.REGIMES[k]];}));}},{k:'mun',t:'Município',tipo:'text'},{k:'sit',t:'Situação',tipo:'select',opts:function(){return [['','Todos'],['ativo','Ativos'],['inativo','Inativos']];}}],
+  f:function(F,ok){var l=myClients().filter(function(c){var T=c.trib||{};return (!F.sit||(F.sit==='ativo')===cliAtivo(c))&&(!F.q||(c.nome+' '+(c.doc||'')+' '+cliCod(c)).toLowerCase().indexOf(F.q.toLowerCase())>-1)&&(!F.plano||c.plano===F.plano)&&(!F.reg||T.regime===F.reg)&&(!F.mun||String(c.cidade||T.mun||'').toLowerCase().indexOf(F.mun.toLowerCase())>-1);}).sort(function(a,b){return (+a.codigo||1e9)-(+b.codigo||1e9);});
+   ok({titulo:'Clientes',sub:'Cadastro',cols:[{t:'Nº'},{t:'Razão social'},{t:'CNPJ / CPF'},{t:'Plano'},{t:'Regime'},{t:'Município / UF'},{t:'E-mail'},{t:'Telefone'},{t:'Responsável'},{t:'Situação'}],rows:l.map(function(c){var T=c.trib||{};return [cliCod(c),c.nome,c.doc||'',c.plano||'',NX.REGIMES[T.regime]||T.regime||'',c.cidade||T.mun||'',c.email||'',c.tel||'',c.resp||'',cliAtivo(c)?'Ativo':'Inativo'];}),resumo:[['Clientes',String(l.length)],['Ativos',String(l.filter(cliAtivo).length)],['Inativos',String(l.filter(function(c){return !cliAtivo(c);}).length)]]});}},
  {id:'guias',t:'Guias de impostos',d:'Guias dos clientes com vencimento, valor e situação.',o:'paisagem',fil:FPER.concat([FCLI,{k:'sit',t:'Situação',tipo:'select',opts:function(){return [['','Todas'],['A pagar','A pagar'],['Vencida','Vencida'],['Pago','Pago'],['aberto','Em aberto (a pagar + vencida)']];}},{k:'vis',t:'Visualizada pelo cliente',tipo:'select',opts:function(){return [['','Tanto faz'],['s','Sim'],['n','Não']];}}]),
   f:function(F,ok){var l=db.files.filter(function(f){if(f.deleted||f.tipo!=='Guia'||!myClients().some(function(c){return c.id===f.cliente;}))return false;var st=NX.statusOf(f).t;return compEntre(f.comp,F)&&(!F.cli||f.cliente===F.cli)&&(!F.sit||(F.sit==='aberto'?st!=='Pago':st===F.sit))&&(!F.vis||(F.vis==='s')===!!f.visto);}).sort(function(a,b){return (cliNome(a.cliente)+a.venc)<(cliNome(b.cliente)+b.venc)?-1:1;}),tot=0,ab=0;
    var rows=l.map(function(f){tot+=+f.valor||0;var s=NX.statusOf(f).t;if(s!=='Pago')ab+=+f.valor||0;return [cliNome(f.cliente),f.titulo,NX.fcomp(String(f.comp).slice(0,7)),f.venc?NX.fdate(f.venc):'',f.valor?NX.brl(+f.valor):'',s,f.visto?'Sim':'Não'];});
@@ -1765,7 +1777,7 @@ EX.importar=function(){var m=IMPS[IMP.tipo],L=IMP.linhas;
   var z=document.getElementById('imz');if(z)z.onclick=function(){IMP.linhas=null;IMP.arq='';EX.importar();};
   var go=document.getElementById('imgo');if(go)go.onclick=function(){var ok=IMP.linhas.filter(function(x){return !x.erro;}),n=0,novos=0;
     ok.forEach(function(x){var o=x.o,cn=dig(campo(o,'CNPJ')),c=db.clients.filter(function(c){return dig(c.doc)===cn;})[0];
-      if(IMP.tipo==='clientes'){var novo=!c;if(novo){c={id:NX.uid(),criado:NX.today(),trib:{regime:'SN',anexo:'III',fatorR:true,rbt12:0,folha12:0,iss:2,issRet:false,lc116:'04.01',mun:'',uniprof:false},licencas:[],socios:[],insc:{}};db.clients.push(c);novos++;}
+      if(IMP.tipo==='clientes'){var novo=!c;if(novo){c={id:NX.uid(),criado:NX.today(),trib:{regime:'SN',anexo:'III',fatorR:true,rbt12:0,folha12:0,iss:2,issRet:false,lc116:'04.01',mun:'',uniprof:false},licencas:[],socios:[],insc:{}};c.codigo=c.codigo||db.clients.reduce(function(m,x){return Math.max(m,+x.codigo||0);},0)+1;c.situacaoCad=c.situacaoCad||'ativo';db.clients.push(c);novos++;}
         var antes=snapFicha(c),set=function(k,v){if(v)c[k]=v;};set('nome',campo(o,'Razão social'));c.doc=campo(o,'CNPJ');set('fantasia',campo(o,'Nome fantasia'));set('plano',campo(o,'Plano'));set('email',campo(o,'E-mail'));set('tel',campo(o,'Telefone'));set('resp',campo(o,'Responsável'));set('endereco',campo(o,'Endereço'));set('cidade',campo(o,'Município'));set('cnae',campo(o,'CNAE principal'));set('cnaes',campo(o,'CNAEs secundários'));set('abertura',dataISO(campo(o,'Data de abertura')));
         c.trib=c.trib||{};var rg=campo(o,'Regime').toUpperCase();if(NX.REGIMES[rg])c.trib.regime=rg;if(campo(o,'Código IBGE'))c.trib.ibge=dig(campo(o,'Código IBGE'));if(campo(o,'Município'))c.trib.mun=c.trib.mun||campo(o,'Município');
         c.insc=c.insc||{};if(campo(o,'Inscrição estadual'))c.insc.ie=campo(o,'Inscrição estadual');if(campo(o,'Inscrição municipal'))c.insc.im=campo(o,'Inscrição municipal');if(!c.plano)c.plano='NEXIO SN START';
