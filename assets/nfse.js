@@ -24,6 +24,8 @@
   N.status = function () { return fetch(N.URL + '?acao=status').then(function (r) { return r.json(); }); };
   N.certStatus = function (empresa) { return chamar('cert_status', { qs: 'empresa=' + encodeURIComponent(empresa) }); };
   N.enviarCert = function (empresa, arquivo, senha) { var f = new FormData(); f.append('empresa', empresa); f.append('arquivo', arquivo); f.append('senha', senha); return chamar('cert', { form: f }); };
+  /* baixa o .pfx original guardado no cofre (protegido pela senha do próprio certificado) */
+  N.baixarCert = function (empresa, nomeArq) { return chamar('cert_baixar', { json: { empresa: empresa }, binario: true }).then(function (b) { var u = URL.createObjectURL(b), a = document.createElement('a'); a.href = u; a.download = nomeArq || 'Certificado_A1.pfx'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(u); }, 4000); }); };
   N.removerCert = function (empresa) { return chamar('cert_remover', { json: { empresa: empresa } }); };
   N.emitir = function (empresa, ambiente, dps, reusar) { return chamar('emitir', { json: { empresa: empresa, ambiente: ambiente, dps: dps, reusar: !!reusar } }); };
   N.consultarDps = function (empresa, ambiente, idDPS) { return chamar('consultar_dps', { json: { empresa: empresa, ambiente: ambiente, idDPS: idDPS } }); };

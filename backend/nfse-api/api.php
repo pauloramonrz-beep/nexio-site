@@ -283,6 +283,16 @@ if ($acao === 'cert') {
   resp(200, ['ok' => true] + $meta);
 }
 
+if ($acao === 'cert_baixar') {
+  // devolve o .pfx ORIGINAL (continua protegido pela senha do próprio certificado; a senha nunca é devolvida)
+  $emp = empresa_permitida($u, (string) ($entrada['empresa'] ?? ''), ['titular']);
+  $f = arq_cert($emp['id']); if (!is_file($f)) falha(404, 'Nenhum certificado guardado no cofre para esta empresa.');
+  $d = json_decode(decifra((string) file_get_contents($f)), true); $pfx = base64_decode((string) ($d['pfx'] ?? ''));
+  if ($pfx === '') falha(500, 'Não consegui ler o certificado guardado.');
+  header('Content-Type: application/x-pkcs12'); header('Content-Disposition: attachment; filename="Certificado_A1_' . dig($emp['documento']) . '.pfx"');
+  header('Cache-Control: no-store'); echo $pfx; exit;
+}
+
 if ($acao === 'cert_remover') {
   $emp = empresa_permitida($u, (string) ($entrada['empresa'] ?? ''), ['titular']);
   @unlink(arq_cert($emp['id']));

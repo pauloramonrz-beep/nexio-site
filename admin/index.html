@@ -20,14 +20,14 @@
 <dialog id="dlg"><form method="dialog" id="dlgForm"></form></dialog>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="/assets/store.js?v=202611261844"></script>
-<script src="/assets/auth.js?v=202611261844"></script>
-<script src="/assets/sync.js?v=202611261844"></script>
-<script src="/assets/explorer.js?v=202611261844"></script>
-<script src="/assets/fin-export.js?v=202611261844"></script>
-<script src="/assets/blog.js?v=202611261844"></script>
-<script src="/assets/relatorios.js?v=202611261844"></script>
-<script src="/assets/nfse.js?v=202611261844"></script>
+<script src="/assets/store.js?v=202611261846"></script>
+<script src="/assets/auth.js?v=202611261846"></script>
+<script src="/assets/sync.js?v=202611261846"></script>
+<script src="/assets/explorer.js?v=202611261846"></script>
+<script src="/assets/fin-export.js?v=202611261846"></script>
+<script src="/assets/blog.js?v=202611261846"></script>
+<script src="/assets/relatorios.js?v=202611261846"></script>
+<script src="/assets/nfse.js?v=202611261846"></script>
 <script>
 (function(){
 var db=NX.load(), e=NX.esc, S={sel:null,tab:'arquivos',month:NX.ym(),user:null};
@@ -352,7 +352,7 @@ function tabFicha(c,el){c.trib=c.trib||{regime:/MEI/.test(c.plano||'')?'MEI':/PF
     '<h3 style="margin:22px 0 6px;font-size:16px">Reforma tributária — IBS e CBS na nota</h3><p class="help" style="margin:0 0 10px">Para o Simples Nacional e o MEI, o grupo IBS/CBS passa a ser obrigatório na NFS-e a partir de 01/01/2027. Os códigos abaixo vêm da correlação oficial como sugestão: confira cada um antes de liberar.</p>'+
     '<label style="max-width:420px;margin-bottom:12px">Enviar IBS/CBS nas notas<select name="ibsModo"><option value="auto"'+(((c.nfIbs||{}).modo||'auto')==='auto'?' selected':'')+'>Automático — a partir de 01/01/2027 (competência)</option><option value="sim"'+((c.nfIbs||{}).modo==='sim'?' selected':'')+'>Sim, desde já</option><option value="nao"'+((c.nfIbs||{}).modo==='nao'?' selected':'')+'>Não enviar</option></select></label><div id="ibsl"></div>')+
   sec('Licenciamentos e certificados','<div id="lics">'+c.licencas.map(licRow).join('')+'</div><button type="button" class="btn b-line" id="addl">+ Adicionar licença</button>'+
-    '<p class="help" style="margin-top:10px">Certificado digital: '+(cert?'<b>'+e(cert.nome)+'</b> · válido até <b>'+NX.fdate(cert.validade)+'</b> <span class="tag '+NX.licStatus(cert.validade).c+'">'+NX.licStatus(cert.validade).t+'</span> · enviado por '+e(cert.por)+' em '+NX.fdate(cert.em.slice(0,10)):'ainda não enviado pelo cliente (ele envia em Portal › Configurações).')+'</p>')+
+    '<p class="help" style="margin-top:10px">Certificado digital: '+(cert?'<b>'+e(cert.nome)+'</b> · válido até <b>'+NX.fdate(cert.validade)+'</b> <span class="tag '+NX.licStatus(cert.validade).c+'">'+NX.licStatus(cert.validade).t+'</span> · enviado por '+e(cert.por)+' em '+NX.fdate(cert.em.slice(0,10))+(cert.cofre?' · <button type="button" class="btn b-text" id="fcdl" style="padding:0;min-height:0">Baixar certificado (.pfx)</button>':''):'ainda não enviado pelo cliente (ele envia em Portal › Configurações).')+'</p>')+
   sec('Sócios','<div id="socs">'+c.socios.map(socRow).join('')+'</div><button type="button" class="btn b-line" id="adds2">+ Adicionar sócio</button>')+
   sec('Observações internas','<label class="sr" for="obsint">Observações</label><textarea id="obsint" name="obsint">'+e(c.obsint||'')+'</textarea>')+
 
@@ -366,6 +366,7 @@ function tabFicha(c,el){c.trib=c.trib||{regime:/MEI/.test(c.plano||'')?'MEI':/PF
   document.getElementById('nfsl').addEventListener('change',nfsCnt);
   document.getElementById('nfsq').oninput=function(ev){var q=ev.target.value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');f.querySelectorAll('#nfsl label').forEach(function(l){l.style.display=!q||l.textContent.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').indexOf(q)>-1?'':'none';});};
   document.getElementById('nfsq').onkeydown=function(ev){if(ev.key==='Enter')ev.preventDefault();};
+  var fcdl=document.getElementById('fcdl');if(fcdl)fcdl.onclick=function(){NXN.baixarCert(c.id,'Certificado_A1_'+String(c.doc||'').replace(/\D/g,'')+'.pfx').then(function(){logEq('Baixou o certificado digital do cliente','',c.id);}).catch(function(x){NX.toast(x.message);});};
   var ibsDraw=function(){var box=document.getElementById('ibsl');if(!box)return;var cur={};box.querySelectorAll('[data-ibs]').forEach(function(i){var p=i.getAttribute('data-ibs').split('|');(cur[p[0]]=cur[p[0]]||{})[p[1]]=i.value;});
     var cfg=(c.nfIbs||{}).serv||{},sel=Array.prototype.map.call(f.querySelectorAll('[name=nfs]:checked'),function(x){return x.value;});
     if(!sel.length){box.innerHTML='<p class="help">Marque os serviços acima para configurar o IBS/CBS de cada um.</p>';return;}
@@ -1892,10 +1893,11 @@ EX.notas=function(){nexioEmp(function(nx){var nPed=(db.notas||[]).filter(functio
     '<fieldset style="grid-column:1/-1;border:1px solid var(--line);border-radius:12px;padding:12px"><legend style="font-weight:700;color:var(--blue2)">Serviços que a NEXIO emite</legend>'+NFSERV_NEXIO.map(function(k){return '<label style="flex-direction:row;align-items:center;gap:8px;color:var(--ink)"><input type="checkbox" name="sv" value="'+k+'" '+(N.nfServ.indexOf(k)>-1?'checked':'')+' style="width:auto;min-height:auto">'+k+' – '+e(NX.servNome(k))+'</label>';}).join('')+'</fieldset>'+
     '<fieldset style="grid-column:1/-1;border:1px solid var(--line);border-radius:12px;padding:12px"><legend style="font-weight:700;color:var(--blue2)">IBS e CBS (reforma tributária)</legend><label style="max-width:420px">Enviar IBS/CBS nas notas<select name="ibsModo">'+[['auto','Automático — a partir de 01/01/2027'],['sim','Sim, desde já'],['nao','Não enviar']].map(function(o){return '<option value="'+o[0]+'"'+(((N.nfIbs||{}).modo||'auto')===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></label>'+
     N.nfServ.map(function(k){var sg=NX.IBS_SUG[k]||{},v=Object.assign({nbs:(sg.nbs||[])[0]||'',ind:(sg.ind||[])[0]||'',cct:sg.cct||'000001'},((N.nfIbs||{}).serv||{})[k]||{});return '<div class="grid" style="margin-top:10px"><b style="grid-column:1/-1">'+k+' – '+e(NX.servNome(k))+'</b><label>Código NBS<input data-nxibs="'+k+'|nbs" value="'+e(NX.fmtNBS(v.nbs))+'" list="nxnbs'+k.replace(/\D/g,'')+'"><datalist id="nxnbs'+k.replace(/\D/g,'')+'">'+(sg.nbs||[]).map(function(n){return '<option value="'+n+'">';}).join('')+'</datalist></label><label>Indicador da operação<select data-nxibs="'+k+'|ind">'+Object.keys(NX.CINDOP).map(function(o){return '<option value="'+o+'"'+(v.ind===o?' selected':'')+'>'+o+' · '+e(NX.CINDOP[o])+'</option>';}).join('')+'</select></label><label>Classificação (cClassTrib)<input data-nxibs="'+k+'|cct" value="'+e(v.cct)+'"></label></div>';}).join('')+'</fieldset><div style="grid-column:1/-1"><button class="btn b-blue">Salvar configuração</button></div></form>'+
-    '<h3 style="margin:22px 0 8px">Certificado digital da NEXIO (e-CNPJ A1)</h3>'+(N.cert?'<p>Certificado válido até <b>'+NX.fdate(N.cert.validade)+'</b> · '+e(N.cert.titular||'')+'</p>':'<p class="help" style="color:var(--bad)">Nenhum certificado enviado.</p>')+
+    '<h3 style="margin:22px 0 8px">Certificado digital da NEXIO (e-CNPJ A1)</h3>'+(N.cert?'<p>Certificado válido até <b>'+NX.fdate(N.cert.validade)+'</b> · '+e(N.cert.titular||'')+' <button type="button" class="btn b-text" id="nxdl">Baixar (.pfx)</button></p>':'<p class="help" style="color:var(--bad)">Nenhum certificado enviado.</p>')+
     '<form id="nxcert" class="grid"><label>Arquivo (.pfx / .p12)<input type="file" name="arq" accept=".pfx,.p12" required></label><label>Senha do certificado<input type="password" name="senha" required autocomplete="new-password"></label><div style="grid-column:1/-1"><button class="btn b-line">'+(N.cert?'Substituir certificado':'Enviar certificado')+'</button></div></form><p class="help">O arquivo e a senha vão direto para o cofre criptografado do serviço de notas.</p>';
   var salvarDados=function(mut,ok){NXA.sb.from('empresas').select('trib,inscricoes,dados').eq('id',nx.id).single().then(function(r){if(r.error){NX.toast('Erro: '+r.error.message);return;}var x={trib:r.data.trib||{},inscricoes:r.data.inscricoes||{},dados:r.data.dados||{}};mut(x);NXA.sb.from('empresas').update(x).eq('id',nx.id).then(function(u){if(u.error){NX.toast('Erro ao salvar: '+u.error.message);return;}nexioEmp(function(){ok();},true);});});};
   document.getElementById('nxcfg').onsubmit=function(ev){ev.preventDefault();var fd=new FormData(ev.target);salvarDados(function(x){x.trib=Object.assign(x.trib,{regime:fd.get('reg'),ibge:String(fd.get('ibge')||'').replace(/\D/g,''),iss:nfNum(fd.get('iss')),codmun:fd.get('codmun'),anexo:fd.get('anx'),rbt12:nfNum(fd.get('rbt')),fatorR:true,lc116:(fd.getAll('sv')[0]||'17.19')});x.inscricoes.im=fd.get('im');x.dados.nfAmb=fd.get('amb');x.dados.nfServ=fd.getAll('sv');var sv2={};ev.target.querySelectorAll('[data-nxibs]').forEach(function(i){var p=i.getAttribute('data-nxibs').split('|');(sv2[p[0]]=sv2[p[0]]||{})[p[1]]=p[1]==='nbs'?i.value.replace(/\D/g,''):i.value.trim();});x.dados.nfIbs={modo:fd.get('ibsModo')||'auto',serv:Object.assign({},(x.dados.nfIbs||{}).serv||{},sv2)};},function(){logEq('Alterou configuração de notas da NEXIO','');NX.toast('Configuração salva.');re();});};
+  var nxdl=document.getElementById('nxdl');if(nxdl)nxdl.onclick=function(){NXN.baixarCert(nx.id,'Certificado_A1_NEXIO.pfx').then(function(){logEq('Baixou o certificado da NEXIO','');}).catch(function(x){NX.toast(x.message);});};
   document.getElementById('nxcert').onsubmit=function(ev){ev.preventDefault();var fd=new FormData(ev.target),bt=ev.target.querySelector('button');bt.disabled=true;bt.textContent='Conferindo…';
     NXN.enviarCert(nx.id,fd.get('arq'),fd.get('senha')).then(function(r){salvarDados(function(x){x.dados.cert={nome:r.nome,validade:r.validade,titular:r.cn,cofre:true,por:S.user.nome,em:new Date().toISOString()};},function(){logEq('Enviou certificado da NEXIO','válido até '+NX.fdate(r.validade));NX.toast('Certificado da NEXIO guardado no cofre.');re();});}).catch(function(x){bt.disabled=false;bt.textContent='Enviar certificado';NX.toast(x.message);});};
 });};
