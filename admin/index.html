@@ -20,14 +20,14 @@
 <dialog id="dlg"><form method="dialog" id="dlgForm"></form></dialog>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="/assets/store.js?v=202611251850"></script>
-<script src="/assets/auth.js?v=202611251850"></script>
-<script src="/assets/sync.js?v=202611251850"></script>
-<script src="/assets/explorer.js?v=202611251850"></script>
-<script src="/assets/fin-export.js?v=202611251850"></script>
-<script src="/assets/blog.js?v=202611251850"></script>
-<script src="/assets/relatorios.js?v=202611251850"></script>
-<script src="/assets/nfse.js?v=202611251850"></script>
+<script src="/assets/store.js?v=202611261555"></script>
+<script src="/assets/auth.js?v=202611261555"></script>
+<script src="/assets/sync.js?v=202611261555"></script>
+<script src="/assets/explorer.js?v=202611261555"></script>
+<script src="/assets/fin-export.js?v=202611261555"></script>
+<script src="/assets/blog.js?v=202611261555"></script>
+<script src="/assets/relatorios.js?v=202611261555"></script>
+<script src="/assets/nfse.js?v=202611261555"></script>
 <script>
 (function(){
 var db=NX.load(), e=NX.esc, S={sel:null,tab:'arquivos',month:NX.ym(),user:null};
@@ -1103,7 +1103,7 @@ function erro(r){if(r&&r.error){NX.toast('Erro: '+r.error.message);return true;}
 function baixar(nome,conteudo,tipo){var b=new Blob(['\ufeff'+conteudo],{type:tipo||'text/csv;charset=utf-8'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=nome;document.body.appendChild(a);a.click();a.remove();}
 function imprimir(titulo,corpo){var w=window.open('','_blank');if(!w){NX.toast('Libere as janelas pop-up para gerar o PDF.');return;}
   w.document.write('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>'+e(titulo)+'</title><style>body{font:14px/1.6 Calibri,Arial,sans-serif;color:#000;max-width:780px;margin:30px auto;padding:0 24px}header{border-bottom:2px solid #2344AC;padding-bottom:8px;margin-bottom:24px}header b{color:#2344AC;font-size:24px;letter-spacing:2px}header small{display:block;color:#2344AC;font-size:10px;letter-spacing:3px}h1{font-size:18px;color:#2344AC}h2{font-size:15px;color:#2344AC;margin-top:22px}pre{white-space:pre-wrap;font:inherit}footer{border-top:1px solid #2344AC;margin-top:40px;padding-top:6px;font-size:10px;color:#555}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:4px 8px;text-align:left}@media print{button{display:none}}</style></head><body><header><img src="'+location.origin+'/assets/logo-nexio.png" alt="NEXIO Inteligência Contábil" style="height:52px"></header>'+corpo+
-  '<footer>Nexio Inteligência Contábil Ltda • Av. Brig. Faria Lima, 1811 - CXPST ESC1119 - Jardim Paulistano, São Paulo - SP, 01452-001<br>(11) 93956-5190 • contato@nexioic.com.br • Contabilidade que impulsiona o futuro.</footer><script>setTimeout(function(){print()},400)<\/script></body></html>');w.document.close();}
+  '<footer>Nexio Inteligência Contábil Ltda • Av. Brig. Faria Lima, 1811 - CXPST ESC1119 - Jardim Paulistano, São Paulo - SP, 01452-001<br>(11) 93079-0457 • contato@nexioic.com.br • Contabilidade que impulsiona o futuro.</footer><script>setTimeout(function(){print()},400)<\/script></body></html>');w.document.close();}
 function clientesSel(sel,vazio){return (vazio?'<option value="">'+vazio+'</option>':'')+db.clients.map(function(c){return '<option value="'+c.id+'"'+(sel===c.id?' selected':'')+'>'+e(c.nome)+'</option>';}).join('');}
 
 /* ---------- permissões e menu ---------- */
@@ -1428,7 +1428,7 @@ function contratoDlg(k){var novo=!k.id,trav=k.status==='assinado'||k.status==='e
     q.then(function(r){if(r.error){document.getElementById('cmsg').textContent='Erro: '+r.error.message;return;}var x=r.data;
       if(k._arq&&arq&&arq.checked){db.files.push({id:NX.uid(),cliente:x.empresa_id,setor:'Societário',tipo:'Contrato',titulo:'Contrato de prestação de serviços NEXIO'+(x.fim?' — vigência até '+fd(x.fim):''),nome:k._arq.nome,data:k._arq.data,size:k._arq.size,criado:NX.today(),comp:NX.ym(),de:'equipe',visto:false,status:'ok'});persist();k._arq=null;}NXA.acesso(enviar?'Enviou contrato':'Salvou contrato','',x.empresa_id);
       if(enviar){var cc=cli(x.empresa_id)||{};
-        location.href='mailto:'+encodeURIComponent(x.email_envio)+'?cc='+encodeURIComponent(db.contratoCopia||'contato@nexioic.com.br')+'&subject='+encodeURIComponent('Contrato de prestação de serviços — NEXIO Inteligência Contábil')+'&body='+encodeURIComponent('Olá!\n\nSegue o contrato de prestação de serviços contábeis da '+(cc.nome||'sua empresa')+' com a NEXIO Inteligência Contábil.\n\nPara ler e assinar eletronicamente, acesse:\n'+linkContrato(x)+'\n\nA assinatura leva menos de um minuto e fica registrada com data, hora e código de integridade.\n\nQualquer dúvida, estamos à disposição.\n\nNEXIO Inteligência Contábil\n(11) 93956-5190 • contato@nexioic.com.br');
+        location.href='mailto:'+encodeURIComponent(x.email_envio)+'?cc='+encodeURIComponent(db.contratoCopia||'contato@nexioic.com.br')+'&subject='+encodeURIComponent('Contrato de prestação de serviços — NEXIO Inteligência Contábil')+'&body='+encodeURIComponent('Olá!\n\nSegue o contrato de prestação de serviços contábeis da '+(cc.nome||'sua empresa')+' com a NEXIO Inteligência Contábil.\n\nPara ler e assinar eletronicamente, acesse:\n'+linkContrato(x)+'\n\nA assinatura leva menos de um minuto e fica registrada com data, hora e código de integridade.\n\nQualquer dúvida, estamos à disposição.\n\nNEXIO Inteligência Contábil\n(11) 93079-0457 • contato@nexioic.com.br');
         db.messages.push({id:NX.uid(),cliente:x.empresa_id,de:'equipe',autor:S.user.nome,texto:'Enviamos o seu contrato de prestação de serviços para assinatura eletrônica. Você também pode ler e assinar pelo link: '+linkContrato(x),em:new Date().toISOString(),lida:false});persist();
         NX.toast('Contrato pronto. Seu e-mail foi aberto com a mensagem — é só clicar em Enviar.');}
       else NX.toast('Contrato salvo.');dlg.close();EX.contratos();});}

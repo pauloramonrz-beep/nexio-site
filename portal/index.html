@@ -21,13 +21,13 @@
 <style>#printArea{display:none}@media print{body>*:not(#printArea){display:none!important}#printArea{display:block;padding:10mm}}</style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>window.NX_REAL=true;</script>
-<script src="/assets/store.js?v=202611251850"></script>
-<script src="/assets/auth.js?v=202611251850"></script>
-<script src="/assets/sync.js?v=202611251850"></script>
-<script src="/assets/blog.js?v=202611251850"></script>
-<script src="/assets/explorer.js?v=202611251850"></script>
-<script src="/assets/relatorios.js?v=202611251850"></script>
-<script src="/assets/nfse.js?v=202611251850"></script>
+<script src="/assets/store.js?v=202611261555"></script>
+<script src="/assets/auth.js?v=202611261555"></script>
+<script src="/assets/sync.js?v=202611261555"></script>
+<script src="/assets/blog.js?v=202611261555"></script>
+<script src="/assets/explorer.js?v=202611261555"></script>
+<script src="/assets/relatorios.js?v=202611261555"></script>
+<script src="/assets/nfse.js?v=202611261555"></script>
 <script>
 (function(){
 NX.realMode=true;NX.useKey('nexio_cli_vazio');var db=NX.load(), e=NX.esc, S={cid:null,month:NX.ym(),filtro:'todos'};
@@ -45,7 +45,7 @@ function login(){NX.ensureUsers(db);persist();
   '<label>E-mail<input id="le" type="email" required autocomplete="username"></label><label>Senha<input id="lp" type="password" required autocomplete="current-password"></label>'+
   '<button class="btn b-blue">Entrar</button><p class="help" id="err" role="alert"></p>'+
   '<p class="help"><b>Protótipo:</b> entre como um usuário de exemplo:</p><div class="row">'+(db.cusers||[]).slice(0,7).map(function(u){return '<button type="button" class="btn b-line" data-q="'+u.id+'" style="min-height:34px;font-size:12px">'+e(u.nome)+' · '+NX.NIV_CLI[u.nivel].nome+'</button>';}).join('')+'</div>'+
-  '<p class="help">Esqueceu a senha? Fale com a NEXIO pelo <a href="https://wa.me/5511939565190">WhatsApp</a>.</p><p class="help" style="color:var(--warn)"><b>Ambiente de demonstração:</b> não insira dados reais de clientes, funcionários ou pacientes.</p><p class="help" style="font-size:12px"><a href="/privacidade/">Política de Privacidade</a> · <a href="/termos/">Termos de Uso</a></p></form></div>';
+  '<p class="help">Esqueceu a senha? Fale com a NEXIO pelo <a href="https://wa.me/5511930790457">WhatsApp</a>.</p><p class="help" style="color:var(--warn)"><b>Ambiente de demonstração:</b> não insira dados reais de clientes, funcionários ou pacientes.</p><p class="help" style="font-size:12px"><a href="/privacidade/">Política de Privacidade</a> · <a href="/termos/">Termos de Uso</a></p></form></div>';
   function go(u){S.uid=u.id;try{sessionStorage.setItem('nx_cuser',u.id);sessionStorage.removeItem('nx_client');}catch(x){}S.cid=u.empresas.length===1?u.empresas[0]:null;if(S.cid){try{sessionStorage.setItem('nx_client',S.cid);}catch(x){}}
     NX.log(db,{tipo:'cliente',quem:u.nome,nivel:NX.NIV_CLI[u.nivel].nome,acao:'Entrou no portal',cliente:S.cid||u.empresas[0]});persist();location.hash='#/inicio';render();}
   document.getElementById('lf').onsubmit=function(ev){ev.preventDefault();var em=document.getElementById('le').value.trim().toLowerCase(),pw=document.getElementById('lp').value;
@@ -59,7 +59,7 @@ function shell(active,html){
   root.innerHTML='<div class="app"><aside class="side"><a class="logo" href="#/inicio"><img src="/assets/logo-nexio-branco.png" alt="NEXIO Inteligência Contábil" style="width:150px;max-width:100%;display:block"></a><div class="role">Portal do cliente</div>'+NX.sideToggleHTML()+
   nav.map(function(n){return '<a class="nav" href="#/'+n[0]+'"'+(active===n[0]?' aria-current="page"':'')+'>'+n[1]+(n[2]?'<span class="cnt">'+n[2]+'</span>':'')+'</a>';}).join('')+
   
-  '<div class="foot"><span>'+e(c.nome)+'</span><a href="https://wa.me/5511939565190">Falar no WhatsApp</a><a href="#" id="logout">Sair</a></div></aside><main class="main">'+html+'</main></div>';
+  '<div class="foot"><span>'+e(c.nome)+'</span><a href="https://wa.me/5511930790457">Falar no WhatsApp</a><a href="#" id="logout">Sair</a></div></aside><main class="main">'+html+'</main></div>';
   NX.applySide();
   if(REAL&&REAL.equipe){var mn=root.querySelector('.main');if(mn){var bn=document.createElement('div');bn.style.cssText='background:#FFF4D6;color:#7A4B00;border-radius:12px;padding:10px 14px;margin-bottom:16px;font-size:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap';bn.innerHTML='<b>Modo visualização da equipe</b> — você está vendo o portal como o cliente vê. Nada do que fizer aqui é salvo.<a href="/admin/" style="margin-left:auto">Voltar ao painel</a><a href="#" id="trc">Trocar empresa</a>';mn.insertBefore(bn,mn.firstChild);document.getElementById('trc').onclick=function(ev){ev.preventDefault();try{sessionStorage.removeItem('nx_emp');}catch(x){}location.reload();};}}
   document.getElementById('logout').onclick=function(ev){ev.preventDefault();sairReal();};

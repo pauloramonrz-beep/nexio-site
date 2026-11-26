@@ -23,7 +23,7 @@
       '<table><thead><tr>' + o.cols.map(function (c) { return '<th' + (c.r ? ' class="r"' : '') + (c.w ? ' style="width:' + c.w + '"' : '') + '>' + esc(c.t) + '</th>'; }).join('') + '</tr></thead><tbody>' +
       (o.rows.length ? o.rows.map(function (r) { return '<tr>' + r.map(function (v, i) { var cl = (o.cols[i] && o.cols[i].r ? 'r ' : '') + (o.cls && o.cls(i, v, r) || ''); return '<td' + (cl.trim() ? ' class="' + cl.trim() + '"' : '') + '>' + esc(v) + '</td>'; }).join('') + '</tr>'; }).join('') : '<tr><td colspan="' + o.cols.length + '" class="vazio">Nenhum registro para os filtros escolhidos.</td></tr>') +
       '</tbody>' + (o.total ? '<tfoot><tr>' + o.total.map(function (v, i) { return '<td' + (o.cols[i] && o.cols[i].r ? ' class="r"' : '') + '>' + esc(v) + '</td>'; }).join('') + '</tr></tfoot>' : '') + '</table>' +
-      '<div class="ft">Nexio Inteligência Contábil Ltda • CNPJ 67.828.768/0001-29 • Av. Brig. Faria Lima, 1811 - CXPST ESC1119 - Jardim Paulistano, São Paulo - SP, 01452-001<br>(11) 93956-5190 • contato@nexioic.com.br • Contabilidade que impulsiona o futuro.</div>' +
+      '<div class="ft">Nexio Inteligência Contábil Ltda • CNPJ 67.828.768/0001-29 • Av. Brig. Faria Lima, 1811 - CXPST ESC1119 - Jardim Paulistano, São Paulo - SP, 01452-001<br>(11) 93079-0457 • contato@nexioic.com.br • Contabilidade que impulsiona o futuro.</div>' +
       '<script>window.onload=function(){setTimeout(function(){print()},350)}<\/script></body></html>';
     var w = window.open('', '_blank'); if (!w) { alert('Libere as janelas pop-up deste site para gerar o PDF.'); return; }
     w.document.write(h); w.document.close();
